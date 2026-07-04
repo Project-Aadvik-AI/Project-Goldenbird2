@@ -1,0 +1,186 @@
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { useProject, NoProjectPrompt } from '../lib/project'
+import { useAuth } from '../lib/auth'
+import { uploadPrivate, makeObjectPath } from '../lib/storage'
+import { PrivateImage } from '../components/PrivateFile'
+
+type Expense = {
+  id: string; date: string; expense_type: string; amount: number
+  vendor: string | null; payment_status: string; paid_by: string | null; remark: string | null
+  bill_photo: string | null
+}
+
+const TYPES = ['Salary', 'Repair', 'Fooding', 'Material', 'Fuel', 'Transport', 'Other']
+
+export default function Expenses() {
+  const { activeProject } = useProject()
+  const { can } = useAuth()
+  const [rows, setRows] = useState<Expense[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+
+  async function load() {
+    if (!activeProject) { setRows([]); setLoading(false); return }
+    setLoading(true)
+    const { data } = await supabase.from('expenses').select('*')
+      .eq('project_id', activeProject.id)
+      .order('date', { ascending: false }).limit(200)
+    setRows((data as Expense[]) ?? []); setLoading(false)
+  }
+  useEffect(() => { load() }, [activeProject?.id])
+
+  if (!activeProject) return <NoProjectPrompt />
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="font-headline text-2xl font-semibold text-[#e2e2e8]">Daily Expenses</h1>
+          <p className="text-sm text-[#dcc1ae] mt-0.5">Track and manage all site expenditures</p>
+        </div>
+        {can('expenses', 'add') && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> Add Expense
+          </button>
+        )}
+      </div>
+
+      <div className="card overflow-hidden overflow-x-auto">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+          <span className="text-sm font-semibold text-[#e2e2e8]">Recent Transactions</span>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-[#282a2e]">
+            <tr>
+              {['Date', 'Type', 'Amount', 'Vendor', 'Status', 'Bill', 'Remark'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {rows.map(r => (
+              <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                <td className="px-4 py-3 font-mono text-[13px] text-[#dcc1ae] whitespace-nowrap">{r.date}</td>
+                <td className="px-4 py-3 text-[#e2e2e8]">{r.expense_type}</td>
+                <td className="px-4 py-3 font-mono font-semibold text-[#e2e2e8] whitespace-nowrap">₹{Number(r.amount).toLocaleString('en-IN')}</td>
+                <td className="px-4 py-3 text-[#dcc1ae]">{r.vendor || '—'}</td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${(r.payment_status || '').toLowerCase().includes('credit') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                    {r.payment_status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {r.bill_photo
+                    ? <PrivateImage bucket="expense-bills" path={r.bill_photo} alt="bill" className="h-8 w-10 object-cover rounded" />
+                    : <span className="text-[#dcc1ae]/40">—</span>}
+                </td>
+                <td className="px-4 py-3 text-[#dcc1ae] max-w-[200px] truncate">{r.remark || '—'}</td>
+              </tr>
+            ))}
+            {!rows.length && !loading && (
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No expenses yet — add your first.</td></tr>
+            )}
+          </tbody>
+        </table>
+        {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
+      </div>
+
+      {showForm && <ExpenseForm projectId={activeProject.id} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+    </div>
+  )
+}
+
+function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClose: () => void; onSaved: () => void }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [type, setType] = useState('Material')
+  const [amount, setAmount] = useState('')
+  const [vendor, setVendor] = useState('')
+  const [status, setStatus] = useState('Paid')
+  const [paidBy, setPaidBy] = useState('')
+  const [remark, setRemark] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!amount || Number(amount) <= 0) { setErr('Enter an amount'); return }
+    setBusy(true); setErr(null)
+
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+
+    let billPhotoPath: string | null = null
+    if (file) {
+      const path = makeObjectPath(prof?.org_id, file, 'bills')
+      const { path: stored, error: upErr } = await uploadPrivate('expense-bills', path, file)
+      if (upErr) { setErr('Photo upload failed: ' + upErr); setBusy(false); return }
+      billPhotoPath = stored ?? null
+    }
+
+    const { error } = await supabase.from('expenses').insert({
+      org_id: prof?.org_id, project_id: projectId,
+      date, expense_type: type, amount: Number(amount),
+      vendor: vendor || null, payment_status: status, paid_by: status === 'Paid' ? (paidBy || null) : null,
+      remark: remark || null, bill_photo: billPhotoPath,
+    })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={save}
+        className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Add Expense</h3>
+          <button type="button" className="text-[#dcc1ae] hover:text-white transition-colors" onClick={onClose}>
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div className="p-5">
+          <div className="grid grid-cols-2 gap-3">
+            <L label="Date"><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></L>
+            <L label="Type">
+              <select className="input" value={type} onChange={e => setType(e.target.value)}>
+                {TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </L>
+            <L label="Amount (₹)"><input className="input mono" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} /></L>
+            <L label="Vendor"><input className="input" value={vendor} onChange={e => setVendor(e.target.value)} /></L>
+            <L label="Payment">
+              <select className="input" value={status} onChange={e => setStatus(e.target.value)}>
+                <option>Paid</option><option>Credit</option>
+              </select>
+            </L>
+            {status === 'Paid' && <L label="Paid by"><input className="input" value={paidBy} onChange={e => setPaidBy(e.target.value)} /></L>}
+            <L label="Bill Photo">
+              <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+              <button type="button" className="btn btn-ghost w-full" style={{ fontSize: '12px' }} onClick={() => fileRef.current?.click()}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>attach_file</span>
+                {file ? file.name.slice(0, 14) : 'Attach bill'}
+              </button>
+            </L>
+          </div>
+          <L label="Remark"><input className="input" value={remark} onChange={e => setRemark(e.target.value)} /></L>
+        </div>
+        {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
+        <div className="p-5 pt-2 flex gap-3">
+          <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary flex-[2]" disabled={busy}>{busy ? 'Saving…' : 'Save Expense'}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function L({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block mb-3 col-span-1">
+      <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">{label}</span>
+      {children}
+    </label>
+  )
+}

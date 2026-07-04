@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #0F1115;
+  color: #e2e2e8;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #111317; }
+::-webkit-scrollbar-thumb { background: #333539; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #434653; }
+
+/* Legacy helper kept for backward compat */
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Component classes — updated to design system */
+.card {
+  background: #1B1F2A;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  transition: border-color 0.2s;
+}
+
+.input {
+  width: 100%;
+  background: #0F1115;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 13px;
+  color: #e2e2e8;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus {
+  border-color: #ff8f00;
+  box-shadow: 0 0 0 2px rgba(255,143,0,0.15);
+}
+select.input { cursor: pointer; }
+textarea.input { resize: vertical; }
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: #ff8f00;
+  color: #0F1115;
+}
+.btn-primary:hover:not(:disabled) { background: #e07f00; }
+
+.btn-ghost {
+  background: transparent;
+  color: #e2e2e8;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.05); }
+
+/* KPI left-bar accents */
+.kpi-emerald { border-left: 3px solid #10b981; }
+.kpi-sky     { border-left: 3px solid #0ea5e9; }
+.kpi-purple  { border-left: 3px solid #a855f7; }
+.kpi-amber   { border-left: 3px solid #ff8f00; }
+.kpi-red     { border-left: 3px solid #ef4444; }

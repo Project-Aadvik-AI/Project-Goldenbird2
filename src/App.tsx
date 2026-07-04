@@ -1,0 +1,138 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './lib/auth'
+import { ProjectProvider } from './lib/project'
+import AuthPages from './components/AuthPages'
+import AppShell from './components/AppShell'
+import Dashboard from './pages/Dashboard'
+import Expenses from './pages/Expenses'
+import Store from './pages/Store'
+import Machines from './pages/Machines'
+import DPR from './pages/DPR'
+import Labour from './pages/Labour'
+import Purchase from './pages/Purchase'
+import Reports from './pages/Reports'
+import Masters from './pages/Masters'
+import Team from './pages/Team'
+import AIBrief from './pages/AIBrief'
+import Projects from './pages/Projects'
+import OrgDashboard from './pages/OrgDashboard'
+import Employees from './pages/Employees'
+import Attendance from './pages/Attendance'
+import Leaves from './pages/Leaves'
+import Documents from './pages/Documents'
+import Correspondence from './pages/Correspondence'
+import Contracts from './pages/Contracts'
+import AdminStaff from './pages/AdminStaff'
+import AdminInvite from './pages/AdminInvite'
+import AdminReports from './pages/AdminReports'
+import WorkOrders from './pages/WorkOrders'
+import Drawings from './pages/Drawings'
+import Tasks from './pages/Tasks'
+import VendorBills from './pages/VendorBills'
+
+export default function App() {
+  const { ready, configured, session, profile, isPending, isDisabled, signOut } = useAuth()
+
+  if (!configured) return <ConfigNotice />
+  if (!ready) return <Splash />
+
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/login" element={<AuthPages />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
+  }
+
+  if (profile && isPending) return <PendingScreen name={profile.full_name} onSignOut={signOut} />
+  if (profile && isDisabled) return <DisabledScreen onSignOut={signOut} />
+
+  return (
+    <ProjectProvider>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<OrgDashboard />} />
+          <Route path="/project" element={<Dashboard />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/expenses" element={<Expenses />} />
+          <Route path="/store" element={<Store />} />
+          <Route path="/machines" element={<Machines />} />
+          <Route path="/dpr" element={<DPR />} />
+          <Route path="/labour" element={<Labour />} />
+          <Route path="/purchase" element={<Purchase />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/masters" element={<Masters />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/leaves" element={<Leaves />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/correspondence" element={<Correspondence />} />
+          <Route path="/contracts" element={<Contracts />} />
+          <Route path="/admin/staff" element={<AdminStaff />} />
+          <Route path="/admin/invite" element={<AdminInvite />} />
+          <Route path="/admin/reports" element={<AdminReports />} />
+          <Route path="/work-orders" element={<WorkOrders />} />
+          <Route path="/drawings" element={<Drawings />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/vendor-bills" element={<VendorBills />} />
+          <Route path="/ai-brief" element={<AIBrief />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </ProjectProvider>
+  )
+}
+
+function Splash() {
+  return <div className="h-full grid place-items-center text-muted">Loading…</div>
+}
+
+function PendingScreen({ name, onSignOut }: { name: string | null; onSignOut: () => void }) {
+  return (
+    <div className="h-full grid place-items-center p-6 bg-[#0F1115]">
+      <div className="card max-w-md p-8 text-center">
+        <div className="w-14 h-14 rounded-full bg-amber-500/10 grid place-items-center mx-auto mb-4 border border-amber-500/20">
+          <span className="material-symbols-outlined text-amber-400" style={{ fontSize: '28px' }}>hourglass_top</span>
+        </div>
+        <h2 className="font-headline text-xl font-semibold text-[#e2e2e8] mb-2">Awaiting admin approval</h2>
+        <p className="text-sm text-[#dcc1ae] mb-6">
+          Hi {name || 'there'}, your account has been created and is waiting for your company admin to approve access and assign your permissions.
+        </p>
+        <button onClick={onSignOut} className="btn btn-ghost w-full">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DisabledScreen({ onSignOut }: { onSignOut: () => void }) {
+  return (
+    <div className="h-full grid place-items-center p-6 bg-[#0F1115]">
+      <div className="card max-w-md p-8 text-center">
+        <div className="w-14 h-14 rounded-full bg-red-500/10 grid place-items-center mx-auto mb-4 border border-red-500/20">
+          <span className="material-symbols-outlined text-red-400" style={{ fontSize: '28px' }}>block</span>
+        </div>
+        <h2 className="font-headline text-xl font-semibold text-[#e2e2e8] mb-2">Access disabled</h2>
+        <p className="text-sm text-[#dcc1ae] mb-6">Your account has been disabled by the admin. Please contact them if this is a mistake.</p>
+        <button onClick={onSignOut} className="btn btn-ghost w-full">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span> Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ConfigNotice() {
+  return (
+    <div className="h-full grid place-items-center p-6">
+      <div className="card max-w-md p-6 text-center">
+        <div className="text-2xl font-black text-brand mb-2">आ Aadvik AI</div>
+        <div className="font-bold mb-2">Connect Supabase to start</div>
+        <p className="text-sm text-muted">Create a Supabase project, run <span className="mono">supabase/schema.sql</span>, then set <span className="mono">VITE_SUPABASE_URL</span> and <span className="mono">VITE_SUPABASE_ANON_KEY</span> in a <span className="mono">.env</span> file. See README.md.</p>
+      </div>
+    </div>
+  )
+}

@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 
+// ============================================================
+// Auth — matched to the landing's architectural-minimal look.
+// Near-black, hairlines, light-weight type, one orange mark,
+// off-white pill primary. Left: quiet brand + live project.
+// Right: the form.
+// ============================================================
+
 export default function AuthPages() {
   const { signIn, signUp, signUpJoin } = useAuth()
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -24,59 +31,58 @@ export default function AuthPages() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0c0e12]">
-      {/* Left panel — desktop only */}
-      <section className="relative hidden lg:flex flex-col justify-between w-[45%] h-screen overflow-hidden bg-[#0c0e12] border-r border-white/5 p-12">
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#0c0e12] via-[#0c0e12]/80 to-[#ff8f00]/10 pointer-events-none" />
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-[#ff8f00] flex items-center justify-center flex-shrink-0">
-            <span className="material-symbols-outlined text-[#0F1115] text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>precision_manufacturing</span>
-          </div>
-          <div>
-            <div className="font-headline font-bold text-[#ffb87b] text-xl leading-tight">Aadvik AI</div>
-            <div className="text-[10px] text-[#dcc1ae]/70 uppercase tracking-widest">Construction OS</div>
-          </div>
+    <div className="flex min-h-screen bg-[#0B0B0C] text-[#ECEBE6] antialiased">
+      {/* ---------- Left — brand + live project (desktop) ---------- */}
+      <section className="relative hidden lg:flex flex-col justify-between w-[46%] border-r border-white/[0.06] px-14 py-12">
+        <div className="flex items-center gap-3">
+          <span className="w-[7px] h-[7px] bg-[#ff8f00] rounded-[1px] mt-[1px]" />
+          <span className="text-[13px] font-semibold tracking-[0.28em]">AADVIK</span>
+          <span className="text-[10px] tracking-[0.28em] text-[#66665F] uppercase">Construction OS</span>
         </div>
-        {/* Hero */}
-        <div className="relative z-10 max-w-md">
-          <h1 className="font-headline text-4xl font-bold text-[#e2e2e8] leading-tight mb-4">
-            Run your site,<br />
-            <span className="text-[#ffb87b]">not your spreadsheets.</span>
+
+        <div className="max-w-[26rem]">
+          <div className="flex items-center gap-3 mb-8">
+            <span className="w-6 h-px bg-[#ff8f00]" />
+            <span className="text-[11px] tracking-[0.3em] uppercase text-[#9C9C96] font-mono">Construction Operations Platform</span>
+          </div>
+          <h1 className="font-light leading-[1.05] tracking-[-0.03em] text-[clamp(2.2rem,3vw,3rem)]">
+            Run the site,<br />not the spreadsheet.
           </h1>
-          <p className="text-[#dcc1ae] text-sm leading-relaxed">
-            Expenses, store, machinery, labour, DPR, purchase and live cash-flow — one login, real-time, with an AI site brief.
+          <p className="mt-6 text-[14px] leading-[1.7] text-[#9C9C96]">
+            Every voucher, challan, DPR and vendor bill from the field — captured once,
+            visible in real time, and closed out on schedule.
           </p>
         </div>
-        {/* Stats */}
-        <div className="relative z-10 grid grid-cols-2 gap-8">
-          <div>
-            <div className="font-mono text-[#ffb87b] text-lg font-bold mb-1">₹33.55 Cr</div>
-            <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-widest">Project Value</div>
+
+        <div>
+          <div className="flex items-baseline justify-between mb-4">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#66665F] font-mono">Live project</span>
+            <span className="text-[10px] tracking-[0.2em] uppercase text-[#66665F] font-mono">01 / 10</span>
           </div>
-          <div>
-            <div className="font-mono text-[#ffb87b] text-lg font-bold mb-1">NALCO</div>
-            <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-widest">Damanjodi · RITES</div>
+          <div className="text-[15px] mb-4">Railway Siding Augmentation</div>
+          <div className="grid grid-cols-3 gap-6 border-t border-white/[0.08] pt-4">
+            <Stat k="Contract" v="₹33.55 Cr" accent />
+            <Stat k="Owner" v="NALCO" />
+            <Stat k="Supervision" v="RITES" />
           </div>
         </div>
       </section>
 
-      {/* Right panel — form */}
-      <main className="flex-1 flex flex-col justify-center items-center px-6 bg-[#0F1115]">
-        <div className="w-full max-w-[420px]">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-[#ff8f00] flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#0F1115]" style={{ fontVariationSettings: "'FILL' 1" }}>precision_manufacturing</span>
-            </div>
-            <div className="font-headline font-bold text-[#ffb87b] text-lg">Aadvik AI</div>
+      {/* ---------- Right — form ---------- */}
+      <main className="flex-1 flex flex-col justify-center items-center px-6 relative">
+        <div className="w-full max-w-[400px]">
+          {/* mobile brand */}
+          <div className="lg:hidden flex items-center gap-3 mb-10">
+            <span className="w-[7px] h-[7px] bg-[#ff8f00] rounded-[1px] mt-[1px]" />
+            <span className="text-[13px] font-semibold tracking-[0.28em]">AADVIK</span>
+            <span className="text-[10px] tracking-[0.28em] text-[#66665F] uppercase">Construction OS</span>
           </div>
 
-          <header className="mb-6">
-            <h2 className="font-headline text-2xl font-semibold text-[#e2e2e8] mb-1">
-              {mode === 'in' ? 'Welcome Back' : signupMode === 'create' ? 'Create Account' : 'Join Company'}
+          <header className="mb-8">
+            <h2 className="text-[26px] font-light tracking-[-0.02em] mb-1.5">
+              {mode === 'in' ? 'Welcome back' : signupMode === 'create' ? 'Create account' : 'Join company'}
             </h2>
-            <p className="text-sm text-[#dcc1ae]">
+            <p className="text-[13px] text-[#9C9C96]">
               {mode === 'in'
                 ? 'Enter your credentials to access the OS.'
                 : signupMode === 'create'
@@ -86,14 +92,14 @@ export default function AuthPages() {
           </header>
 
           {mode === 'up' && (
-            <div className="flex rounded-lg border border-white/10 overflow-hidden mb-6">
+            <div className="flex gap-1 p-1 rounded-lg border border-white/[0.08] mb-6">
               <button type="button"
-                className={`flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-wider ${signupMode === 'create' ? 'bg-[#ff8f00]/20 text-[#ffb87b]' : 'text-[#dcc1ae]'}`}
+                className={`flex-1 px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${signupMode === 'create' ? 'bg-white/[0.06] text-[#ECEBE6]' : 'text-[#66665F] hover:text-[#9C9C96]'}`}
                 onClick={() => { setSignupMode('create'); setMsg(null) }}>
                 Create a company
               </button>
               <button type="button"
-                className={`flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-wider ${signupMode === 'join' ? 'bg-[#ff8f00]/20 text-[#ffb87b]' : 'text-[#dcc1ae]'}`}
+                className={`flex-1 px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${signupMode === 'join' ? 'bg-white/[0.06] text-[#ECEBE6]' : 'text-[#66665F] hover:text-[#9C9C96]'}`}
                 onClick={() => { setSignupMode('join'); setMsg(null) }}>
                 Join a company
               </button>
@@ -103,16 +109,16 @@ export default function AuthPages() {
           <form onSubmit={submit} className="space-y-4">
             {mode === 'up' && (
               <>
-                <Field label="Your Name">
+                <Field label="Your name">
                   <input className="input" value={fullName} onChange={e => setFullName(e.target.value)} required />
                 </Field>
                 {signupMode === 'create' ? (
-                  <Field label="Company / Firm">
+                  <Field label="Company / firm">
                     <input className="input" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Shanti Construction" required />
                   </Field>
                 ) : (
-                  <Field label="Invite Code">
-                    <input className="input mono uppercase" value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="ABC123" required />
+                  <Field label="Invite code">
+                    <input className="input mono uppercase" value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())} placeholder="ABC12345" required />
                   </Field>
                 )}
               </>
@@ -125,33 +131,30 @@ export default function AuthPages() {
             </Field>
 
             {msg && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+              <div className="p-3 rounded-lg bg-red-500/[0.08] border border-red-500/20 text-[13px] text-red-400">
                 {msg}
               </div>
             )}
 
-            <button className="btn btn-primary w-full" style={{ padding: '12px 16px', fontSize: '14px', marginTop: '8px' }} disabled={busy}>
-              {busy ? 'Please wait…' : mode === 'in' ? 'Sign In' : 'Create Account'}
+            <button className="btn btn-primary w-full" style={{ padding: '13px 16px', fontSize: '14px', marginTop: '10px', borderRadius: '9999px' }} disabled={busy}>
+              {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
             </button>
           </form>
 
-          <div className="text-sm text-[#dcc1ae] mt-6 text-center">
+          <div className="text-[13px] text-[#9C9C96] mt-7 text-center">
             {mode === 'in' ? 'New to Aadvik AI? ' : 'Already have an account? '}
-            <button type="button" className="text-[#ffb87b] font-semibold hover:underline ml-1"
+            <button type="button" className="text-[#ECEBE6] font-semibold hover:underline ml-1"
               onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(null) }}>
               {mode === 'in' ? 'Create account' : 'Sign in'}
             </button>
           </div>
         </div>
 
-        {/* System status */}
-        <div className="fixed bottom-6 flex items-center gap-2 px-3 py-1.5 bg-[#1a1c20] border border-white/5 rounded-full">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[10px] text-[#dcc1ae]/60 font-semibold tracking-wider">SYSTEMS OPERATIONAL</span>
+        {/* status */}
+        <div className="absolute bottom-8 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90" />
+          <span className="text-[10px] tracking-[0.2em] text-[#66665F] font-mono uppercase">Systems operational</span>
         </div>
       </main>
     </div>
@@ -161,8 +164,17 @@ export default function AuthPages() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-semibold text-[#dcc1ae] uppercase tracking-wider block mb-1">{label}</span>
+      <span className="text-[10px] font-mono tracking-[0.16em] text-[#66665F] uppercase block mb-2">{label}</span>
       {children}
     </label>
+  )
+}
+
+function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className={`text-[15px] ${accent ? 'text-[#ff8f00] font-mono' : 'text-[#ECEBE6]'}`}>{v}</div>
+      <div className="text-[9px] tracking-[0.2em] uppercase text-[#66665F] font-mono mt-1">{k}</div>
+    </div>
   )
 }

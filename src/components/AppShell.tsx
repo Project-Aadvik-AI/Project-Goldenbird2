@@ -3,6 +3,13 @@ import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
 import { useEffect, useRef, useState } from 'react'
 
+// ============================================================
+// AppShell — architectural-minimal frame matched to the landing.
+// Near-black, hairlines, mono labels, quiet off-white active
+// state with a thin orange bar. Nav / switcher / admin / mobile
+// all preserved.
+// ============================================================
+
 type NavItem = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
 
 const NAV: NavItem[] = [
@@ -44,6 +51,13 @@ const BOTTOM_NAV = [
   { to: '/store', label: 'Store', icon: 'inventory_2' },
 ]
 
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  `group flex items-center gap-3 py-2.5 pr-4 text-[11px] font-medium tracking-[0.12em] uppercase transition-colors duration-150 ${
+    isActive
+      ? 'text-[#ECEBE6] border-l-2 border-[#ff8f00] pl-[14px]'
+      : 'text-[#7C7C76] hover:text-[#ECEBE6] pl-4 border-l-2 border-transparent'
+  }`
+
 export default function AppShell() {
   const { profile, user, signOut, isAdmin, can } = useAuth()
   const [open, setOpen] = useState(false)
@@ -57,48 +71,31 @@ export default function AppShell() {
   const initials = (profile?.full_name || user?.email || 'U').slice(0, 2).toUpperCase()
 
   return (
-    <div className="h-full flex bg-[#0F1115]">
+    <div className="h-full flex bg-[#0B0B0C] text-[#ECEBE6]">
       {/* Sidebar */}
-      <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-[240px] bg-[#1e2024] border-r border-white/10 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-5 flex items-center gap-3 border-b border-white/5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-[#ff8f00] flex items-center justify-center flex-shrink-0">
-            <span className="material-symbols-outlined text-[#0F1115]" style={{ fontVariationSettings: "'FILL' 1", fontSize: '20px' }}>precision_manufacturing</span>
-          </div>
+      <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-[236px] bg-[#0B0B0C] border-r border-white/[0.06] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="px-5 h-[72px] flex items-center gap-3 border-b border-white/[0.06] flex-shrink-0">
+          <span className="w-[7px] h-[7px] bg-[#ff8f00] rounded-[1px] mt-[1px] flex-shrink-0" />
           <div>
-            <div className="font-headline font-bold text-[#ffb87b] text-base leading-tight">Aadvik AI</div>
-            <div className="text-[10px] text-[#dcc1ae]/70 uppercase tracking-widest">Construction OS</div>
+            <div className="text-[13px] font-semibold tracking-[0.24em] text-[#ECEBE6] leading-none">AADVIK</div>
+            <div className="text-[9px] text-[#66665F] uppercase tracking-[0.24em] mt-1">Construction OS</div>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto py-4 space-y-0.5">
           {visibleNav.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 py-2.5 pr-4 text-[11px] font-semibold tracking-wider uppercase transition-colors duration-150 rounded-r-lg ${
-                  isActive
-                    ? 'bg-[#ff8f00]/10 text-[#ffb87b] border-l-2 border-[#ff8f00] pl-[14px]'
-                    : 'text-[#dcc1ae] hover:text-[#e2e2e8] hover:bg-white/5 pl-4 border-l-2 border-transparent'
-                }`
-              }>
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={() => setOpen(false)} className={linkClass}>
               <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px' }}>{n.icon}</span>
               {n.label}
             </NavLink>
           ))}
           {visibleAdmin.length > 0 && (
             <>
-              <div className="mt-4 px-4 py-2 text-[9px] font-bold text-[#ff8f00] uppercase tracking-[0.2em] border-t border-white/5 pt-4 flex items-center gap-2">
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>shield_person</span>
-                Admin
+              <div className="mt-5 px-4 pt-4 pb-2 text-[9px] font-semibold text-[#66665F] uppercase tracking-[0.24em] border-t border-white/[0.06] flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-[#ff8f00]" /> Admin
               </div>
               {visibleAdmin.map(n => (
-                <NavLink key={n.to} to={n.to} onClick={() => setOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 py-2.5 pr-4 text-[11px] font-semibold tracking-wider uppercase transition-colors duration-150 rounded-r-lg ${
-                      isActive
-                        ? 'bg-[#ff8f00]/10 text-[#ffb87b] border-l-2 border-[#ff8f00] pl-[14px]'
-                        : 'text-[#dcc1ae] hover:text-[#e2e2e8] hover:bg-white/5 pl-4 border-l-2 border-transparent'
-                    }`
-                  }>
+                <NavLink key={n.to} to={n.to} onClick={() => setOpen(false)} className={linkClass}>
                   <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px' }}>{n.icon}</span>
                   {n.label}
                 </NavLink>
@@ -107,50 +104,50 @@ export default function AppShell() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-white/5 flex-shrink-0">
+        <div className="p-4 border-t border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-[#333539] flex items-center justify-center text-[#ffb87b] text-[11px] font-bold flex-shrink-0">{initials}</div>
+            <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-[#ECEBE6] text-[11px] font-semibold flex-shrink-0">{initials}</div>
             <div className="overflow-hidden">
-              <div className="text-[11px] font-semibold text-[#e2e2e8] truncate">{profile?.full_name || user?.email}</div>
-              <div className="text-[10px] text-[#dcc1ae]/60 capitalize">{profile?.role || 'member'}</div>
+              <div className="text-[12px] font-medium text-[#ECEBE6] truncate">{profile?.full_name || user?.email}</div>
+              <div className="text-[10px] text-[#66665F] capitalize tracking-wide">{profile?.role || 'member'}</div>
             </div>
           </div>
-          <button onClick={signOut} className="btn btn-ghost w-full" style={{ fontSize: '11px', padding: '8px 12px' }}>
+          <button onClick={signOut} className="btn btn-ghost w-full" style={{ fontSize: '11px', padding: '9px 12px' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>logout</span> Logout
           </button>
         </div>
       </aside>
 
-      {open && <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setOpen(false)} />}
+      {open && <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setOpen(false)} />}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-14 border-b border-white/5 flex items-center gap-3 px-4 bg-[#0F1115] sticky top-0 z-10 flex-shrink-0">
+        <header className="h-[72px] border-b border-white/[0.06] flex items-center gap-3 px-4 lg:px-6 bg-[#0B0B0C] sticky top-0 z-10 flex-shrink-0">
           <button className="lg:hidden btn btn-ghost" style={{ padding: '8px', minWidth: 0 }} onClick={() => setOpen(true)}>
             <span className="material-symbols-outlined">menu</span>
           </button>
           <ProjectSwitcher />
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
-            <span className="hidden sm:block text-[11px] font-bold text-[#ffb87b] tracking-wider">LIVE OPS</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90 flex-shrink-0"></span>
+            <span className="hidden sm:block text-[10px] font-mono tracking-[0.24em] text-[#66665F] uppercase">Live</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
           <Outlet />
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-20 lg:hidden flex justify-around items-center h-16 bg-[#1e2024] border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+        <nav className="fixed bottom-0 left-0 right-0 z-20 lg:hidden flex justify-around items-center h-16 bg-[#0B0B0C] border-t border-white/[0.08]">
           {BOTTOM_NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'}
-              className={({ isActive }) => `flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${isActive ? 'text-[#ffb87b]' : 'text-[#dcc1ae]'}`}>
+              className={({ isActive }) => `flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${isActive ? 'text-[#ECEBE6]' : 'text-[#66665F]'}`}>
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>{n.icon}</span>
-              <span className="text-[10px] font-semibold">{n.label}</span>
+              <span className="text-[10px] font-medium tracking-wide">{n.label}</span>
             </NavLink>
           ))}
-          <button className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[#dcc1ae]" onClick={() => setOpen(true)}>
+          <button className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[#66665F]" onClick={() => setOpen(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>menu</span>
-            <span className="text-[10px] font-semibold">More</span>
+            <span className="text-[10px] font-medium tracking-wide">More</span>
           </button>
         </nav>
       </div>
@@ -172,12 +169,12 @@ function ProjectSwitcher() {
   }, [])
 
   if (loading) {
-    return <div className="text-[11px] text-[#dcc1ae]/60">Loading projects…</div>
+    return <div className="text-[11px] text-[#66665F] font-mono tracking-wide">Loading projects…</div>
   }
 
   if (!projects.length) {
     return (
-      <a href="/projects" className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-[#ff8f00]/40 bg-[#ff8f00]/5 text-[#ffb87b] text-[11px] font-semibold hover:bg-[#ff8f00]/10">
+      <a href="/projects" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-white/[0.14] text-[#9C9C96] text-[11px] font-medium hover:border-[#ff8f00]/40 hover:text-[#ECEBE6] transition-colors">
         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
         Create first project
       </a>
@@ -188,20 +185,20 @@ function ProjectSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1e2024] border border-white/10 hover:border-[#ff8f00]/40 transition-colors max-w-[240px] sm:max-w-none"
+        className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/[0.08] hover:border-white/[0.16] transition-colors max-w-[240px] sm:max-w-none"
       >
-        <span className="material-symbols-outlined text-[#ffb87b] flex-shrink-0" style={{ fontSize: '16px' }}>domain</span>
+        <span className="text-[9px] font-mono tracking-[0.2em] uppercase text-[#66665F] hidden sm:inline">Project</span>
         <div className="text-left overflow-hidden">
-          <div className="text-[11px] font-semibold text-[#e2e2e8] truncate">{activeProject?.name ?? 'Pick a project'}</div>
-          {activeProject?.code && <div className="text-[9px] text-[#dcc1ae]/60 font-mono uppercase tracking-wider">{activeProject.code}</div>}
+          <div className="text-[12px] font-medium text-[#ECEBE6] truncate">{activeProject?.name ?? 'Pick a project'}</div>
+          {activeProject?.code && <div className="text-[9px] text-[#66665F] font-mono uppercase tracking-[0.16em]">{activeProject.code}</div>}
         </div>
-        <span className="material-symbols-outlined text-[#dcc1ae] flex-shrink-0" style={{ fontSize: '16px' }}>{open ? 'expand_less' : 'expand_more'}</span>
+        <span className="material-symbols-outlined text-[#66665F] flex-shrink-0" style={{ fontSize: '16px' }}>{open ? 'expand_less' : 'expand_more'}</span>
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-[#1B1F2A] border border-white/[0.08] rounded-xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-hidden z-30">
-          <div className="px-4 py-2 border-b border-white/5 text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">
-            Switch Project
+        <div className="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-[#131316] border border-white/[0.08] rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7)] overflow-hidden z-30">
+          <div className="px-4 py-3 border-b border-white/[0.06] text-[10px] font-mono text-[#66665F] uppercase tracking-[0.2em]">
+            Switch project
           </div>
           <div className="max-h-80 overflow-y-auto">
             {projects.map(p => {
@@ -209,16 +206,16 @@ function ProjectSwitcher() {
               return (
                 <button key={p.id}
                   onClick={() => { setActiveProject(p); setOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${isActive ? 'bg-[#ff8f00]/10' : 'hover:bg-white/5'}`}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${isActive ? 'bg-white/[0.04]' : 'hover:bg-white/[0.03]'}`}
                 >
-                  <span className={`material-symbols-outlined flex-shrink-0 ${isActive ? 'text-[#ffb87b]' : 'text-[#dcc1ae]/50'}`}
+                  <span className={`material-symbols-outlined flex-shrink-0 ${isActive ? 'text-[#ff8f00]' : 'text-[#66665F]'}`}
                     style={{ fontSize: '18px', fontVariationSettings: isActive ? "'FILL' 1" : undefined }}>
                     {isActive ? 'check_circle' : 'radio_button_unchecked'}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-[#e2e2e8] truncate">{p.name}</div>
-                    <div className="text-[10px] text-[#dcc1ae]/60 truncate">
-                      {p.code ? <span className="font-mono uppercase">{p.code}</span> : null}
+                    <div className="text-[13px] font-medium text-[#ECEBE6] truncate">{p.name}</div>
+                    <div className="text-[10px] text-[#66665F] truncate">
+                      {p.code ? <span className="font-mono uppercase tracking-wide">{p.code}</span> : null}
                       {p.code && p.client ? ' · ' : ''}
                       {p.client}
                     </div>
@@ -227,15 +224,15 @@ function ProjectSwitcher() {
               )
             })}
           </div>
-          <div className="border-t border-white/5">
+          <div className="border-t border-white/[0.06]">
             <a href="/projects" onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-semibold text-[#ffb87b] hover:bg-white/5 uppercase tracking-wider">
+              className="flex items-center gap-2 px-4 py-3 text-[11px] font-medium text-[#9C9C96] hover:text-[#ECEBE6] hover:bg-white/[0.03] uppercase tracking-[0.14em] transition-colors">
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
-              New Project
+              New project
             </a>
           </div>
         </div>
       )}
     </div>
   )
-}   
+}

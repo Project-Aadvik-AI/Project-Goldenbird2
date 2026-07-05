@@ -4,22 +4,19 @@
 
 /* ============================================================
    Aadvik AI · Construction OS — design system (v2)
-   Architectural minimalism: near-black, hairlines, mono labels,
-   light-weight type, orange used sparingly. Colors are driven by
-   CSS variables so a future light theme can swap them in one place.
    ============================================================ */
 
 :root {
-  --bg:        #0B0B0C;   /* app background (near-black) */
-  --bg-2:      #101012;   /* raised surface */
-  --card:      #131316;   /* card surface */
-  --card-2:    #17171A;   /* header rows / hover */
+  --bg:        #0B0B0C;
+  --bg-2:      #101012;
+  --card:      #131316;
+  --card-2:    #17171A;
   --line:      rgba(255,255,255,0.08);
   --line-soft: rgba(255,255,255,0.055);
-  --text:      #ECEBE6;   /* primary (warm off-white) */
-  --text-2:    #9C9C96;   /* secondary */
-  --faint:     #66665F;   /* labels / captions */
-  --accent:    #ff8f00;   /* orange — used rarely */
+  --text:      #ECEBE6;
+  --text-2:    #9C9C96;
+  --faint:     #66665F;
+  --accent:    #ff8f00;
   --accent-2:  #ffb87b;
   color-scheme: dark;
 }
@@ -29,21 +26,28 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Noto Sans Devanagari', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-
-/* Material Symbols — force real icon rendering */
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined' !important;
-  font-weight: normal; font-style: normal;
+  font-weight: normal !important;
+  font-style: normal;
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
-  font-size: 20px; line-height: 1; letter-spacing: normal;
-  text-transform: none; white-space: nowrap; direction: ltr;
-  vertical-align: middle; display: inline-block;
-  -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  vertical-align: middle;
+  display: inline-block;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -moz-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
-
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 10px; }
@@ -51,7 +55,6 @@ body {
 
 .mono { font-family: 'JetBrains Mono', monospace; }
 
-/* ---------- card: hairline, flat, no glow ---------- */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -59,7 +62,6 @@ body {
   transition: border-color 0.2s;
 }
 
-/* ---------- inputs: quiet, hairline, orange focus ---------- */
 .input {
   width: 100%;
   background: var(--bg-2);
@@ -68,7 +70,7 @@ body {
   padding: 10px 13px;
   color: var(--text);
   font-size: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -80,14 +82,13 @@ body {
 select.input { cursor: pointer; }
 textarea.input { resize: vertical; }
 
-/* ---------- buttons ---------- */
 .btn {
   border: none;
   border-radius: 9px;
   padding: 10px 16px;
   font-weight: 600;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
   font-size: 13px;
   transition: all 0.15s;
   display: inline-flex;
@@ -99,11 +100,9 @@ textarea.input { resize: vertical; }
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* primary = warm off-white on dark (premium, restrained) */
 .btn-primary { background: var(--text); color: var(--bg); }
 .btn-primary:hover:not(:disabled) { background: #ffffff; }
 
-/* accent = the rare orange call-to-action */
 .btn-accent { background: var(--accent); color: #0B0B0C; }
 .btn-accent:hover:not(:disabled) { background: #ffa32a; }
 
@@ -114,7 +113,6 @@ textarea.input { resize: vertical; }
 }
 .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.16); }
 
-/* ---------- KPI accents (kept, muted) ---------- */
 .kpi-emerald { border-left: 2px solid #34d399; }
 .kpi-sky     { border-left: 2px solid #38bdf8; }
 .kpi-purple  { border-left: 2px solid #a78bfa; }
@@ -122,17 +120,16 @@ textarea.input { resize: vertical; }
 .kpi-red     { border-left: 2px solid #f87171; }
 
 /* ============================================================
-   LIGHT THEME — swaps the same variables. Applied when
-   <html data-theme="light">. Dark stays the default in :root.
+   LIGHT THEME
    ============================================================ */
 [data-theme="light"] {
-  --bg:        #F5F4F0;   /* warm paper */
+  --bg:        #F5F4F0;
   --bg-2:      #FFFFFF;
   --card:      #FFFFFF;
   --card-2:    #F0EFEA;
   --line:      rgba(0,0,0,0.10);
   --line-soft: rgba(0,0,0,0.06);
-  --text:      #1A1A17;   /* near-black ink */
+  --text:      #1A1A17;
   --text-2:    #5C5C55;
   --faint:     #8A8A82;
   --accent:    #E67E00;
@@ -153,16 +150,15 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
   html, body, .card, .input, .btn, aside, header, main, nav { transition: none; }
 }
 
-
 /* ============================================================
    LANDING — Dayos-style bands + heavy display type
    ============================================================ */
 :root {
-  --ink:      #050506;   /* black contrast band */
+  --ink:      #050506;
   --ink-fg:   #ECEBE6;
 }
 [data-theme="light"] {
-  --ink:      #0B0B0C;   /* dramatic black band on cream */
+  --ink:      #0B0B0C;
   --ink-fg:   #EEEDE8;
 }
 .display {
@@ -172,25 +168,99 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
   line-height: 0.92;
   text-transform: uppercase;
 }
-/* ============================================================
-   PAGE-WIDE LINE TEXTURE — fine horizontal lines everywhere
-   ============================================================ */
-:root { --line-tint: rgba(255,255,255,0.045); }
-[data-theme="light"] { --line-tint: rgba(0,0,0,0.05); }
 
-.page-lines { position: relative; }
-.page-lines::before {
+/* ============================================================
+   INK BAND TEXTURE
+   ============================================================ */
+.ink-lines { position: relative; }
+.ink-lines::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
   background-image: repeating-linear-gradient(
     to bottom,
-    var(--line-tint) 0px,
-    var(--line-tint) 1px,
+    rgba(255,255,255,0.045) 0px,
+    rgba(255,255,255,0.045) 1px,
     transparent 1px,
     transparent 4px
   );
+  z-index: 0;
 }
-.page-lines > * { position: relative; z-index: 1; }
+.ink-lines > * { position: relative; z-index: 1; }
+
+
+/* ============================================================
+   LIGHT-MODE PAGE OVERRIDES
+   The 27 page files hardcode dark-theme colors in their JSX.
+   In light mode we remap those exact utility classes to readable
+   light values, so pages stay legible without editing each file.
+   ============================================================ */
+[data-theme="light"] .text-\[\#e2e2e8\] { color: #1A1A17 !important; }
+[data-theme="light"] .text-\[\#c8ccd8\] { color: #1A1A17 !important; }
+[data-theme="light"] .text-\[\#dcc1ae\] { color: #57574F !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/80 { color: rgba(87,87,79,0.92) !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/70 { color: rgba(87,87,79,0.85) !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/60 { color: rgba(87,87,79,0.78) !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/50 { color: rgba(87,87,79,0.68) !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/40 { color: rgba(87,87,79,0.60) !important; }
+[data-theme="light"] .text-\[\#dcc1ae\]\/30 { color: rgba(87,87,79,0.50) !important; }
+
+/* accent orange: darker for contrast on paper */
+[data-theme="light"] .text-\[\#ffb87b\] { color: #B45F00 !important; }
+[data-theme="light"] .text-\[\#ffb87b\]\/70 { color: rgba(180,95,0,0.8) !important; }
+
+/* surfaces: dark cards / table headers -> paper */
+[data-theme="light"] .bg-\[\#1B1F2A\] { background-color: #FFFFFF !important; }
+[data-theme="light"] .bg-\[\#282a2e\] { background-color: #EFEEE9 !important; }
+[data-theme="light"] .bg-\[\#111317\] { background-color: #EDECE7 !important; }
+
+/* subtle white overlays -> subtle dark overlays */
+[data-theme="light"] .bg-white\/\[0\.02\] { background-color: rgba(0,0,0,0.025) !important; }
+[data-theme="light"] .bg-white\/\[0\.03\] { background-color: rgba(0,0,0,0.035) !important; }
+[data-theme="light"] .bg-white\/\[0\.04\] { background-color: rgba(0,0,0,0.045) !important; }
+[data-theme="light"] .bg-white\/\[0\.05\] { background-color: rgba(0,0,0,0.05) !important; }
+
+/* hover overlays */
+[data-theme="light"] .hover\:bg-white\/\[0\.02\]:hover { background-color: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0,0,0,0.04) !important; }
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0,0,0,0.05) !important; }
+[data-theme="light"] .hover\:bg-white\/\[0\.05\]:hover { background-color: rgba(0,0,0,0.06) !important; }
+
+/* borders + dividers */
+[data-theme="light"] .border-white\/\[0\.05\] { border-color: rgba(0,0,0,0.08) !important; }
+[data-theme="light"] .border-white\/\[0\.06\] { border-color: rgba(0,0,0,0.09) !important; }
+[data-theme="light"] .border-white\/\[0\.08\] { border-color: rgba(0,0,0,0.10) !important; }
+[data-theme="light"] .border-white\/\[0\.1\]  { border-color: rgba(0,0,0,0.12) !important; }
+[data-theme="light"] .border-white\/\[0\.2\]  { border-color: rgba(0,0,0,0.16) !important; }
+[data-theme="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0,0,0,0.08) !important; } 
+
+
+
+
+/* ============================================================
+   FLOW TEXTURE — soft drifting contour/flow lines behind content.
+   Add class `flow-bg` to a page's outer wrapper.
+   ============================================================ */
+.flow-bg { position: relative; isolation: isolate; }
+.flow-bg::before {
+  content: "";
+  position: fixed;
+  inset: -20% -10%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-repeat: repeat;
+  background-size: 900px 900px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900'%3E%3Cg fill='none' stroke='%23808080' stroke-width='1' opacity='0.16'%3E%3Cpath d='M0 120 C 220 40, 460 200, 900 90'/%3E%3Cpath d='M0 210 C 240 130, 470 290, 900 180'/%3E%3Cpath d='M0 300 C 250 220, 480 380, 900 270'/%3E%3Cpath d='M0 390 C 240 320, 470 470, 900 360'/%3E%3Cpath d='M0 480 C 250 410, 480 560, 900 450'/%3E%3Cpath d='M0 570 C 240 500, 470 650, 900 540'/%3E%3Cpath d='M0 660 C 250 590, 480 740, 900 630'/%3E%3Cpath d='M0 750 C 240 680, 470 830, 900 720'/%3E%3Cpath d='M0 840 C 250 770, 480 910, 900 810'/%3E%3C/g%3E%3C/svg%3E");
+  animation: flowdrift 40s linear infinite;
+}
+@keyframes flowdrift {
+  from { background-position: 0 0; }
+  to   { background-position: 900px 300px; }
+}
+[data-theme="light"] .flow-bg::before { opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) {
+  .flow-bg::before { animation: none; }
+}

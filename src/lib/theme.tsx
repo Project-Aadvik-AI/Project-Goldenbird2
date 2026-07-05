@@ -52,7 +52,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       title={isDark ? 'Light mode' : 'Dark mode'}
       className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-[var(--line)] text-[var(--text-2)] hover:text-[var(--text)] hover:border-[var(--text-2)] transition-colors ${className}`}
     >
-      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+    <span className="material-symbols-outlined" style={{ fontSize: '18px', fontFamily: "'Material Symbols Outlined'" }}>
         {isDark ? 'light_mode' : 'dark_mode'}
       </span>
     </button>

@@ -131,8 +131,10 @@ export default function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
-          <Outlet />
+       <main className="flow-bg flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
+          <div className="relative z-10">
+            <Outlet />
+          </div>
         </main>
 
         <nav className="fixed bottom-0 left-0 right-0 z-20 lg:hidden flex justify-around items-center h-16 bg-[var(--bg)] border-t border-[var(--line)]">

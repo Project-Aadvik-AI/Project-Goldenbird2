@@ -264,3 +264,26 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
 @media (prefers-reduced-motion: reduce) {
   .flow-bg::before { animation: none; }
 }
+
+/* ============================================================
+   PAGE-WIDE LINE TEXTURE — fine horizontal lines (landing)
+   ============================================================ */
+:root { --line-tint: rgba(255,255,255,0.045); }
+[data-theme="light"] { --line-tint: rgba(0,0,0,0.05); }
+
+.page-lines { position: relative; }
+.page-lines::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line-tint) 0px,
+    var(--line-tint) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+.page-lines > * { position: relative; z-index: 1; }

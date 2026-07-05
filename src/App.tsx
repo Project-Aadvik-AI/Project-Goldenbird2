@@ -2,7 +2,11 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import { ProjectProvider } from './lib/project'
 import AuthPages from './components/AuthPages'
-import Landing from './pages/Landing'
+import Home from './pages/site/Home'
+import About from './pages/site/About'
+import ProjectsPage from './pages/site/ProjectsPage'
+import Growth from './pages/site/Growth'
+import Contact from './pages/site/Contact'
 import AppShell from './components/AppShell'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
@@ -40,7 +44,11 @@ export default function App() {
   if (!session) {
    return (
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/growth" element={<Growth />} />
+        <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<AuthPages />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

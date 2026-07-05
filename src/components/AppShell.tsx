@@ -1,14 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
+import { ThemeToggle } from '../lib/theme'
 import { useEffect, useRef, useState } from 'react'
-
-// ============================================================
-// AppShell — architectural-minimal frame matched to the landing.
-// Near-black, hairlines, mono labels, quiet off-white active
-// state with a thin orange bar. Nav / switcher / admin / mobile
-// all preserved.
-// ============================================================
 
 type NavItem = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
 
@@ -54,8 +48,8 @@ const BOTTOM_NAV = [
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `group flex items-center gap-3 py-2.5 pr-4 text-[11px] font-medium tracking-[0.12em] uppercase transition-colors duration-150 ${
     isActive
-      ? 'text-[#ECEBE6] border-l-2 border-[#ff8f00] pl-[14px]'
-      : 'text-[#7C7C76] hover:text-[#ECEBE6] pl-4 border-l-2 border-transparent'
+      ? 'text-[var(--text)] border-l-2 border-[var(--accent)] pl-[14px]'
+      : 'text-[var(--faint)] hover:text-[var(--text)] pl-4 border-l-2 border-transparent'
   }`
 
 export default function AppShell() {
@@ -71,14 +65,14 @@ export default function AppShell() {
   const initials = (profile?.full_name || user?.email || 'U').slice(0, 2).toUpperCase()
 
   return (
-    <div className="h-full flex bg-[#0B0B0C] text-[#ECEBE6]">
+    <div className="h-full flex bg-[var(--bg)] text-[var(--text)]">
       {/* Sidebar */}
-      <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-[236px] bg-[#0B0B0C] border-r border-white/[0.06] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="px-5 h-[72px] flex items-center gap-3 border-b border-white/[0.06] flex-shrink-0">
-          <span className="w-[7px] h-[7px] bg-[#ff8f00] rounded-[1px] mt-[1px] flex-shrink-0" />
+      <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-[236px] bg-[var(--bg)] border-r border-[var(--line)] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="px-5 h-[72px] flex items-center gap-3 border-b border-[var(--line)] flex-shrink-0">
+          <span className="w-[7px] h-[7px] bg-[var(--accent)] rounded-[1px] mt-[1px] flex-shrink-0" />
           <div>
-            <div className="text-[13px] font-semibold tracking-[0.24em] text-[#ECEBE6] leading-none">AADVIK</div>
-            <div className="text-[9px] text-[#66665F] uppercase tracking-[0.24em] mt-1">Construction OS</div>
+            <div className="text-[13px] font-semibold tracking-[0.24em] text-[var(--text)] leading-none">AADVIK</div>
+            <div className="text-[9px] text-[var(--faint)] uppercase tracking-[0.24em] mt-1">Construction OS</div>
           </div>
         </div>
 
@@ -91,8 +85,8 @@ export default function AppShell() {
           ))}
           {visibleAdmin.length > 0 && (
             <>
-              <div className="mt-5 px-4 pt-4 pb-2 text-[9px] font-semibold text-[#66665F] uppercase tracking-[0.24em] border-t border-white/[0.06] flex items-center gap-2">
-                <span className="w-1 h-1 rounded-full bg-[#ff8f00]" /> Admin
+              <div className="mt-5 px-4 pt-4 pb-2 text-[9px] font-semibold text-[var(--faint)] uppercase tracking-[0.24em] border-t border-[var(--line)] flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-[var(--accent)]" /> Admin
               </div>
               {visibleAdmin.map(n => (
                 <NavLink key={n.to} to={n.to} onClick={() => setOpen(false)} className={linkClass}>
@@ -104,12 +98,12 @@ export default function AppShell() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-white/[0.06] flex-shrink-0">
+        <div className="p-4 border-t border-[var(--line)] flex-shrink-0">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-[#ECEBE6] text-[11px] font-semibold flex-shrink-0">{initials}</div>
+            <div className="w-8 h-8 rounded-full bg-[var(--card-2)] border border-[var(--line)] flex items-center justify-center text-[var(--text)] text-[11px] font-semibold flex-shrink-0">{initials}</div>
             <div className="overflow-hidden">
-              <div className="text-[12px] font-medium text-[#ECEBE6] truncate">{profile?.full_name || user?.email}</div>
-              <div className="text-[10px] text-[#66665F] capitalize tracking-wide">{profile?.role || 'member'}</div>
+              <div className="text-[12px] font-medium text-[var(--text)] truncate">{profile?.full_name || user?.email}</div>
+              <div className="text-[10px] text-[var(--faint)] capitalize tracking-wide">{profile?.role || 'member'}</div>
             </div>
           </div>
           <button onClick={signOut} className="btn btn-ghost w-full" style={{ fontSize: '11px', padding: '9px 12px' }}>
@@ -121,15 +115,16 @@ export default function AppShell() {
       {open && <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setOpen(false)} />}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-[72px] border-b border-white/[0.06] flex items-center gap-3 px-4 lg:px-6 bg-[#0B0B0C] sticky top-0 z-10 flex-shrink-0">
+        <header className="h-[72px] border-b border-[var(--line)] flex items-center gap-3 px-4 lg:px-6 bg-[var(--bg)] sticky top-0 z-10 flex-shrink-0">
           <button className="lg:hidden btn btn-ghost" style={{ padding: '8px', minWidth: 0 }} onClick={() => setOpen(true)}>
             <span className="material-symbols-outlined">menu</span>
           </button>
           <ProjectSwitcher />
           <div className="flex-1" />
-          <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <div className="hidden sm:flex items-center gap-2 ml-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90 flex-shrink-0"></span>
-            <span className="hidden sm:block text-[10px] font-mono tracking-[0.24em] text-[#66665F] uppercase">Live</span>
+            <span className="text-[10px] font-mono tracking-[0.24em] text-[var(--faint)] uppercase">Live</span>
           </div>
         </header>
 
@@ -137,15 +132,15 @@ export default function AppShell() {
           <Outlet />
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-20 lg:hidden flex justify-around items-center h-16 bg-[#0B0B0C] border-t border-white/[0.08]">
+        <nav className="fixed bottom-0 left-0 right-0 z-20 lg:hidden flex justify-around items-center h-16 bg-[var(--bg)] border-t border-[var(--line)]">
           {BOTTOM_NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'}
-              className={({ isActive }) => `flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${isActive ? 'text-[#ECEBE6]' : 'text-[#66665F]'}`}>
+              className={({ isActive }) => `flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors ${isActive ? 'text-[var(--text)]' : 'text-[var(--faint)]'}`}>
               <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>{n.icon}</span>
               <span className="text-[10px] font-medium tracking-wide">{n.label}</span>
             </NavLink>
           ))}
-          <button className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[#66665F]" onClick={() => setOpen(true)}>
+          <button className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[var(--faint)]" onClick={() => setOpen(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>menu</span>
             <span className="text-[10px] font-medium tracking-wide">More</span>
           </button>
@@ -169,12 +164,12 @@ function ProjectSwitcher() {
   }, [])
 
   if (loading) {
-    return <div className="text-[11px] text-[#66665F] font-mono tracking-wide">Loading projects…</div>
+    return <div className="text-[11px] text-[var(--faint)] font-mono tracking-wide">Loading projects…</div>
   }
 
   if (!projects.length) {
     return (
-      <a href="/projects" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-white/[0.14] text-[#9C9C96] text-[11px] font-medium hover:border-[#ff8f00]/40 hover:text-[#ECEBE6] transition-colors">
+      <a href="/projects" className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[var(--line)] text-[var(--text-2)] text-[11px] font-medium hover:border-[var(--accent)] hover:text-[var(--text)] transition-colors">
         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
         Create first project
       </a>
@@ -185,19 +180,19 @@ function ProjectSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/[0.08] hover:border-white/[0.16] transition-colors max-w-[240px] sm:max-w-none"
+        className="flex items-center gap-3 px-3 py-2 rounded-lg border border-[var(--line)] hover:border-[var(--text-2)] transition-colors max-w-[240px] sm:max-w-none"
       >
-        <span className="text-[9px] font-mono tracking-[0.2em] uppercase text-[#66665F] hidden sm:inline">Project</span>
+        <span className="text-[9px] font-mono tracking-[0.2em] uppercase text-[var(--faint)] hidden sm:inline">Project</span>
         <div className="text-left overflow-hidden">
-          <div className="text-[12px] font-medium text-[#ECEBE6] truncate">{activeProject?.name ?? 'Pick a project'}</div>
-          {activeProject?.code && <div className="text-[9px] text-[#66665F] font-mono uppercase tracking-[0.16em]">{activeProject.code}</div>}
+          <div className="text-[12px] font-medium text-[var(--text)] truncate">{activeProject?.name ?? 'Pick a project'}</div>
+          {activeProject?.code && <div className="text-[9px] text-[var(--faint)] font-mono uppercase tracking-[0.16em]">{activeProject.code}</div>}
         </div>
-        <span className="material-symbols-outlined text-[#66665F] flex-shrink-0" style={{ fontSize: '16px' }}>{open ? 'expand_less' : 'expand_more'}</span>
+        <span className="material-symbols-outlined text-[var(--faint)] flex-shrink-0" style={{ fontSize: '16px' }}>{open ? 'expand_less' : 'expand_more'}</span>
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-[#131316] border border-white/[0.08] rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7)] overflow-hidden z-30">
-          <div className="px-4 py-3 border-b border-white/[0.06] text-[10px] font-mono text-[#66665F] uppercase tracking-[0.2em]">
+        <div className="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-[var(--card)] border border-[var(--line)] rounded-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)] overflow-hidden z-30">
+          <div className="px-4 py-3 border-b border-[var(--line)] text-[10px] font-mono text-[var(--faint)] uppercase tracking-[0.2em]">
             Switch project
           </div>
           <div className="max-h-80 overflow-y-auto">
@@ -206,15 +201,15 @@ function ProjectSwitcher() {
               return (
                 <button key={p.id}
                   onClick={() => { setActiveProject(p); setOpen(false) }}
-                  className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${isActive ? 'bg-white/[0.04]' : 'hover:bg-white/[0.03]'}`}
+                  className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${isActive ? 'bg-[var(--card-2)]' : 'hover:bg-[var(--card-2)]'}`}
                 >
-                  <span className={`material-symbols-outlined flex-shrink-0 ${isActive ? 'text-[#ff8f00]' : 'text-[#66665F]'}`}
+                  <span className={`material-symbols-outlined flex-shrink-0 ${isActive ? 'text-[var(--accent)]' : 'text-[var(--faint)]'}`}
                     style={{ fontSize: '18px', fontVariationSettings: isActive ? "'FILL' 1" : undefined }}>
                     {isActive ? 'check_circle' : 'radio_button_unchecked'}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium text-[#ECEBE6] truncate">{p.name}</div>
-                    <div className="text-[10px] text-[#66665F] truncate">
+                    <div className="text-[13px] font-medium text-[var(--text)] truncate">{p.name}</div>
+                    <div className="text-[10px] text-[var(--faint)] truncate">
                       {p.code ? <span className="font-mono uppercase tracking-wide">{p.code}</span> : null}
                       {p.code && p.client ? ' · ' : ''}
                       {p.client}
@@ -224,9 +219,9 @@ function ProjectSwitcher() {
               )
             })}
           </div>
-          <div className="border-t border-white/[0.06]">
+          <div className="border-t border-[var(--line)]">
             <a href="/projects" onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-4 py-3 text-[11px] font-medium text-[#9C9C96] hover:text-[#ECEBE6] hover:bg-white/[0.03] uppercase tracking-[0.14em] transition-colors">
+              className="flex items-center gap-2 px-4 py-3 text-[11px] font-medium text-[var(--text-2)] hover:text-[var(--text)] hover:bg-[var(--card-2)] uppercase tracking-[0.14em] transition-colors">
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
               New project
             </a>

@@ -120,3 +120,35 @@ textarea.input { resize: vertical; }
 .kpi-purple  { border-left: 2px solid #a78bfa; }
 .kpi-amber   { border-left: 2px solid var(--accent); }
 .kpi-red     { border-left: 2px solid #f87171; }
+
+/* ============================================================
+   LIGHT THEME — swaps the same variables. Applied when
+   <html data-theme="light">. Dark stays the default in :root.
+   ============================================================ */
+[data-theme="light"] {
+  --bg:        #F5F4F0;   /* warm paper */
+  --bg-2:      #FFFFFF;
+  --card:      #FFFFFF;
+  --card-2:    #F0EFEA;
+  --line:      rgba(0,0,0,0.10);
+  --line-soft: rgba(0,0,0,0.06);
+  --text:      #1A1A17;   /* near-black ink */
+  --text-2:    #5C5C55;
+  --faint:     #8A8A82;
+  --accent:    #E67E00;
+  --accent-2:  #b45f00;
+  color-scheme: light;
+}
+
+[data-theme="light"] .btn-primary { background: var(--text); color: #FFFFFF; }
+[data-theme="light"] .btn-primary:hover:not(:disabled) { background: #000000; }
+[data-theme="light"] .btn-ghost { color: var(--text); border-color: var(--line); }
+[data-theme="light"] .btn-ghost:hover:not(:disabled) { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.16); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.24); }
+
+html { transition: background-color 0.3s ease; }
+body, .card, .input, .btn, aside, header, main, nav { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+@media (prefers-reduced-motion: reduce) {
+  html, body, .card, .input, .btn, aside, header, main, nav { transition: none; }
+}

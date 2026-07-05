@@ -4,8 +4,8 @@ import { ThemeToggle } from '../lib/theme'
 // ============================================================
 // Aadvik AI · Construction OS — landing (v3, Dayos-style)
 // Heavy tight display type, alternating cream / ink bands,
-// pill buttons, flat CSS-isometric cube accents, and a logo
-// wall of the real construction ecosystem. Themes dark/light.
+// pill buttons, flat CSS-isometric cube accents, a page-wide
+// ribbed line texture, and a real-ecosystem logo wall.
 // ============================================================
 
 const TRIWORDS = [
@@ -33,7 +33,7 @@ export default function Landing() {
   const go = () => navigate('/login')
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased overflow-x-hidden">
+    <div className="page-lines min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased overflow-x-hidden">
       {/* ---------- Nav ---------- */}
       <header className="sticky top-0 z-40 bg-[var(--bg)]/85 backdrop-blur-md border-b border-[var(--line)]">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-8 h-16 flex items-center justify-between">

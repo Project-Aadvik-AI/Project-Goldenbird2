@@ -4,7 +4,7 @@ import { ThemeToggle } from '../lib/theme'
 
 // ============================================================
 // Auth — themed to match the landing. Colors from CSS variables
-// so it flips dark/light. Toggle sits top-right of the form.
+// so it flips dark/light. Flowing contour background + toggle.
 // ============================================================
 
 export default function AuthPages() {
@@ -30,9 +30,9 @@ export default function AuthPages() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
-      {/* ---------- Left — brand + live project (desktop) ---------- */}
-      <section className="relative hidden lg:flex flex-col justify-between w-[46%] border-r border-[var(--line)] px-14 py-12">
+    <div className="flow-bg flex min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
+      {/* ---------- Left — brand (desktop) ---------- */}
+      <section className="relative hidden lg:flex flex-col justify-between w-[46%] border-r border-[var(--line)] px-14 py-12 z-10">
         <div className="flex items-center gap-3">
           <span className="w-[7px] h-[7px] bg-[var(--accent)] rounded-[1px] mt-[1px]" />
           <span className="text-[13px] font-semibold tracking-[0.28em]">AADVIK</span>
@@ -53,22 +53,14 @@ export default function AuthPages() {
           </p>
         </div>
 
-        <div>
-          <div className="flex items-baseline justify-between mb-4">
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--faint)] font-mono">Live project</span>
-            <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--faint)] font-mono">01 / 10</span>
-          </div>
-          <div className="text-[15px] mb-4">Railway Siding Augmentation</div>
-          <div className="grid grid-cols-3 gap-6 border-t border-[var(--line)] pt-4">
-            <Stat k="Contract" v="₹33.55 Cr" accent />
-            <Stat k="Owner" v="NALCO" />
-            <Stat k="Supervision" v="RITES" />
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90" />
+          <span className="text-[10px] tracking-[0.2em] text-[var(--faint)] font-mono uppercase">Systems operational</span>
         </div>
       </section>
 
       {/* ---------- Right — form ---------- */}
-      <main className="flex-1 flex flex-col justify-center items-center px-6 relative">
+      <main className="flex-1 flex flex-col justify-center items-center px-6 relative z-10">
         <div className="absolute top-6 right-6">
           <ThemeToggle />
         </div>
@@ -153,8 +145,8 @@ export default function AuthPages() {
           </div>
         </div>
 
-        {/* status */}
-        <div className="absolute bottom-8 flex items-center gap-2">
+        {/* status (mobile / small screens) */}
+        <div className="absolute bottom-8 flex items-center gap-2 lg:hidden">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90" />
           <span className="text-[10px] tracking-[0.2em] text-[var(--faint)] font-mono uppercase">Systems operational</span>
         </div>
@@ -169,14 +161,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-[10px] font-mono tracking-[0.16em] text-[var(--faint)] uppercase block mb-2">{label}</span>
       {children}
     </label>
-  )
-}
-
-function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
-  return (
-    <div>
-      <div className={`text-[15px] ${accent ? 'text-[var(--accent)] font-mono' : 'text-[var(--text)]'}`}>{v}</div>
-      <div className="text-[9px] tracking-[0.2em] uppercase text-[var(--faint)] font-mono mt-1">{k}</div>
-    </div>
   )
 }

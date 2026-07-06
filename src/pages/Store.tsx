@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import ExportButtons from '../components/ExportButtons'
 
 type LedgerRow = {
   id: string; date: string; direction: string; item: string; unit: string
@@ -71,8 +72,14 @@ export default function Store() {
       )}
 
       <div className="card overflow-hidden overflow-x-auto">
-        <div className="px-4 py-3 border-b border-white/5">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[#e2e2e8]">Ledger</span>
+          <ExportButtons
+            filename="store_ledger"
+            title="Store Ledger"
+            headers={['Date', 'Direction', 'Item', 'Qty', 'Unit', 'Value (INR)', 'Vendor / Tag', 'Challan', 'Remark']}
+            rows={rows.map(r => [r.date, r.direction, r.item, r.qty, r.unit, r.value ?? '—', (r.vendor || r.tag || '—'), r.challan || '—', r.remark || '—'])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]">

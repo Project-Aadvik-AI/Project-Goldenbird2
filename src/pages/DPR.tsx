@@ -4,6 +4,7 @@ import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateImage } from '../components/PrivateFile'
+import ExportButtons from '../components/ExportButtons'
 
 type DprRow = {
   id: string; date: string; schedule: string; item: string; unit: string
@@ -70,8 +71,14 @@ export default function DPR() {
 
       {tab === 'progress' ? (
         <div className="card overflow-hidden overflow-x-auto">
-          <div className="px-4 py-3 border-b border-white/5">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-[#e2e2e8]">Work Progress</span>
+            <ExportButtons
+              filename="dpr_progress"
+              title="Daily Progress Report"
+              headers={['Date', 'Schedule', 'Item', 'Unit', 'Today Qty', 'Cumulative', 'BoQ Qty', '% Done', 'Remark']}
+              rows={dprRows.map(r => [r.date, r.schedule, r.item, r.unit, r.today_qty, r.cumulative_qty ?? '—', r.boq_qty ?? '—', (r.boq_qty ? ((Number(r.cumulative_qty || 0) / Number(r.boq_qty)) * 100).toFixed(1) + '%' : '—'), r.remark || '—'])}
+            />
           </div>
           <table className="w-full text-sm">
             <thead className="bg-[#282a2e]">

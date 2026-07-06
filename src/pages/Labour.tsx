@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import ExportButtons from '../components/ExportButtons'
 
 type LabourRow = {
   id: string; date: string; worker_name: string; skill: string | null
@@ -67,8 +68,14 @@ export default function Labour() {
       </div>
 
       <div className="card overflow-hidden overflow-x-auto">
-        <div className="px-4 py-3 border-b border-white/5">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[#e2e2e8]">Attendance Records</span>
+          <ExportButtons
+            filename="labour_wages"
+            title="Labour & Wages"
+            headers={['Date', 'Worker', 'Skill', 'Days', 'Rate (INR)', 'Wage (INR)', 'Remark']}
+            rows={rows.map(r => [r.date, r.worker_name, r.skill || '—', r.days_present, r.daily_rate, r.wage, r.remark || '—'])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]">

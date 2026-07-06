@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import ExportButtons from '../components/ExportButtons'
 
 type MachineRow = {
   id: string; date: string; machine: string; type: string | null; status: string
@@ -80,8 +81,14 @@ export default function Machines() {
       </div>
 
       <div className="card overflow-hidden overflow-x-auto">
-        <div className="px-4 py-3 border-b border-white/5">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[#e2e2e8]">Status Log</span>
+          <ExportButtons
+            filename="machine_status"
+            title="Machine Status Log"
+            headers={['Date', 'Machine', 'Type', 'Status', 'Activity', 'Operator', 'Meter', 'Run Unit', 'Reason']}
+            rows={rows.map(r => [r.date, r.machine, r.type || '—', r.status, r.activity || '—', r.operator || '—', r.meter_reading ?? '—', r.run_unit || '—', r.reason || '—'])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]">

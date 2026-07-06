@@ -4,6 +4,7 @@ import { useProject, NoProjectPrompt } from '../lib/project'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateLink } from '../components/PrivateFile'
 import { useAuth } from '../lib/auth'
+import ExportButtons from '../components/ExportButtons'
 
 type PR = {
   id: string; date: string; pr_no: string | null; material: string; qty: number | null; unit: string | null
@@ -74,8 +75,14 @@ export default function Purchase() {
       </div>
 
       <div className="card overflow-hidden overflow-x-auto">
-        <div className="px-4 py-3 border-b border-white/5">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[#e2e2e8]">All Requests</span>
+          <ExportButtons
+            filename="purchase_requests"
+            title="Purchase Requests"
+            headers={['Date', 'PR No', 'Material', 'Qty', 'Unit', 'Vendor', 'Needed By', 'Status', 'Remark']}
+            rows={rows.map(r => [r.date, r.pr_no || '—', r.material, r.qty ?? '—', r.unit || '—', r.vendor || '—', r.needed_by || '—', r.status, r.remark || '—'])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]">

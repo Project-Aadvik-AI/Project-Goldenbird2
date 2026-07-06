@@ -4,6 +4,7 @@ import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateImage } from '../components/PrivateFile'
+import ExportButtons from '../components/ExportButtons'
 
 type Expense = {
   id: string; date: string; expense_type: string; amount: number
@@ -47,8 +48,14 @@ export default function Expenses() {
       </div>
 
       <div className="card overflow-hidden overflow-x-auto">
-        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-[#e2e2e8]">Recent Transactions</span>
+          <ExportButtons
+            filename="expenses"
+            title="Daily Expenses"
+            headers={['Date', 'Type', 'Amount (INR)', 'Vendor', 'Status', 'Paid By', 'Remark']}
+            rows={rows.map(r => [r.date, r.expense_type, Number(r.amount), r.vendor || '—', r.payment_status, r.paid_by || '—', r.remark || '—'])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]">

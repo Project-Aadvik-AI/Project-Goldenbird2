@@ -12,13 +12,8 @@ type Ctx = { theme: Theme; toggle: () => void; setTheme: (t: Theme) => void }
 const ThemeContext = createContext<Ctx>({ theme: 'dark', toggle: () => {}, setTheme: () => {} })
 
 function initialTheme(): Theme {
-  try {
-    const saved = localStorage.getItem('aadvik-theme')
-    if (saved === 'light' || saved === 'dark') return saved
-  } catch { /* ignore */ }
   return 'light'
 }
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(initialTheme)
 

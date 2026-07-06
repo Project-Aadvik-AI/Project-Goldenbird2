@@ -16,8 +16,7 @@ function initialTheme(): Theme {
     const saved = localStorage.getItem('aadvik-theme')
     if (saved === 'light' || saved === 'dark') return saved
   } catch { /* ignore */ }
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light'
-  return 'dark'
+  return 'light'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

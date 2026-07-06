@@ -1,37 +1,50 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
 import { ThemeToggle } from '../lib/theme'
 import { useLang, LanguageToggle } from '../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
 
-type NavItem = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
+type Leaf = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
+type Group = { group: string; icon: string; items: Leaf[] }
+type Entry = Leaf | Group
+const isGroup = (e: Entry): e is Group => 'group' in e
 
-const NAV: NavItem[] = [
+const NAV: Entry[] = [
   { to: '/', label: 'Overview', icon: 'dashboard' },
   { to: '/project', label: 'Project Home', icon: 'space_dashboard' },
-  { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
-  { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
-  { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
-  { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
-  { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
-  { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
-  { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
-  { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },
+  { group: 'Site Operations', icon: 'engineering', items: [
+    { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
+    { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
+    { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
+    { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
+    { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
+  ] },
+  { group: 'Procurement', icon: 'shopping_cart', items: [
+    { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
+    { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
+    { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
+  ] },
+  { group: 'HR Management', icon: 'badge', items: [
+    { to: '/employees', label: 'Employees', icon: 'badge', module: 'hr' },
+    { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'hr' },
+    { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'hr' },
+  ] },
+  { group: 'Documents', icon: 'folder_open', items: [
+    { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },
+    { to: '/correspondence', label: 'Correspondence', icon: 'mail', module: 'correspondence' },
+    { to: '/contracts', label: 'Contracts', icon: 'gavel', module: 'contracts' },
+    { to: '/documents', label: 'Documents', icon: 'folder_open', module: 'documents' },
+  ] },
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
-  { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
-  { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
-  { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
-  { to: '/employees', label: 'Employees', icon: 'badge', module: 'hr' },
-  { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'hr' },
-  { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'hr' },
-  { to: '/documents', label: 'Documents', icon: 'folder_open', module: 'documents' },
-  { to: '/correspondence', label: 'Correspondence', icon: 'mail', module: 'correspondence' },
-  { to: '/contracts', label: 'Contracts', icon: 'gavel', module: 'contracts' },
+  { group: 'Reports & AI', icon: 'analytics', items: [
+    { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
+    { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
+  ] },
   { to: '/masters', label: 'Master Data', icon: 'database', module: 'masters' },
 ]
 
-const ADMIN_NAV: NavItem[] = [
+const ADMIN_NAV: Leaf[] = [
   { to: '/admin/staff', label: 'Staff & Permissions', icon: 'admin_panel_settings' },
   { to: '/projects', label: 'Projects', icon: 'domain' },
   { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
@@ -53,16 +66,40 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-[var(--faint)] hover:text-[var(--text)] pl-4 border-l-2 border-transparent'
   }`
 
+const childLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-3 py-2 pr-4 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors duration-150 ${
+    isActive
+      ? 'text-[var(--text)] border-l-2 border-[var(--accent)] pl-[34px]'
+      : 'text-[var(--faint)] hover:text-[var(--text)] pl-9 border-l-2 border-transparent'
+  }`
+
 export default function AppShell() {
   const { profile, user, signOut, isAdmin, can } = useAuth()
   const { t } = useLang()
+  const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
 
-  const visibleNav = NAV.filter(n => {
+  const leafVisible = (n: Leaf) => {
     if (n.adminOnly) return isAdmin
     if (n.module) return can(n.module, 'view')
     return true
-  })
+  }
+
+  const activeGroup = (() => {
+    for (const e of NAV) {
+      if (isGroup(e) && e.items.some(i => i.to === pathname)) return e.group
+    }
+    return null
+  })()
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+    () => (activeGroup ? { [activeGroup]: true } : {})
+  )
+
+  useEffect(() => {
+    if (activeGroup) setOpenGroups(prev => ({ ...prev, [activeGroup]: true }))
+  }, [activeGroup])
+
   const visibleAdmin = isAdmin ? ADMIN_NAV : []
   const initials = (profile?.full_name || user?.email || 'U').slice(0, 2).toUpperCase()
 
@@ -79,12 +116,44 @@ export default function AppShell() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 space-y-0.5">
-          {visibleNav.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={() => setOpen(false)} className={linkClass}>
-              <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px' }}>{n.icon}</span>
-              {t(n.label)}
-            </NavLink>
-          ))}
+          {NAV.map(e => {
+            if (!isGroup(e)) {
+              if (!leafVisible(e)) return null
+              return (
+                <NavLink key={e.to} to={e.to} end={e.to === '/'} onClick={() => setOpen(false)} className={linkClass}>
+                  <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px' }}>{e.icon}</span>
+                  {t(e.label)}
+                </NavLink>
+              )
+            }
+            const items = e.items.filter(leafVisible)
+            if (!items.length) return null
+            const expanded = !!openGroups[e.group]
+            const groupActive = items.some(i => i.to === pathname)
+            return (
+              <div key={e.group}>
+                <button
+                  onClick={() => setOpenGroups(prev => ({ ...prev, [e.group]: !prev[e.group] }))}
+                  className={`w-full flex items-center gap-3 py-2.5 pl-4 pr-3 text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors ${groupActive ? 'text-[var(--text)]' : 'text-[var(--faint)] hover:text-[var(--text)]'}`}
+                >
+                  <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px' }}>{e.icon}</span>
+                  <span className="flex-1 text-left">{t(e.group)}</span>
+                  <span className="material-symbols-outlined flex-shrink-0 transition-transform duration-200" style={{ fontSize: '18px', transform: expanded ? 'rotate(180deg)' : 'none' }}>expand_more</span>
+                </button>
+                {expanded && (
+                  <div className="space-y-0.5 pb-1">
+                    {items.map(i => (
+                      <NavLink key={i.to} to={i.to} onClick={() => setOpen(false)} className={childLinkClass}>
+                        <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '16px' }}>{i.icon}</span>
+                        {t(i.label)}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
           {visibleAdmin.length > 0 && (
             <>
               <div className="mt-5 px-4 pt-4 pb-2 text-[9px] font-semibold text-[var(--faint)] uppercase tracking-[0.24em] border-t border-[var(--line)] flex items-center gap-2">
@@ -131,7 +200,7 @@ export default function AppShell() {
           </div>
         </header>
 
-       <main className="flow-bg flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
+        <main className="flow-bg flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
           <div className="relative z-10">
             <Outlet />
           </div>

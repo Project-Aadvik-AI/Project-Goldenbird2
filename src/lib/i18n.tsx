@@ -30,12 +30,19 @@ const HI: Record<string, string> = {
   'Correspondence': 'पत्राचार',
   'Contracts': 'अनुबंध',
   'Master Data': 'Master Data',
+  // nav groups
+  'Site Operations': 'साइट ऑपरेशन्स',
+  'Procurement': 'Procurement',
+  'HR Management': 'HR Management',
+  'Reports & AI': 'Reports & AI',
+  // admin
   'Admin': 'व्यवस्थापन',
   'Staff & Permissions': 'स्टाफ व अनुमतियाँ',
   'Projects': 'प्रोजेक्ट्स',
   'Reports & Export': 'रिपोर्ट्स व Export',
   'Invite Code': 'इनवाइट कोड',
   'Team': 'टीम',
+  // shell chrome
   'Logout': 'लॉगआउट',
   'Live': 'Live',
   'member': 'सदस्य',

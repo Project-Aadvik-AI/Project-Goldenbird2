@@ -42,7 +42,7 @@ export default function Home() {
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Established 2009
           </div>
           <h1 className="display text-[clamp(2.8rem,8vw,6.5rem)] text-[var(--text)]">
-            Building infrastructure that lasts.
+            Strength in every structure.
           </h1>
           <p className="mt-8 text-[16px] leading-relaxed text-[var(--text-2)] max-w-[40rem]">
             AADVIK is a civil construction and infrastructure firm dedicated to building the backbone of modern India.

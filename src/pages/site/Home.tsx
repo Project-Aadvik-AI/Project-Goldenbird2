@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
-import SiteChrome, { Cube } from './SiteChrome'
+import SiteChrome from './SiteChrome'
+import { IMAGES } from '../../lib/images'
 
 const STATS = [
   { value: '15+', label: 'Years in Business' },
@@ -16,9 +17,9 @@ const SERVICES = [
 ]
 
 const PROJECTS = [
-  { tag: 'Railway • 2024', title: 'NALCO Damanjodi Railway Siding', body: 'A ₹33.55 Cr railway-siding package delivering heavy earthworks, track linking and allied civil works.' },
-  { tag: 'Urban • 2024', title: 'Delta Water Works', body: 'Industrial water treatment and distribution infrastructure with polished steel pipelines and reservoirs.' },
-  { tag: 'Highway • 2023', title: 'Interstate Highway X-20', body: 'A 120 km arterial highway connecting two industrial corridors with zero-maintenance surfacing.' },
+  { tag: 'Railway • 2024', title: 'NALCO Damanjodi Railway Siding', body: 'A ₹33.55 Cr railway-siding package delivering heavy earthworks, track linking and allied civil works.', img: IMAGES.nalcoSiding },
+  { tag: 'Urban • 2024', title: 'Delta Water Works', body: 'Industrial water treatment and distribution infrastructure with polished steel pipelines and reservoirs.', img: IMAGES.deltaWater },
+  { tag: 'Highway • 2023', title: 'Interstate Highway X-20', body: 'A 120 km arterial highway connecting two industrial corridors with zero-maintenance surfacing.', img: IMAGES.highwayX20 },
 ]
 
 const CLIENTS = [
@@ -35,33 +36,50 @@ export default function Home() {
   return (
     <SiteChrome>
       {/* Hero */}
-      <section className="relative mx-auto max-w-[1200px] px-6 lg:px-8 pt-16 lg:pt-24 pb-16 lg:pb-24">
-        <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-12 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 mb-8 px-3 py-1.5 rounded-full border border-[var(--line)] text-[11px] tracking-[0.16em] uppercase text-[var(--text-2)] font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Established 2009
-            </div>
-            <h1 className="display text-[clamp(2.6rem,6.5vw,5.4rem)] text-[var(--text)]">
-              Building infrastructure that lasts.
-            </h1>
-            <p className="mt-8 text-[16px] leading-relaxed text-[var(--text-2)] max-w-[36rem]">
-              AADVIK is a civil construction and infrastructure firm dedicated to building the backbone of modern India.
-              We deliver structural excellence through technical precision, unwavering integrity, and industrial-grade safety.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <Link to="/projects" className="inline-flex items-center gap-2 text-[14px] font-bold text-[var(--bg)] bg-[var(--text)] hover:opacity-90 px-7 py-3.5 rounded-full transition-opacity">
-                Our Projects <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-              </Link>
-              <a href="mailto:contact@aadvik.example" className="inline-flex items-center text-[14px] font-semibold text-[var(--text)] border border-[var(--line)] hover:border-[var(--text-2)] px-7 py-3.5 rounded-full transition-colors">
-                Get a Quote
-              </a>
-            </div>
+      <section className="relative mx-auto max-w-[1200px] px-6 lg:px-8 pt-16 lg:pt-20 pb-8">
+        <div className="max-w-[52rem]">
+          <div className="inline-flex items-center gap-2 mb-8 px-3 py-1.5 rounded-full border border-[var(--line)] text-[11px] tracking-[0.16em] uppercase text-[var(--text-2)] font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Established 2009
           </div>
-          <div className="relative h-[300px] lg:h-[380px] hidden sm:block">
-            <div className="absolute left-[8%] top-[18%]"><Cube size={130} faces={['#ffcf8f', '#ff8f00', '#c96f00']} /></div>
-            <div className="absolute right-[10%] top-0"><Cube size={92} faces={['#CBB6F6', '#a98ff0', '#7d5fd8']} /></div>
-            <div className="absolute right-[22%] bottom-[6%]"><Cube size={110} faces={['#B8EFC8', '#7fe0a0', '#4fbf7a']} /></div>
-            <div className="absolute left-[30%] bottom-0"><Cube size={70} faces={['#BFE0F5', '#8fc9ef', '#5aa9e0']} /></div>
+          <h1 className="display text-[clamp(2.8rem,8vw,6.5rem)] text-[var(--text)]">
+            Building infrastructure that lasts.
+          </h1>
+          <p className="mt-8 text-[16px] leading-relaxed text-[var(--text-2)] max-w-[40rem]">
+            AADVIK is a civil construction and infrastructure firm dedicated to building the backbone of modern India.
+            We deliver structural excellence through technical precision, unwavering integrity, and industrial-grade safety.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            <Link to="/projects" className="inline-flex items-center gap-2 text-[14px] font-bold text-[var(--bg)] bg-[var(--text)] hover:opacity-90 px-7 py-3.5 rounded-full transition-opacity">
+              Our Projects <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+            </Link>
+            <a href="mailto:contact@aadvik.example" className="inline-flex items-center text-[14px] font-semibold text-[var(--text)] border border-[var(--line)] hover:border-[var(--text-2)] px-7 py-3.5 rounded-full transition-colors">
+              Get a Quote
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Cinematic hero image band */}
+      <section className="mx-auto max-w-[1320px] px-4 lg:px-8 pb-16 lg:pb-24">
+        <div className="group relative rounded-[28px] overflow-hidden border border-[var(--line)] shadow-[0_40px_80px_-30px_rgba(0,0,0,0.45)] h-[380px] sm:h-[460px] lg:h-[560px]">
+          <img src={IMAGES.heroSite} alt="AADVIK infrastructure site"
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-[1200ms] ease-out" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" />
+
+          {/* caption bottom-left */}
+          <div className="absolute left-6 lg:left-10 bottom-6 lg:bottom-10 right-6">
+            <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="text-[10px] font-mono tracking-[0.24em] uppercase text-white/90">Live Project</span>
+            </div>
+            <div className="display text-[clamp(1.6rem,3.5vw,2.8rem)] text-white leading-none">NALCO Damanjodi Railway Siding</div>
+            <div className="text-[14px] text-white/80 mt-3 font-mono tracking-wide">₹33.55 Cr · under RITES · Damanjodi, Odisha</div>
+          </div>
+
+          {/* stat chips top-right */}
+          <div className="absolute top-6 right-6 hidden md:flex flex-col gap-2 items-end">
+            <Chip k="Contract" v="₹33.55 Cr" />
+            <Chip k="Supervision" v="RITES" />
           </div>
         </div>
       </section>
@@ -124,12 +142,17 @@ export default function Home() {
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           {PROJECTS.map(p => (
-            <Link key={p.title} to="/projects" className="group rounded-2xl border border-[var(--line)] bg-[var(--card)] p-6 hover:border-[var(--accent)]/50 transition-colors">
+            <Link key={p.title} to="/projects" className="group rounded-2xl border border-[var(--line)] bg-[var(--card)] overflow-hidden hover:border-[var(--accent)]/50 transition-colors">
+              <div className="relative h-40 overflow-hidden">
+                <img src={p.img} alt={p.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              </div>
+              <div className="p-6">
               <div className="text-[11px] font-mono tracking-[0.14em] uppercase text-[var(--accent)] mb-4">{p.tag}</div>
               <h3 className="text-[18px] font-semibold text-[var(--text)] mb-3 leading-snug">{p.title}</h3>
               <p className="text-[13px] leading-relaxed text-[var(--text-2)]">{p.body}</p>
               <div className="mt-5 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--text-2)] group-hover:text-[var(--accent)] transition-colors">
                 View details <span className="material-symbols-outlined group-hover:translate-x-0.5 transition-transform" style={{ fontSize: '15px' }}>arrow_forward</span>
+              </div>
               </div>
             </Link>
           ))}
@@ -149,6 +172,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Gallery */}
+      <section className="mx-auto max-w-[1200px] px-6 lg:px-8 pb-16 lg:pb-24">
+        <div className="text-[11px] tracking-[0.3em] uppercase text-[var(--accent)] font-mono mb-8">On the Ground</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[IMAGES.gallery1, IMAGES.gallery2, IMAGES.gallery3, IMAGES.gallery4].map((g, i) => (
+            <div key={i} className="group relative aspect-[4/3] rounded-2xl overflow-hidden border border-[var(--line)]">
+              <img src={g} alt="AADVIK site" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="bg-[var(--ink)] text-[var(--ink-fg)]">
         <div className="mx-auto max-w-[1200px] px-6 lg:px-8 py-20 lg:py-24 text-center">
@@ -157,16 +192,25 @@ export default function Home() {
             Connect with our engineering team today for a detailed feasibility study and quotation for your next infrastructure project.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <a href="mailto:contact@aadvik.example" className="inline-flex items-center gap-2 text-[14px] font-bold text-[var(--bg)] bg-[var(--ink-fg)] hover:opacity-90 px-8 py-4 rounded-full transition-opacity">
+            <a href="mailto:contact@aadvik.example" className="inline-flex items-center gap-2 text-[14px] font-bold text-[#0B0B0C] bg-[#ECEBE6] hover:opacity-90 px-8 py-4 rounded-full transition-opacity">
               Request Proposal <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
             </a>
-            <button onClick={() => navigate('/login')} className="inline-flex items-center text-[14px] font-semibold text-[var(--ink-fg)] border border-white/[0.2] hover:border-white/[0.4] px-8 py-4 rounded-full transition-colors">
+            <button onClick={() => navigate('/login')} className="inline-flex items-center text-[14px] font-semibold text-[#ECEBE6] border border-[#ffffff40] hover:border-[#ffffff80] px-8 py-4 rounded-full transition-colors">
               Contact Sales
             </button>
           </div>
         </div>
       </section>
     </SiteChrome>
+  )
+}
+
+function Chip({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-right">
+      <div className="text-[9px] font-mono tracking-[0.2em] uppercase text-white/60">{k}</div>
+      <div className="text-[14px] font-semibold text-white">{v}</div>
+    </div>
   )
 }
 

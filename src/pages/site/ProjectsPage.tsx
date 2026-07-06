@@ -1,17 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom'
 import SiteChrome from './SiteChrome'
+import { IMAGES } from '../../lib/images'
 import { useState } from 'react'
 
 type Status = 'ongoing' | 'completed'
-type Project = { title: string; location: string; client: string; status: Status; progress: number }
+type Project = { title: string; location: string; client: string; status: Status; progress: number; img: string }
 
 const PROJECTS: Project[] = [
-  { title: 'NALCO Damanjodi Railway Siding', location: 'Damanjodi, Odisha', client: 'NALCO · under RITES', status: 'ongoing', progress: 62 },
-  { title: 'Delta Water Works', location: 'Ahmedabad, Gujarat', client: 'Municipal Corporation', status: 'ongoing', progress: 42 },
-  { title: 'Interstate Highway X-20', location: 'Navi Mumbai, Maharashtra', client: 'NHAI', status: 'ongoing', progress: 75 },
-  { title: 'Skyline Tech Park', location: 'Pune, Maharashtra', client: 'Global Tech Infra', status: 'completed', progress: 100 },
-  { title: 'Sector-V Flyover', location: 'Bengaluru, Karnataka', client: 'BDA', status: 'completed', progress: 100 },
-  { title: 'Logistics Hub B-4', location: 'Hyderabad, Telangana', client: 'National Logistics', status: 'ongoing', progress: 15 },
+  { title: 'NALCO Damanjodi Railway Siding', location: 'Damanjodi, Odisha', client: 'NALCO · under RITES', status: 'ongoing', progress: 62, img: IMAGES.nalcoSiding },
+  { title: 'Delta Water Works', location: 'Ahmedabad, Gujarat', client: 'Municipal Corporation', status: 'ongoing', progress: 42, img: IMAGES.deltaWater },
+  { title: 'Interstate Highway X-20', location: 'Navi Mumbai, Maharashtra', client: 'NHAI', status: 'ongoing', progress: 75, img: IMAGES.highwayX20 },
+  { title: 'Skyline Tech Park', location: 'Pune, Maharashtra', client: 'Global Tech Infra', status: 'completed', progress: 100, img: IMAGES.techPark },
+  { title: 'Sector-V Flyover', location: 'Bengaluru, Karnataka', client: 'BDA', status: 'completed', progress: 100, img: IMAGES.flyover },
+  { title: 'Logistics Hub B-4', location: 'Hyderabad, Telangana', client: 'National Logistics', status: 'ongoing', progress: 15, img: IMAGES.logisticsHub },
 ]
 
 const FILTERS: { key: 'all' | Status; label: string }[] = [
@@ -55,7 +56,12 @@ export default function ProjectsPage() {
       <section className="mx-auto max-w-[1200px] px-6 lg:px-8 pb-16 lg:pb-24">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {list.map(p => (
-            <article key={p.title} className="group rounded-2xl border border-[var(--line)] bg-[var(--card)] p-6 flex flex-col hover:border-[var(--accent)]/50 transition-colors">
+            <article key={p.title} className="group rounded-2xl border border-[var(--line)] bg-[var(--card)] overflow-hidden flex flex-col hover:border-[var(--accent)]/50 transition-colors">
+              <div className="relative h-44 overflow-hidden">
+                <img src={p.img} alt={p.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              </div>
+              <div className="p-6 flex flex-col flex-1">
               <div className="flex items-center justify-between mb-5">
                 <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full ${
                   p.status === 'ongoing'
@@ -89,6 +95,7 @@ export default function ProjectsPage() {
                     style={{ width: `${p.progress}%` }} />
                 </div>
               </div>
+              </div>
             </article>
           ))}
         </div>
@@ -102,10 +109,10 @@ export default function ProjectsPage() {
             Interested in partnering with AADVIK for your next large-scale infrastructure project? Let's discuss your requirements.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <a href="mailto:contact@aadvik.example" className="inline-flex items-center gap-2 text-[14px] font-bold text-[var(--bg)] bg-[var(--ink-fg)] hover:opacity-90 px-8 py-4 rounded-full transition-opacity">
+            <a href="mailto:contact@aadvik.example" className="inline-flex items-center gap-2 text-[14px] font-bold text-[#0B0B0C] bg-[#ECEBE6] hover:opacity-90 px-8 py-4 rounded-full transition-opacity">
               Get a Quote <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
             </a>
-            <button onClick={() => navigate('/about')} className="inline-flex items-center text-[14px] font-semibold text-[var(--ink-fg)] border border-white/[0.2] hover:border-white/[0.4] px-8 py-4 rounded-full transition-colors">
+            <button onClick={() => navigate('/about')} className="inline-flex items-center text-[14px] font-semibold text-[#ECEBE6] border border-[#ffffff40] hover:border-[#ffffff80] px-8 py-4 rounded-full transition-colors">
               View Capabilities
             </button>
           </div>

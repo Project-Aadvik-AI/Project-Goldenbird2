@@ -53,8 +53,18 @@ export default function Expenses() {
           <ExportButtons
             filename="expenses"
             title="Daily Expenses"
-            headers={['Date', 'Type', 'Amount (INR)', 'Vendor', 'Status', 'Paid By', 'Remark']}
-            rows={rows.map(r => [r.date, r.expense_type, Number(r.amount), r.vendor || '—', r.payment_status, r.paid_by || '—', r.remark || '—'])}
+            dateField="date"
+            rows={rows}
+            columns={[
+              { header: 'Date', get: r => r.date },
+              { header: 'Type', get: r => r.expense_type },
+              { header: 'Amount (INR)', get: r => Number(r.amount) },
+              { header: 'Vendor', get: r => r.vendor || '—' },
+              { header: 'Payment Status', get: r => r.payment_status },
+              { header: 'Paid By', get: r => r.paid_by || '—' },
+              { header: 'Bill Attached', get: r => (r.bill_photo ? 'Yes' : 'No') },
+              { header: 'Remark', get: r => r.remark || '—' },
+            ]}
           />
         </div>
         <table className="w-full text-sm">

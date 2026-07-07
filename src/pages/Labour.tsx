@@ -73,8 +73,17 @@ export default function Labour() {
           <ExportButtons
             filename="labour_wages"
             title="Labour & Wages"
-            headers={['Date', 'Worker', 'Skill', 'Days', 'Rate (INR)', 'Wage (INR)', 'Remark']}
-            rows={rows.map(r => [r.date, r.worker_name, r.skill || '—', r.days_present, r.daily_rate, r.wage, r.remark || '—'])}
+            dateField="date"
+            rows={rows}
+            columns={[
+              { header: 'Date', get: r => r.date },
+              { header: 'Worker', get: r => r.worker_name },
+              { header: 'Skill', get: r => r.skill || '—' },
+              { header: 'Days Present', get: r => r.days_present },
+              { header: 'Daily Rate (INR)', get: r => r.daily_rate },
+              { header: 'Wage (INR)', get: r => r.wage },
+              { header: 'Remark', get: r => r.remark || '—' },
+            ]}
           />
         </div>
         <table className="w-full text-sm">

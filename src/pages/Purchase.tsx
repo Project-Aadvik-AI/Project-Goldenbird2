@@ -80,8 +80,20 @@ export default function Purchase() {
           <ExportButtons
             filename="purchase_requests"
             title="Purchase Requests"
-            headers={['Date', 'PR No', 'Material', 'Qty', 'Unit', 'Vendor', 'Needed By', 'Status', 'Remark']}
-            rows={rows.map(r => [r.date, r.pr_no || '—', r.material, r.qty ?? '—', r.unit || '—', r.vendor || '—', r.needed_by || '—', r.status, r.remark || '—'])}
+            dateField="date"
+            rows={rows}
+            columns={[
+              { header: 'Date', get: r => r.date },
+              { header: 'PR No', get: r => r.pr_no || '—' },
+              { header: 'Material', get: r => r.material },
+              { header: 'Qty', get: r => (r.qty ?? '—') },
+              { header: 'Unit', get: r => r.unit || '—' },
+              { header: 'Vendor', get: r => r.vendor || '—' },
+              { header: 'Needed By', get: r => r.needed_by || '—' },
+              { header: 'Status', get: r => r.status },
+              { header: 'Quotation', get: r => (r.quotation ? 'Attached' : '—') },
+              { header: 'Remark', get: r => r.remark || '—' },
+            ]}
           />
         </div>
         <table className="w-full text-sm">

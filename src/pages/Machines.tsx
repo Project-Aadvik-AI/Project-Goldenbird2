@@ -86,8 +86,20 @@ export default function Machines() {
           <ExportButtons
             filename="machine_status"
             title="Machine Status Log"
-            headers={['Date', 'Machine', 'Type', 'Status', 'Activity', 'Operator', 'Meter', 'Run Unit', 'Reason']}
-            rows={rows.map(r => [r.date, r.machine, r.type || '—', r.status, r.activity || '—', r.operator || '—', r.meter_reading ?? '—', r.run_unit || '—', r.reason || '—'])}
+            dateField="date"
+            rows={rows}
+            columns={[
+              { header: 'Date', get: r => r.date },
+              { header: 'Machine', get: r => r.machine },
+              { header: 'Type', get: r => r.type || '—' },
+              { header: 'Status', get: r => r.status },
+              { header: 'Activity', get: r => r.activity || '—' },
+              { header: 'Operator', get: r => r.operator || '—' },
+              { header: 'Reason', get: r => r.reason || '—' },
+              { header: 'Meter Reading', get: r => (r.meter_reading ?? '—') },
+              { header: 'Run Unit', get: r => r.run_unit || '—' },
+              { header: 'Run Since Last', get: r => (r.run_since_last ?? '—') },
+            ]}
           />
         </div>
         <table className="w-full text-sm">

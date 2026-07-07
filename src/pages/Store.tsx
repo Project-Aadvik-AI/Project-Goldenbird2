@@ -77,8 +77,21 @@ export default function Store() {
           <ExportButtons
             filename="store_ledger"
             title="Store Ledger"
-            headers={['Date', 'Direction', 'Item', 'Qty', 'Unit', 'Value (INR)', 'Vendor / Tag', 'Challan', 'Remark']}
-            rows={rows.map(r => [r.date, r.direction, r.item, r.qty, r.unit, r.value ?? '—', (r.vendor || r.tag || '—'), r.challan || '—', r.remark || '—'])}
+            dateField="date"
+            rows={rows}
+            columns={[
+              { header: 'Date', get: r => r.date },
+              { header: 'Direction', get: r => r.direction },
+              { header: 'Item', get: r => r.item },
+              { header: 'Qty', get: r => r.qty },
+              { header: 'Unit', get: r => r.unit },
+              { header: 'Value (INR)', get: r => (r.value ?? '—') },
+              { header: 'Vendor', get: r => r.vendor || '—' },
+              { header: 'Tag Type', get: r => r.tag_type || '—' },
+              { header: 'Tag', get: r => r.tag || '—' },
+              { header: 'Challan', get: r => r.challan || '—' },
+              { header: 'Remark', get: r => r.remark || '—' },
+            ]}
           />
         </div>
         <table className="w-full text-sm">

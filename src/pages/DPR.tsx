@@ -76,8 +76,19 @@ export default function DPR() {
             <ExportButtons
               filename="dpr_progress"
               title="Daily Progress Report"
-              headers={['Date', 'Schedule', 'Item', 'Unit', 'Today Qty', 'Cumulative', 'BoQ Qty', '% Done', 'Remark']}
-              rows={dprRows.map(r => [r.date, r.schedule, r.item, r.unit, r.today_qty, r.cumulative_qty ?? '—', r.boq_qty ?? '—', (r.boq_qty ? ((Number(r.cumulative_qty || 0) / Number(r.boq_qty)) * 100).toFixed(1) + '%' : '—'), r.remark || '—'])}
+              dateField="date"
+              rows={dprRows}
+              columns={[
+                { header: 'Date', get: r => r.date },
+                { header: 'Schedule', get: r => r.schedule },
+                { header: 'Item', get: r => r.item },
+                { header: 'Unit', get: r => r.unit },
+                { header: 'Today Qty', get: r => r.today_qty },
+                { header: 'Cumulative Qty', get: r => (r.cumulative_qty ?? '—') },
+                { header: 'BoQ Qty', get: r => (r.boq_qty ?? '—') },
+                { header: '% Done', get: r => (r.boq_qty ? ((Number(r.cumulative_qty || 0) / Number(r.boq_qty)) * 100).toFixed(1) + '%' : '—') },
+                { header: 'Remark', get: r => r.remark || '—' },
+              ]}
             />
           </div>
           <table className="w-full text-sm">

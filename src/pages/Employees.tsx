@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
-import { PrivateLink } from '../components/PrivateFile'
+import { PrivateLink, PrivateImage } from '../components/PrivateFile'
 
 type Employee = {
   id: string
@@ -14,6 +15,11 @@ type Employee = {
   phone: string | null
   email: string | null
   address: string | null
+  aadhaar: string | null
+  emergency_contact: string | null
+  emergency_phone: string | null
+  qualification: string | null
+  monthly_salary: number | null
   join_date: string | null
   exit_date: string | null
   status: string
@@ -32,7 +38,7 @@ type EmpDoc = {
 }
 
 const DEPTS = ['Site', 'Accounts', 'Admin', 'Stores', 'HR', 'Other']
-const DOC_TYPES = ['ID Proof', 'Contract', 'Certificate', 'Medical', 'License', 'Other']
+const DOC_TYPES = ['Offer Letter', 'Degree / Qualification', 'Aadhaar', 'ID Proof', 'Contract', 'Certificate', 'Medical', 'License', 'Other']
 
 export default function Employees() {
   const { projects } = useProject()
@@ -61,7 +67,7 @@ export default function Employees() {
           <p className="text-sm text-[#dcc1ae] mt-0.5">Company-wide staff directory · {rows.length} on record</p>
         </div>
         <div className="flex gap-2">
-          <select className="input" value={filter} onChange={e => setFilter(e.target.value as any)} style={{ minWidth: 120 }}>
+          <select className="input" value={filter} onChange={e => setFilter(e.target.value as 'All' | 'Active' | 'Inactive')} style={{ minWidth: 120 }}>
             <option>Active</option><option>Inactive</option><option>All</option>
           </select>
           {can('hr', 'add') && (
@@ -87,7 +93,14 @@ export default function Employees() {
               return (
                 <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3 font-mono text-[12px] text-[#dcc1ae] whitespace-nowrap">{r.emp_code || '—'}</td>
-                  <td className="px-4 py-3 text-[#e2e2e8] font-semibold">{r.full_name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      {r.photo
+                        ? <PrivateImage bucket="employee-docs" path={r.photo} alt={r.full_name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                        : <span className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-semibold text-[#dcc1ae] flex-shrink-0">{r.full_name.slice(0, 2).toUpperCase()}</span>}
+                      <span className="text-[#e2e2e8] font-semibold">{r.full_name}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-[#dcc1ae]">{r.designation || '—'}</td>
                   <td className="px-4 py-3 text-[#dcc1ae]">{r.department || '—'}</td>
                   <td className="px-4 py-3 text-[#dcc1ae]">{projName || '—'}</td>
@@ -130,43 +143,74 @@ export default function Employees() {
 
 function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null; onClose: () => void; onSaved: () => void }) {
   const { projects } = useProject()
-  const [empCode, setEmpCode] = useState(editing?.emp_code ?? '')
   const [fullName, setFullName] = useState(editing?.full_name ?? '')
   const [designation, setDesignation] = useState(editing?.designation ?? '')
   const [department, setDepartment] = useState(editing?.department ?? 'Site')
   const [phone, setPhone] = useState(editing?.phone ?? '')
   const [email, setEmail] = useState(editing?.email ?? '')
   const [address, setAddress] = useState(editing?.address ?? '')
+  const [aadhaar, setAadhaar] = useState(editing?.aadhaar ?? '')
+  const [emergencyContact, setEmergencyContact] = useState(editing?.emergency_contact ?? '')
+  const [emergencyPhone, setEmergencyPhone] = useState(editing?.emergency_phone ?? '')
+  const [qualification, setQualification] = useState(editing?.qualification ?? '')
+  const [monthlySalary, setMonthlySalary] = useState(editing?.monthly_salary != null ? String(editing.monthly_salary) : '')
   const [joinDate, setJoinDate] = useState(editing?.join_date ?? '')
   const [exitDate, setExitDate] = useState(editing?.exit_date ?? '')
   const [status, setStatus] = useState(editing?.status ?? 'Active')
   const [projectId, setProjectId] = useState(editing?.project_id ?? '')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [existingPhoto] = useState(editing?.photo ?? null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const photoRef = useRef<HTMLInputElement>(null)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) { setErr('Name is required'); return }
     setBusy(true); setErr(null)
-    const payload: any = {
-      emp_code: empCode || null,
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+
+    // upload photo if a new one was chosen
+    let photoPath = existingPhoto
+    if (photoFile) {
+      const ppath = makeObjectPath(prof?.org_id, photoFile, 'employees/photos')
+      const { path: stored, error: upErr } = await uploadPrivate('employee-docs', ppath, photoFile)
+      if (upErr) { setErr('Photo upload failed: ' + upErr); setBusy(false); return }
+      photoPath = stored ?? existingPhoto
+    }
+
+    const payload: Record<string, unknown> = {
       full_name: fullName,
       designation: designation || null,
       department: department || null,
       phone: phone || null,
       email: email || null,
       address: address || null,
+      aadhaar: aadhaar || null,
+      emergency_contact: emergencyContact || null,
+      emergency_phone: emergencyPhone || null,
+      qualification: qualification || null,
+      monthly_salary: monthlySalary ? Number(monthlySalary) : null,
       join_date: joinDate || null,
       exit_date: exitDate || null,
       status,
       project_id: projectId || null,
+      photo: photoPath || null,
     }
+
     if (editing) {
       const { error } = await supabase.from('employees').update(payload).eq('id', editing.id)
       setBusy(false)
       if (error) { setErr(error.message); return }
     } else {
-      const { data: prof } = await supabase.from('profiles').select('org_id').single()
+      // auto-generate the next AAD-#### code
+      const { data: all } = await supabase.from('employees').select('emp_code')
+      let max = 0
+      for (const x of all ?? []) {
+        const m = /^AAD-(\d+)$/.exec((x as { emp_code: string | null }).emp_code ?? '')
+        if (m) max = Math.max(max, parseInt(m[1], 10))
+      }
+      payload.emp_code = `AAD-${String(max + 1).padStart(4, '0')}`
       const { error } = await supabase.from('employees').insert({ ...payload, org_id: prof?.org_id })
       setBusy(false)
       if (error) { setErr(error.message); return }
@@ -174,19 +218,42 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
     onSaved()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
-        className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
-        <div className="p-5 border-b border-white/5 flex items-center justify-between">
+        className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-xl my-auto shadow-[0px_10px_30px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
           <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">{editing ? 'Edit Employee' : 'Add Employee'}</h3>
           <button type="button" className="text-[#dcc1ae] hover:text-white" onClick={onClose}>
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="p-5">
+        <div className="p-5 overflow-y-auto">
+          {/* Photo + code */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              {photoFile
+                ? <img src={URL.createObjectURL(photoFile)} alt="preview" className="w-full h-full object-cover" />
+                : existingPhoto
+                  ? <PrivateImage bucket="employee-docs" path={existingPhoto} alt="photo" className="w-full h-full object-cover" />
+                  : <span className="material-symbols-outlined text-[#dcc1ae]/50" style={{ fontSize: '28px' }}>person</span>}
+            </div>
+            <div>
+              <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={e => setPhotoFile(e.target.files?.[0] ?? null)} />
+              <button type="button" className="btn btn-ghost" style={{ fontSize: '12px' }} onClick={() => photoRef.current?.click()}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>photo_camera</span>
+                {photoFile ? 'Change photo' : 'Upload photo'}
+              </button>
+              <div className="text-[11px] font-mono text-[#dcc1ae]/60 mt-1.5">
+                {editing?.emp_code ?? 'Code auto-generated (AAD-…)'}
+              </div>
+            </div>
+          </div>
+          <div className="mb-4 text-[11px] text-[#dcc1ae]/70 bg-white/[0.03] border border-white/[0.05] rounded-lg px-3 py-2">
+            Tip: after saving, use the <span className="text-[#ffb87b] font-semibold">Docs</span> button on the employee row to upload the Aadhaar card, offer letter, degree certificate and other files.
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <L label="Emp Code"><input className="input mono" value={empCode} onChange={e => setEmpCode(e.target.value)} /></L>
             <L label="Full Name *"><input className="input" value={fullName} onChange={e => setFullName(e.target.value)} /></L>
             <L label="Designation"><input className="input" value={designation} onChange={e => setDesignation(e.target.value)} /></L>
             <L label="Department">
@@ -194,8 +261,13 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
                 {DEPTS.map(d => <option key={d}>{d}</option>)}
               </select>
             </L>
-            <L label="Phone"><input className="input mono" value={phone} onChange={e => setPhone(e.target.value)} /></L>
+            <L label="Qualification"><input className="input" value={qualification} onChange={e => setQualification(e.target.value)} placeholder="B.Tech Civil, ITI…" /></L>
+            <L label="Phone"><input className="input mono" inputMode="numeric" maxLength={10} value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit mobile" /></L>
             <L label="Email"><input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} /></L>
+            <L label="Aadhaar No."><input className="input mono" inputMode="numeric" maxLength={12} value={aadhaar} onChange={e => setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="12-digit number" /></L>
+            <L label="Monthly Salary (INR)"><input className="input mono" inputMode="numeric" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value.replace(/\D/g, '').slice(0, 9))} placeholder="e.g. 25000" /></L>
+            <L label="Emergency Contact"><input className="input" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name" /></L>
+            <L label="Emergency Phone"><input className="input mono" inputMode="numeric" maxLength={10} value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit mobile" /></L>
             <L label="Join Date"><input className="input" type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} /></L>
             <L label="Exit Date"><input className="input" type="date" value={exitDate} onChange={e => setExitDate(e.target.value)} /></L>
             <L label="Project Posting">
@@ -212,20 +284,20 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
           </div>
           <L label="Address"><input className="input" value={address} onChange={e => setAddress(e.target.value)} /></L>
         </div>
-        {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
-        <div className="p-5 pt-2 flex gap-3">
+        {err && <div className="px-5 pb-2 text-sm text-red-400 flex-shrink-0">{err}</div>}
+        <div className="p-5 pt-3 flex gap-3 border-t border-white/5 flex-shrink-0">
           <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary flex-[2]" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          <button className="btn btn-primary flex-[2]" disabled={busy}>{busy ? 'Saving…' : 'Save Employee'}</button>
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function DocsDrawer({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const [docs, setDocs] = useState<EmpDoc[]>([])
   const [loading, setLoading] = useState(true)
-  const [docType, setDocType] = useState('ID Proof')
+  const [docType, setDocType] = useState('Offer Letter')
   const [title, setTitle] = useState('')
   const [expiry, setExpiry] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -267,14 +339,14 @@ function DocsDrawer({ employee, onClose }: { employee: Employee; onClose: () => 
     load()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
-        className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-2xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
+        className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-2xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
         <div className="p-5 border-b border-white/5 flex items-center justify-between">
           <div>
             <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Documents · {employee.full_name}</h3>
-            <p className="text-[11px] text-[#dcc1ae]/60 mt-0.5">Upload IDs, contracts, licenses etc.</p>
+            <p className="text-[11px] text-[#dcc1ae]/60 mt-0.5">Offer letter, degree, Aadhaar, licenses etc.</p>
           </div>
           <button type="button" className="text-[#dcc1ae] hover:text-white" onClick={onClose}>
             <span className="material-symbols-outlined">close</span>
@@ -287,7 +359,7 @@ function DocsDrawer({ employee, onClose }: { employee: Employee; onClose: () => 
                 {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </L>
-            <L label="Title"><input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Aadhaar, PAN, etc." /></L>
+            <L label="Title"><input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Offer Letter 2026, B.Tech…" /></L>
             <L label="Expiry (optional)"><input className="input" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></L>
             <L label="File">
               <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
@@ -335,7 +407,7 @@ function DocsDrawer({ employee, onClose }: { employee: Employee; onClose: () => 
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 function daysUntil(dateStr: string): number {

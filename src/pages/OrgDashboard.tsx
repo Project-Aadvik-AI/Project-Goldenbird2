@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
+import { useAuth } from '../lib/auth'
 import { Link } from 'react-router-dom'
 
 type ExpenseRow = { amount: number; project_id: string | null; payment_status: string }
@@ -107,14 +108,45 @@ export default function OrgDashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <Kpi label="Total Spend" value={inr(totalSpend)} sub={`${expenses.length} entries`} icon="account_balance_wallet" accent="emerald" />
-        <Kpi label="Active Projects" value={String(activeProjects)} sub={`${projects.length} total`} icon="domain" accent="sky" />
-        <Kpi label="On Credit" value={inr(totalCredit)} sub="unpaid amount" icon="history_edu" accent="purple" />
-        <Kpi label="Staff" value={String(staffCount)} sub="employees on record" icon="groups" accent="amber" />
-        <Kpi label="Pending Letters" value={String(pendingLetters)} sub="open correspondence" icon="mail" accent="red" />
+        <Kpi
+          label="Total Spend"
+          value={inr(totalSpend)}
+          sub={`${expenses.length} entries`}
+          icon="account_balance_wallet"
+          accent="emerald"
+        />
+        <Kpi
+          label="Active Projects"
+          value={String(activeProjects)}
+          sub={`${projects.length} total`}
+          icon="domain"
+          accent="sky"
+        />
+        <Kpi
+          label="On Credit"
+          value={inr(totalCredit)}
+          sub="unpaid amount"
+          icon="history_edu"
+          accent="purple"
+        />
+        <Kpi
+          label="Staff"
+          value={String(staffCount)}
+          sub="employees on record"
+          icon="groups"
+          accent="amber"
+        />
+        <Kpi
+          label="Pending Letters"
+          value={String(pendingLetters)}
+          sub="open correspondence"
+          icon="mail"
+          accent="red"
+        />
       </div>
 
       <MyTasksWidget />
+      <PendingAdvancesWidget />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 card overflow-hidden overflow-x-auto">
@@ -146,7 +178,11 @@ export default function OrgDashboard() {
                     <td className="px-4 py-3 font-mono text-[#dcc1ae]">{m?.workers ?? 0}</td>
                     <td className="px-4 py-3 font-mono text-emerald-400">{m?.runningMachines ?? 0}</td>
                     <td className="px-4 py-3">
-                      <Link to="/project" onClick={() => setActiveProject(p)} className="text-[#ffb87b] text-xs font-semibold uppercase tracking-wider hover:underline">
+                      <Link
+                        to="/project"
+                        onClick={() => setActiveProject(p)}
+                        className="text-[#ffb87b] text-xs font-semibold uppercase tracking-wider hover:underline"
+                      >
                         Open →
                       </Link>
                     </td>
@@ -225,6 +261,58 @@ export default function OrgDashboard() {
             </Link>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+type PendingAdv = { id: string; employee_id: string | null; person: string | null; amount: number | null; spent_amount: number | null; purpose: string | null; date: string }
+
+function PendingAdvancesWidget() {
+  const { isAdmin } = useAuth()
+  const [rows, setRows] = useState<PendingAdv[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    if (!isAdmin) { setLoading(false); return }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('advances')
+        .select('id, employee_id, person, amount, spent_amount, purpose, date')
+        .or('status.eq.Pending,status.is.null')
+        .order('date', { ascending: false })
+        .limit(12)
+      if (!cancelled) { setRows((data as PendingAdv[]) ?? []); setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [isAdmin])
+
+  if (!isAdmin) return null
+  if (!loading && !rows.length) return null
+
+  return (
+    <div className="card overflow-hidden mb-6">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
+        <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>verified_user</span>
+        <span className="text-sm font-semibold text-[#e2e2e8]">Advances Awaiting Approval</span>
+        <span className="ml-auto text-[10px] font-bold text-amber-400 uppercase tracking-wider">{rows.length} pending</span>
+      </div>
+      <div className="divide-y divide-white/[0.05]">
+        {rows.map(a => (
+          <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02]">
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-semibold text-[#e2e2e8] truncate">{a.person || 'Unknown'}</div>
+              <div className="text-[10px] text-[#dcc1ae]/60 truncate">{a.purpose || 'No purpose'} · {a.date}</div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="font-mono text-[13px] text-[#e2e2e8]">{a.amount != null ? inr(Number(a.amount)) : '—'}</div>
+              <div className="text-[10px] text-[#dcc1ae]/60">spent {a.spent_amount != null ? inr(Number(a.spent_amount)) : '—'}</div>
+            </div>
+            {a.employee_id && (
+              <Link to={`/employees/${a.employee_id}`} className="text-[#ffb87b] text-[11px] font-bold uppercase tracking-wider hover:underline flex-shrink-0">Review →</Link>
+            )}
+          </div>
+        ))}
+        {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
       </div>
     </div>
   )

@@ -22,6 +22,7 @@ import AIBrief from './pages/AIBrief'
 import Projects from './pages/Projects'
 import OrgDashboard from './pages/OrgDashboard'
 import Employees from './pages/Employees'
+import EmployeeDetail from './pages/EmployeeDetail'
 import Attendance from './pages/Attendance'
 import Leaves from './pages/Leaves'
 import Documents from './pages/Documents'
@@ -42,7 +43,7 @@ export default function App() {
   if (!ready) return <Splash />
 
   if (!session) {
-   return (
+    return (
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/masters" element={<Masters />} />
           <Route path="/team" element={<Team />} />
           <Route path="/employees" element={<Employees />} />
+          <Route path="/employees/:id" element={<EmployeeDetail />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/leaves" element={<Leaves />} />
           <Route path="/documents" element={<Documents />} />
@@ -141,7 +143,7 @@ function ConfigNotice() {
       <div className="card max-w-md p-6 text-center">
         <div className="text-2xl font-black text-brand mb-2">आ Aadvik AI</div>
         <div className="font-bold mb-2">Connect Supabase to start</div>
-        <p className="text-sm text-muted">Create a Supabase project, run <span className="mono">supabase/schema.sql</span>, then set <span className="mono">VITE_SUPABASE_URL</span> and <span className="mono">VITE_SUPABASE_ANON_KEY</span> in a <span className="mono">.env</span> file. See README.md.</p>
+        <p className="text-sm text-muted">Create a Supabase project, run <span className="mono">supabase/schema.sql</span>, then set <span className="mono">VITE_SUPABASE_URL</span> and <span className="mono">VITE_SUPABASE_ANON_KEY</span> in a <span className="mono">.env</span> file. See DEPLOY_GUIDE.md.</p>
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
@@ -43,12 +44,14 @@ const DOC_TYPES = ['Offer Letter', 'Degree / Qualification', 'Aadhaar', 'ID Proo
 export default function Employees() {
   const { projects } = useProject()
   const { can } = useAuth()
+  const navigate = useNavigate()
   const [rows, setRows] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
   const [managingDocs, setManagingDocs] = useState<Employee | null>(null)
   const [filter, setFilter] = useState<'All' | 'Active' | 'Inactive'>('Active')
+  const [query, setQuery] = useState('')
 
   async function load() {
     setLoading(true)
@@ -57,16 +60,38 @@ export default function Employees() {
   }
   useEffect(() => { load() }, [])
 
-  const visible = rows.filter(r => filter === 'All' ? true : r.status === filter)
+  const q = query.trim().toLowerCase()
+  const visible = rows
+    .filter(r => filter === 'All' ? true : r.status === filter)
+    .filter(r => {
+      if (!q) return true
+      return [r.full_name, r.emp_code, r.phone, r.designation, r.department]
+        .some(v => (v ?? '').toLowerCase().includes(q))
+    })
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-headline text-2xl font-semibold text-[#e2e2e8]">Employees</h1>
-          <p className="text-sm text-[#dcc1ae] mt-0.5">Company-wide staff directory · {rows.length} on record</p>
+          <p className="text-sm text-[#dcc1ae] mt-0.5">Company-wide staff directory · {query || filter !== 'All' ? `${visible.length} of ${rows.length}` : `${rows.length}`} on record</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#dcc1ae]/50 pointer-events-none z-10" style={{ fontSize: '18px' }}>search</span>
+            <input
+              className="input w-full sm:w-64"
+              style={{ paddingLeft: '2.4rem', paddingRight: '2rem' }}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search name, code, phone…"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#dcc1ae]/50 hover:text-[#e2e2e8]">
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
+              </button>
+            )}
+          </div>
           <select className="input" value={filter} onChange={e => setFilter(e.target.value as 'All' | 'Active' | 'Inactive')} style={{ minWidth: 120 }}>
             <option>Active</option><option>Inactive</option><option>All</option>
           </select>
@@ -111,6 +136,7 @@ export default function Employees() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
+                    <button className="text-[#e2e2e8] text-xs font-semibold uppercase tracking-wider hover:underline mr-3" onClick={() => navigate(`/employees/${r.id}`)}>View</button>
                     <button className="text-[#ffb87b] text-xs font-semibold uppercase tracking-wider hover:underline mr-3" onClick={() => setManagingDocs(r)}>Docs</button>
                     {can('hr', 'edit') && (
                       <button className="text-[#dcc1ae] text-xs font-semibold uppercase tracking-wider hover:underline" onClick={() => { setEditing(r); setShowForm(true) }}>Edit</button>
@@ -120,7 +146,7 @@ export default function Employees() {
               )
             })}
             {!visible.length && !loading && (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No employees yet — add your first.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">{query ? `No employees match "${query}".` : 'No employees yet — add your first.'}</td></tr>
             )}
           </tbody>
         </table>

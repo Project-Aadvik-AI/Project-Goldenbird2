@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { computeFinalRate, computeAmount, breakdown, inr, round2 } from '../lib/boq'
 import ExportButtons from '../components/ExportButtons'
 import MeasurementSheet from '../components/MeasurementSheet'
+import BoqImport from '../components/BoqImport'
 
 type Boq = {
   id: string; boq_number: string | null; name: string; version: number
@@ -35,6 +36,7 @@ export default function BoqEditor() {
   const [measuring, setMeasuring] = useState<Item | null>(null)
   const [showRevisions, setShowRevisions] = useState(false)
   const [showReviseForm, setShowReviseForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   const locked = boq?.status === 'Locked'
 
@@ -156,6 +158,11 @@ export default function BoqEditor() {
               ]}
             />
             {!locked && (
+              <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowImport(true)}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload_file</span> Import Excel
+              </button>
+            )}
+            {!locked && (
               <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => { setEditing(null); setShowForm(true) }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span> Add Item
               </button>
@@ -212,6 +219,7 @@ export default function BoqEditor() {
       {showForm && boq && (
         <ItemForm boqId={boq.id} editing={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); if (id) loadItems(id) }} />
       )}
+      {showImport && boq && <BoqImport boqId={boq.id} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); if (id) loadItems(id) }} />}
       {showRevisions && boq && <RevisionHistory boqId={boq.id} onClose={() => setShowRevisions(false)} />}
       {showReviseForm && boq && <ReviseForm currentVersion={boq.version} onClose={() => setShowReviseForm(false)} onConfirm={createRevision} />}
       {measuring && (

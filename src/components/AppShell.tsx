@@ -41,6 +41,7 @@ const NAV: Entry[] = [
     { to: '/documents', label: 'Documents', icon: 'folder_open', module: 'documents' },
   ] },
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
+  { to: '/bugs', label: 'Bug Reports', icon: 'bug_report' },
   { group: 'Reports & AI', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
     { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed' },

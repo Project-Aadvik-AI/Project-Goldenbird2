@@ -23,6 +23,7 @@ const NAV: Entry[] = [
   { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/boq', label: 'BOQ', icon: 'request_quote' },
     { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten' },
+    { to: '/billing', label: 'RA Billing', icon: 'receipt_long' },
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },

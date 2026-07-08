@@ -26,6 +26,8 @@ import Boq from './pages/Boq'
 import BoqEditor from './pages/BoqEditor'
 import MeasurementBook from './pages/MeasurementBook'
 import MonthlyPerformance from './pages/MonthlyPerformance'
+import Billing from './pages/Billing'
+import BillingDetail from './pages/BillingDetail'
 import EmployeeDetail from './pages/EmployeeDetail'
 import Attendance from './pages/Attendance'
 import Leaves from './pages/Leaves'
@@ -84,6 +86,8 @@ export default function App() {
           <Route path="/boq/:id" element={<BoqEditor />} />
           <Route path="/measurement-book" element={<MeasurementBook />} />
           <Route path="/monthly-performance" element={<MonthlyPerformance />} />
+          <Route path="/billing" element={<Billing />} />
+          <Route path="/billing/:id" element={<BillingDetail />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/leaves" element={<Leaves />} />

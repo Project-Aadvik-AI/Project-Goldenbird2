@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { computeFinalRate, computeAmount, breakdown, inr, round2, quotedRate, amountInWords, type BidType } from '../lib/boq'
@@ -342,9 +343,107 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
   const [err, setErr] = useState<string | null>(null)
   const [phase, setPhase] = useState<'entry' | 'done'>('entry')
   const [count, setCount] = useState(0)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const num = (v: string) => { const n = parseFloat(v); return isFinite(n) ? n : 0 }
   const filled = items.filter(i => num(qty[i.id]) > 0)
+
+  // is this row currently at 100%?
+  const isFull = (it: Item) => num(qty[it.id]) > 0 && num(qty[it.id]) >= Number(it.quantity)
+  const allFull = items.length > 0 && items.every(isFull)
+
+  // ── 100% checkbox: tick → fill planned qty, untick → clear ──
+  function toggleFull(it: Item, checked: boolean) {
+    setQty(q => ({ ...q, [it.id]: checked ? String(it.quantity) : '' }))
+  }
+  function toggleAllFull(checked: boolean) {
+    setQty(() => {
+      const next: Record<string, string> = {}
+      if (checked) items.forEach(it => { next[it.id] = String(it.quantity) })
+      return next
+    })
+  }
+
+  // ── Excel template download ──
+  function downloadTemplate() {
+    const rows = items.map(it => ({
+      'Item Code': it.item_code || '',
+      'Description': it.description,
+      'Unit': it.unit || '',
+      'Planned Qty': it.quantity,
+      'Completed Qty': '',           // fill number here, OR write 100% / full / done
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [{ wch: 14 }, { wch: 50 }, { wch: 8 }, { wch: 12 }, { wch: 14 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Opening Progress')
+    XLSX.writeFile(wb, 'opening_progress_template.xlsx')
+  }
+
+  // ── Excel import: match by Item Code first, then Description ──
+  function normalize(s: unknown) { return String(s ?? '').trim().toLowerCase() }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportMsg(null); setErr(null)
+    try {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+      if (!rows.length) { setErr('The sheet is empty.'); return }
+
+      // find columns loosely (works with the template or your own sheet)
+      const keys = Object.keys(rows[0])
+      const findKey = (...names: string[]) =>
+        keys.find(k => names.some(n => normalize(k).includes(n)))
+      const codeKey = findKey('item code', 'code')
+      const descKey = findKey('description', 'item description', 'particulars')
+      const doneKey = findKey('completed', 'done', 'executed', 'progress')
+      if (!doneKey) { setErr('Could not find a "Completed Qty" column in the sheet.'); return }
+
+      // build lookup maps
+      const byCode = new Map<string, Item>()
+      const byDesc = new Map<string, Item>()
+      items.forEach(it => {
+        if (it.item_code) byCode.set(normalize(it.item_code), it)
+        byDesc.set(normalize(it.description), it)
+      })
+
+      let matched = 0, skipped = 0
+      const next: Record<string, string> = { ...qty }
+      for (const row of rows) {
+        const raw = normalize(row[doneKey])
+        if (!raw) continue
+        // match the item
+        let it: Item | undefined
+        if (codeKey && normalize(row[codeKey])) it = byCode.get(normalize(row[codeKey]))
+        if (!it && descKey) it = byDesc.get(normalize(row[descKey]))
+        if (!it) { skipped++; continue }
+        // parse value: allow "100%", "full", "done", "yes" → full qty
+        // (a plain "100" is treated as quantity 100, not 100%)
+        let v: number
+        if (['100%', 'full', 'done', 'yes', 'y', 'complete', 'completed'].includes(raw)) {
+          v = Number(it.quantity)
+        } else if (raw.endsWith('%')) {
+          const p = parseFloat(raw)
+          v = isFinite(p) ? round2(Number(it.quantity) * p / 100) : 0
+        } else {
+          const n = parseFloat(raw)
+          v = isFinite(n) ? n : 0
+        }
+        if (v > 0) { next[it.id] = String(v); matched++ } else skipped++
+      }
+      setQty(next)
+      setImportMsg(`Imported ${matched} item(s)${skipped ? `, ${skipped} row(s) skipped (no match / zero)` : ''}.`)
+    } catch (ex) {
+      setErr('Could not read the file. Please upload a valid .xlsx sheet.')
+    } finally {
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
   async function createAndApprove() {
     if (!filled.length) { setErr('Enter a completed quantity for at least one item.'); return }
@@ -375,7 +474,7 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
         <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Opening Progress</h3>
-            <p className="text-[11px] text-[#dcc1ae]/70 mt-0.5">Enter work already done before using the system. Recorded as approved opening measurements — updates BOQ progress instantly.</p>
+            <p className="text-[11px] text-[#dcc1ae]/70 mt-0.5">Enter work already done — type quantities, tick 100%, or import from Excel. Recorded as approved opening measurements.</p>
           </div>
           <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
         </div>
@@ -396,10 +495,30 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
                 <input className="input w-full" value={remark} onChange={e => setRemark(e.target.value)} /></label>
               <div className="text-[12px] text-[#dcc1ae]"><span className="font-semibold text-[#e2e2e8]">{filled.length}</span> filled</div>
             </div>
+
+            {/* Excel import bar */}
+            <div className="px-5 py-3 border-b border-white/5 flex flex-wrap items-center gap-2 flex-shrink-0 bg-white/[0.02]">
+              <button type="button" className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={downloadTemplate}>
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>download</span> Download Template
+              </button>
+              <button type="button" className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => fileRef.current?.click()}>
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>upload_file</span> Import Filled Sheet
+              </button>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
+              {importMsg && <span className="text-[12px] text-emerald-400">{importMsg}</span>}
+              <span className="text-[11px] text-[#dcc1ae]/50 ml-auto">In the sheet: put a number, or write <span className="font-mono">100%</span> / <span className="font-mono">full</span> for complete items.</span>
+            </div>
+
             <div className="overflow-y-auto flex-1">
               <table className="w-full text-sm">
                 <thead className="bg-[#282a2e] sticky top-0"><tr>
                   {['Item', 'Unit', 'Planned', 'Already Done'].map(h => <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
+                  <th className="px-3 py-2.5 text-center text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" className="accent-emerald-500" checked={allFull} onChange={e => toggleAllFull(e.target.checked)} />
+                      100%
+                    </label>
+                  </th>
                 </tr></thead>
                 <tbody className="divide-y divide-white/[0.05]">
                   {items.map(it => (
@@ -410,6 +529,9 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
                       <td className="px-3 py-2">
                         <input className="input mono text-right" style={{ padding: '4px 8px', fontSize: '13px', width: 110 }} inputMode="decimal"
                           value={qty[it.id] ?? ''} onChange={e => setQty({ ...qty, [it.id]: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input type="checkbox" className="accent-emerald-500 cursor-pointer" checked={isFull(it)} onChange={e => toggleFull(it, e.target.checked)} title="Mark 100% complete" />
                       </td>
                     </tr>
                   ))}

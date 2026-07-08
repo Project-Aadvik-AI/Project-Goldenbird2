@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 
-type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs'
+type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary'
 
 const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'expenses', label: 'Expenses by head', help: 'Sum of amounts by expense type, filtered by project + date range.' },
@@ -13,6 +13,8 @@ const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'balances', label: 'Per-person cash balances', help: 'For each person: advances received − expenses they paid.' },
   { key: 'dpr', label: 'DPR summary', help: 'Daily progress entries in the range.' },
   { key: 'prs', label: 'Open purchase requests', help: 'PRs with status Open in the range.' },
+  { key: 'attendance', label: 'Attendance summary', help: 'Per employee: Present / Absent / Half-day / Leave / Holiday / Week-off counts in the date range.' },
+  { key: 'salary', label: 'Salary (payroll)', help: 'Per employee payroll for the range: paid days, deductions for Absent + half of Half-day, and net payable from monthly salary.' },
 ]
 
 export default function AdminReports() {
@@ -246,6 +248,68 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
       Date: r.date, 'PR No': r.pr_no || '', Material: r.material, Qty: Number(r.qty || 0), Unit: r.unit || '',
       Vendor: r.vendor || '', 'Needed By': r.needed_by || '', Status: r.status,
     }))
+  }
+
+  if (report === 'attendance') {
+    const [{ data: emps }, { data: att }] = await Promise.all([
+      supabase.from('employees').select('id, full_name, emp_code, department'),
+      supabase.from('attendance').select('employee_id, status, date').gte('date', from).lte('date', to),
+    ])
+    const empList = (emps as any[]) ?? []
+    const nameById = new Map(empList.map(e => [e.id, e]))
+    const norm = (st: string) => (st || '').toLowerCase()
+    const map = new Map<string, any>()
+    for (const e of empList) {
+      map.set(e.id, { Code: e.emp_code || '—', Employee: e.full_name, Department: e.department || '—',
+        Present: 0, Absent: 0, 'Half Day': 0, Leave: 0, Holiday: 0, 'Week Off': 0, 'Total Marked': 0 })
+    }
+    for (const r of (att as any[]) ?? []) {
+      const row = map.get(r.employee_id); if (!row) continue
+      const st = norm(r.status)
+      if (st === 'present') row.Present++
+      else if (st === 'absent') row.Absent++
+      else if (st === 'half day' || st === 'half-day' || st === 'halfday') row['Half Day']++
+      else if (st === 'leave') row.Leave++
+      else if (st === 'holiday') row.Holiday++
+      else if (st === 'week off' || st === 'week-off' || st === 'weekoff') row['Week Off']++
+      row['Total Marked']++
+    }
+    return [...map.values()].sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
+  }
+
+  if (report === 'salary') {
+    const [{ data: emps }, { data: att }] = await Promise.all([
+      supabase.from('employees').select('id, full_name, emp_code, department, monthly_salary'),
+      supabase.from('attendance').select('employee_id, status, date').gte('date', from).lte('date', to),
+    ])
+    const empList = (emps as any[]) ?? []
+    const norm = (st: string) => (st || '').toLowerCase()
+    // days in the selected range's month (use the 'from' month for per-day rate, like the payroll panel)
+    const d = new Date(from)
+    const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+    const map = new Map<string, any>()
+    for (const e of empList) {
+      const monthly = Number(e.monthly_salary || 0)
+      map.set(e.id, { _monthly: monthly, Code: e.emp_code || '—', Employee: e.full_name,
+        Department: e.department || '—', 'Monthly Salary': monthly,
+        Present: 0, Absent: 0, 'Half Day': 0, Paid: 0 })
+    }
+    for (const r of (att as any[]) ?? []) {
+      const row = map.get(r.employee_id); if (!row) continue
+      const st = norm(r.status)
+      if (st === 'present') { row.Present++; row.Paid++ }
+      else if (st === 'absent') row.Absent++
+      else if (st === 'half day' || st === 'half-day' || st === 'halfday') { row['Half Day']++; row.Paid += 0.5 }
+      else if (st === 'leave' || st === 'holiday' || st === 'week off' || st === 'week-off' || st === 'weekoff') row.Paid++
+    }
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+    return [...map.values()].map(row => {
+      const perDay = daysInMonth ? row._monthly / daysInMonth : 0
+      const deduction = round2(perDay * (row.Absent + 0.5 * row['Half Day']))
+      const net = round2(Math.max(0, row._monthly - deduction))
+      const { _monthly, ...rest } = row
+      return { ...rest, 'Per Day': round2(perDay), Deduction: deduction, 'Net Payable': net }
+    }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
   }
 
   return []

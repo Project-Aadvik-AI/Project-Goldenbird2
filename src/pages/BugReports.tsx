@@ -76,9 +76,11 @@ export default function BugReports() {
               <button
                 onClick={() => toggleSolved(b)}
                 title={solved ? 'Mark as open' : 'Mark as solved'}
-                className={`mt-0.5 w-6 h-6 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors ${solved ? 'bg-emerald-500 border-emerald-500' : 'border-white/20 hover:border-emerald-400'}`}
+                className={`mt-0.5 w-7 h-7 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${solved ? 'bg-emerald-500 border-emerald-500' : 'border-[#dcc1ae]/50 hover:border-emerald-400 hover:bg-emerald-500/10'}`}
               >
-                {solved && <span className="material-symbols-outlined text-white" style={{ fontSize: '16px' }}>check</span>}
+                {solved
+                  ? <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>check</span>
+                  : <span className="material-symbols-outlined text-[#dcc1ae]/40" style={{ fontSize: '16px' }}>check</span>}
               </button>
 
               <div className="flex-1 min-w-0">
@@ -95,9 +97,17 @@ export default function BugReports() {
                 </div>
               </div>
 
-              <button className="text-red-400 hover:text-red-300 flex-shrink-0" onClick={() => del(b.id)} title="Delete">
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => toggleSolved(b)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border transition-colors ${solved ? 'bg-white/5 text-[#dcc1ae] border-white/10 hover:border-[#dcc1ae]' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}`}
+                >
+                  {solved ? 'Reopen' : 'Mark Solved'}
+                </button>
+                <button className="text-red-400 hover:text-red-300" onClick={() => del(b.id)} title="Delete">
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                </button>
+              </div>
             </div>
           )
         })}

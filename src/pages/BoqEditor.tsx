@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { computeFinalRate, computeAmount, breakdown, inr, round2 } from '../lib/boq'
 import ExportButtons from '../components/ExportButtons'
@@ -25,12 +26,15 @@ const STATUSES = ['Draft', 'Approved', 'Locked']
 export default function BoqEditor() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user, profile } = useAuth()
   const [boq, setBoq] = useState<Boq | null>(null)
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Item | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [measuring, setMeasuring] = useState<Item | null>(null)
+  const [showRevisions, setShowRevisions] = useState(false)
+  const [showReviseForm, setShowReviseForm] = useState(false)
 
   const locked = boq?.status === 'Locked'
 
@@ -64,6 +68,23 @@ export default function BoqEditor() {
     if (id) loadItems(id)
   }
 
+  async function createRevision(reason: string) {
+    if (!boq) return
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    // snapshot current items
+    await supabase.from('boq_revisions').insert({
+      org_id: prof?.org_id, boq_id: boq.id, version: boq.version,
+      change_reason: reason, total_amount: total,
+      items_snapshot: items,
+      created_by: user?.id ?? null, created_by_name: profile?.full_name ?? null,
+    })
+    // bump version, back to Draft so the new version is editable
+    const nextV = (boq.version || 1) + 1
+    await supabase.from('boqs').update({ version: nextV, status: 'Draft' }).eq('id', boq.id)
+    setBoq({ ...boq, version: nextV, status: 'Draft' })
+    setShowReviseForm(false)
+  }
+
   if (loading) return <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>
   if (!boq) return (
     <div className="p-8 text-center">
@@ -92,6 +113,10 @@ export default function BoqEditor() {
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
               {locked && <span className="text-[11px] text-blue-400">🔒 Locked — items read-only</span>}
+              <button className="text-[11px] font-bold uppercase tracking-wider text-[#dcc1ae] hover:text-[#e2e2e8] ml-2" onClick={() => setShowRevisions(true)}>History</button>
+              {boq.status !== 'Draft' && (
+                <button className="text-[11px] font-bold uppercase tracking-wider text-[#ffb87b] hover:text-[#ffc998]" onClick={() => setShowReviseForm(true)}>Create Revision</button>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -187,6 +212,8 @@ export default function BoqEditor() {
       {showForm && boq && (
         <ItemForm boqId={boq.id} editing={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); if (id) loadItems(id) }} />
       )}
+      {showRevisions && boq && <RevisionHistory boqId={boq.id} onClose={() => setShowRevisions(false)} />}
+      {showReviseForm && boq && <ReviseForm currentVersion={boq.version} onClose={() => setShowReviseForm(false)} onConfirm={createRevision} />}
       {measuring && (
         <MeasurementSheet
           itemId={measuring.id}
@@ -200,6 +227,93 @@ export default function BoqEditor() {
       )}
     </div>
   )
+}
+
+function ReviseForm({ currentVersion, onClose, onConfirm }: { currentVersion: number; onClose: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-md my-auto shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Create Revision v{currentVersion + 1}</h3>
+          <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="p-5">
+          <p className="text-[13px] text-[#dcc1ae] mb-3">This freezes the current version <span className="font-mono text-[#e2e2e8]">v{currentVersion}</span> into history, then unlocks a new <span className="font-mono text-[#e2e2e8]">v{currentVersion + 1}</span> (Draft) for editing. Nothing is deleted.</p>
+          <label className="block"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Change Reason *</span>
+            <textarea className="input" rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this revision needed? (client variation, scope change…)" style={{ resize: 'vertical' }} />
+          </label>
+        </div>
+        <div className="p-5 pt-0 flex gap-3">
+          <button className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary flex-[2]" disabled={busy || !reason.trim()} onClick={async () => { setBusy(true); await onConfirm(reason) }}>{busy ? 'Creating…' : 'Create Revision'}</button>
+        </div>
+      </div>
+    </div>
+  ), document.body)
+}
+
+type Rev = { id: string; version: number; change_reason: string | null; total_amount: number; created_by_name: string | null; created_at: string; items_snapshot: Item[] }
+function RevisionHistory({ boqId, onClose }: { boqId: string; onClose: () => void }) {
+  const [revs, setRevs] = useState<Rev[]>([])
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState<string | null>(null)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('boq_revisions').select('*').eq('boq_id', boqId).order('version', { ascending: false })
+      setRevs((data as Rev[]) ?? []); setLoading(false)
+    })()
+  }, [boqId])
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-2xl my-auto shadow-[0px_10px_30px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+          <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Revision History</h3>
+          <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="p-5 overflow-y-auto">
+          {loading && <div className="text-[#dcc1ae] text-sm">Loading…</div>}
+          {!loading && !revs.length && <div className="text-[#dcc1ae]/60 text-sm text-center py-6">No revisions yet. Each time you revise an approved BOQ, the prior version is frozen here.</div>}
+          <div className="space-y-2">
+            {revs.map(r => (
+              <div key={r.id} className="rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <button className="w-full flex items-center gap-3 p-3 text-left" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  <span className="font-mono text-[13px] font-bold text-[#e2e2e8]">v{r.version}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] text-[#e2e2e8] truncate">{r.change_reason || 'No reason given'}</div>
+                    <div className="text-[10px] text-[#dcc1ae]/60">{r.created_by_name || 'Unknown'} · {new Date(r.created_at).toLocaleString('en-IN')} · {(r.items_snapshot?.length ?? 0)} items</div>
+                  </div>
+                  <span className="material-symbols-outlined text-[#dcc1ae]/50" style={{ fontSize: '18px' }}>{open === r.id ? 'expand_less' : 'expand_more'}</span>
+                </button>
+                {open === r.id && (
+                  <div className="px-3 pb-3 overflow-x-auto">
+                    <table className="w-full text-[12px]">
+                      <thead><tr className="text-[#dcc1ae]/60">
+                        {['Description', 'Unit', 'Qty', 'Final Rate', 'Amount'].map(h => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {(r.items_snapshot ?? []).map((it, i) => (
+                          <tr key={i} className="border-t border-white/5">
+                            <td className="px-2 py-1 text-[#e2e2e8]">{it.description}</td>
+                            <td className="px-2 py-1 text-[#dcc1ae]">{it.unit || '—'}</td>
+                            <td className="px-2 py-1 font-mono text-[#dcc1ae] text-right">{it.quantity}</td>
+                            <td className="px-2 py-1 font-mono text-[#dcc1ae] text-right">{it.final_rate}</td>
+                            <td className="px-2 py-1 font-mono text-[#e2e2e8] text-right">{Number(it.amount).toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="text-right text-[12px] font-bold text-[#e2e2e8] mt-2">Total: ₹{Number(r.total_amount).toLocaleString('en-IN')}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  ), document.body)
 }
 
 function WorkTarget({ boq, totalValue, completedValue, onSaved }: { boq: Boq; totalValue: number; completedValue: number; onSaved: (startDate: string | null, monthlyTarget: number | null) => void }) {

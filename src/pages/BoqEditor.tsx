@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { computeFinalRate, computeAmount, breakdown, inr, round2 } from '../lib/boq'
+import { computeFinalRate, computeAmount, breakdown, inr, round2, quotedRate, amountInWords, type BidType } from '../lib/boq'
 import ExportButtons from '../components/ExportButtons'
 import MeasurementSheet from '../components/MeasurementSheet'
 import BoqImport from '../components/BoqImport'
@@ -37,6 +37,7 @@ export default function BoqEditor() {
   const [showRevisions, setShowRevisions] = useState(false)
   const [showReviseForm, setShowReviseForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showOpening, setShowOpening] = useState(false)
 
   const locked = boq?.status === 'Locked'
 
@@ -129,6 +130,9 @@ export default function BoqEditor() {
         </div>
       </div>
 
+      {/* Bid adjustment */}
+      {boq && <BidAdjustment total={total} />}
+
       {/* Work pacing target */}
       {boq && <WorkTarget boq={boq} totalValue={total} completedValue={completedValue} onSaved={(sd, mt) => setBoq({ ...boq, start_date: sd, monthly_target: mt })} />}
 
@@ -160,6 +164,11 @@ export default function BoqEditor() {
             {!locked && (
               <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowImport(true)}>
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload_file</span> Import Excel
+              </button>
+            )}
+            {!locked && items.length > 0 && (
+              <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setShowOpening(true)}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>playlist_add_check</span> Opening Progress
               </button>
             )}
             {!locked && (
@@ -220,6 +229,7 @@ export default function BoqEditor() {
         <ItemForm boqId={boq.id} editing={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); if (id) loadItems(id) }} />
       )}
       {showImport && boq && <BoqImport boqId={boq.id} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); if (id) loadItems(id) }} />}
+      {showOpening && boq && <OpeningProgress boqId={boq.id} projectId={boq.project_id} items={items} onClose={() => setShowOpening(false)} onDone={() => { setShowOpening(false); if (id) loadItems(id) }} />}
       {showRevisions && boq && <RevisionHistory boqId={boq.id} onClose={() => setShowRevisions(false)} />}
       {showReviseForm && boq && <ReviseForm currentVersion={boq.version} onClose={() => setShowReviseForm(false)} onConfirm={createRevision} />}
       {measuring && (
@@ -322,6 +332,177 @@ function RevisionHistory({ boqId, onClose }: { boqId: string; onClose: () => voi
       </div>
     </div>
   ), document.body)
+}
+
+function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: string; projectId: string | null; items: Item[]; onClose: () => void; onDone: () => void }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [remark, setRemark] = useState('Opening progress — work done before system start')
+  const [qty, setQty] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [phase, setPhase] = useState<'entry' | 'done'>('entry')
+  const [count, setCount] = useState(0)
+
+  const num = (v: string) => { const n = parseFloat(v); return isFinite(n) ? n : 0 }
+  const filled = items.filter(i => num(qty[i.id]) > 0)
+
+  async function createAndApprove() {
+    if (!filled.length) { setErr('Enter a completed quantity for at least one item.'); return }
+    setBusy(true); setErr(null)
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const { data: uinfo } = await supabase.auth.getUser()
+    const uid = uinfo?.user?.id ?? null
+    const nowIso = new Date().toISOString()
+    // Create measurements already Approved (opening balance) so BOQ progress updates immediately via trigger.
+    const payload = filled.map(i => ({
+      org_id: prof?.org_id, project_id: projectId, boq_item_id: i.id,
+      measurement_date: date, location: null, activity: 'Opening balance',
+      nos: 1, length: num(qty[i.id]), width: 0, height: 0,
+      measured_qty: round2(num(qty[i.id])), unit: i.unit,
+      remarks: remark, status: 'Approved', approved_by: uid, approved_at: nowIso,
+    }))
+    for (let k = 0; k < payload.length; k += 100) {
+      const chunk = payload.slice(k, k + 100)
+      const { error } = await supabase.from('measurement_book').insert(chunk)
+      if (error) { setErr('Failed: ' + error.message); setBusy(false); return }
+    }
+    setBusy(false); setCount(filled.length); setPhase('done')
+  }
+
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-3xl my-auto shadow-[0px_10px_30px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Opening Progress</h3>
+            <p className="text-[11px] text-[#dcc1ae]/70 mt-0.5">Enter work already done before using the system. Recorded as approved opening measurements — updates BOQ progress instantly.</p>
+          </div>
+          <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+
+        {phase === 'done' ? (
+          <div className="p-8 text-center">
+            <span className="material-symbols-outlined text-emerald-400" style={{ fontSize: '40px' }}>check_circle</span>
+            <p className="text-[#e2e2e8] font-semibold mt-2">{count} item(s) updated with opening progress.</p>
+            <p className="text-[13px] text-[#dcc1ae] mt-1">BOQ completed/remaining now reflects this. See the entries in Measurement Book (Approved · Opening balance).</p>
+            <button className="btn btn-primary mt-4" onClick={onDone}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="p-5 border-b border-white/5 flex flex-wrap items-end gap-3 flex-shrink-0">
+              <label className="block"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">As-of Date</span>
+                <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} /></label>
+              <label className="block flex-1 min-w-[220px]"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Remark</span>
+                <input className="input w-full" value={remark} onChange={e => setRemark(e.target.value)} /></label>
+              <div className="text-[12px] text-[#dcc1ae]"><span className="font-semibold text-[#e2e2e8]">{filled.length}</span> filled</div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full text-sm">
+                <thead className="bg-[#282a2e] sticky top-0"><tr>
+                  {['Item', 'Unit', 'Planned', 'Already Done'].map(h => <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
+                </tr></thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {items.map(it => (
+                    <tr key={it.id} className="hover:bg-white/[0.02]">
+                      <td className="px-3 py-2 text-[#e2e2e8] max-w-[280px] truncate" title={it.description}>{it.description}</td>
+                      <td className="px-3 py-2 text-[#dcc1ae]">{it.unit || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right">{it.quantity}</td>
+                      <td className="px-3 py-2">
+                        <input className="input mono text-right" style={{ padding: '4px 8px', fontSize: '13px', width: 110 }} inputMode="decimal"
+                          value={qty[it.id] ?? ''} onChange={e => setQty({ ...qty, [it.id]: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {err && <div className="px-5 py-2 text-sm text-red-400 flex-shrink-0">{err}</div>}
+            <div className="p-5 pt-3 flex gap-3 border-t border-white/5 flex-shrink-0">
+              <button className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary flex-[2]" disabled={busy} onClick={createAndApprove}>{busy ? 'Saving…' : `Set Opening Progress for ${filled.length} item(s)`}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  ), document.body)
+}
+
+function BidAdjustment({ total }: { total: number }) {
+  const [type, setType] = useState<BidType>('less')
+  const [pctStr, setPctStr] = useState('')
+
+  // validation
+  const trimmed = pctStr.trim()
+  const pct = trimmed === '' ? 0 : Number(trimmed)
+  const invalid = trimmed !== '' && (!isFinite(pct) || pct < 0)
+  const atPar = !invalid && pct === 0
+
+  const rate = invalid ? null : quotedRate(total, type, pct)
+  const diff = rate != null ? round2(rate - total) : 0
+
+  return (
+    <div className="card p-5 mb-5">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>gavel</span>
+        <span className="text-sm font-semibold text-[#e2e2e8]">Bid Adjustment</span>
+        <span className="text-[11px] text-[#dcc1ae]/60">(tender quoted rate)</span>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <label className="block">
+          <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Adjustment</span>
+          <select className="input" value={type} onChange={e => setType(e.target.value as BidType)} style={{ minWidth: 130 }}>
+            <option value="less">Less (−)</option>
+            <option value="excess">Excess (+)</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Percentage (%)</span>
+          <input
+            className="input mono"
+            inputMode="decimal"
+            value={pctStr}
+            onChange={e => setPctStr(e.target.value.replace(/[^\d.]/g, ''))}
+            placeholder="0.00"
+            style={{ width: 120 }}
+          />
+        </label>
+        <div className="text-[12px] text-[#dcc1ae] pb-2">
+          BOQ Total: <span className="font-mono text-[#e2e2e8]">{inr(total)}</span>
+        </div>
+      </div>
+
+      {invalid && <div className="text-[13px] text-red-400 mb-3">Enter a valid non-negative percentage.</div>}
+
+      {!invalid && (
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-4">
+          <div className="flex items-center gap-2 mb-2">
+            {atPar
+              ? <span className="px-2.5 py-1 rounded-md text-[11px] font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">At Par (0%)</span>
+              : <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase border ${type === 'less' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                  {type === 'less' ? 'Less' : 'Excess'} {pct}%
+                </span>}
+            {!atPar && rate != null && (
+              <span className={`text-[12px] font-mono ${type === 'less' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {type === 'less' ? '−' : '+'} {inr(Math.abs(diff))}
+              </span>
+            )}
+          </div>
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide">Quoted Rate (in figures)</span>
+            <span className="font-mono text-[26px] font-bold text-[#e2e2e8]">{rate != null ? inr(rate) : '—'}</span>
+          </div>
+          {rate != null && (
+            <div className="mt-2 pt-2 border-t border-white/5">
+              <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide block mb-0.5">Quoted Rate (in words)</span>
+              <span className="text-[13px] text-[#dcc1ae] italic">{amountInWords(rate)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function WorkTarget({ boq, totalValue, completedValue, onSaved }: { boq: Boq; totalValue: number; completedValue: number; onSaved: (startDate: string | null, monthlyTarget: number | null) => void }) {

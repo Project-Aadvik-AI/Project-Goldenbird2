@@ -14,7 +14,7 @@ const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'dpr', label: 'DPR summary', help: 'Daily progress entries in the range.' },
   { key: 'prs', label: 'Open purchase requests', help: 'PRs with status Open in the range.' },
   { key: 'attendance', label: 'Attendance summary', help: 'Per employee: Present / Absent / Half-day / Leave / Holiday / Week-off counts in the date range.' },
-  { key: 'salary', label: 'Salary (payroll)', help: 'Per employee payroll for the range: paid days, deductions for Absent + half of Half-day, and net payable from monthly salary.' },
+  { key: 'salary', label: 'Salary (payroll)', help: 'Earned salary for the range: pays only for Present (+ half of Half-day) days at per-day rate (monthly salary / days in month). Unmarked/Absent days are not paid.' },
 ]
 
 export default function AdminReports() {
@@ -305,10 +305,11 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
     return [...map.values()].map(row => {
       const perDay = daysInMonth ? row._monthly / daysInMonth : 0
-      const deduction = round2(perDay * (row.Absent + 0.5 * row['Half Day']))
-      const net = round2(Math.max(0, row._monthly - deduction))
-      const { _monthly, ...rest } = row
-      return { ...rest, 'Per Day': round2(perDay), Deduction: deduction, 'Net Payable': net }
+      // Earned-based: pay ONLY for Present (+ half of Half-day). Unmarked days are NOT paid.
+      const paidDays = round2(row.Present + 0.5 * row['Half Day'])
+      const earned = round2(perDay * paidDays)
+      const { _monthly, Paid, ...rest } = row
+      return { ...rest, 'Per Day': round2(perDay), 'Paid Days': paidDays, 'Net Payable': earned }
     }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
   }
 

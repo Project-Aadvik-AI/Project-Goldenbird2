@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
+import ExpenseImport from '../components/ExpenseImport'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateImage } from '../components/PrivateFile'
@@ -21,6 +22,7 @@ export default function Expenses() {
   const [rows, setRows] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   async function load() {
     if (!activeProject) { setRows([]); setLoading(false); return }
@@ -42,9 +44,12 @@ export default function Expenses() {
           <p className="text-sm text-[#dcc1ae] mt-0.5">Track and manage all site expenditures</p>
         </div>
         {can('expenses', 'add') && (
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> Add Expense
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="btn btn-ghost" onClick={() => setShowImport(true)}><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload_file</span> Import Excel</button>
+            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> Add Expense
+            </button>
+          </div>
         )}
       </div>
 
@@ -105,6 +110,7 @@ export default function Expenses() {
       </div>
 
       {showForm && <ExpenseForm projectId={activeProject.id} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showImport && <ExpenseImport projectId={activeProject.id} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load() }} />}
     </div>
   )
 }

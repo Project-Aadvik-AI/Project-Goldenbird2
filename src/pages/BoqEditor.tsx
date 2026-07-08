@@ -132,7 +132,7 @@ export default function BoqEditor() {
       </div>
 
       {/* Bid adjustment */}
-      {boq && <BidAdjustment total={total} />}
+      {boq && <BidAdjustment total={total} items={items} />}
 
       {/* Work pacing target */}
       {boq && <WorkTarget boq={boq} totalValue={total} completedValue={completedValue} onSaved={(sd, mt) => setBoq({ ...boq, start_date: sd, monthly_target: mt })} />}
@@ -550,79 +550,116 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
   ), document.body)
 }
 
-function BidAdjustment({ total }: { total: number }) {
-  const [type, setType] = useState<BidType>('less')
-  const [pctStr, setPctStr] = useState('')
+function BidAdjustment({ total, items }: { total: number; items: Item[] }) {
+  // Group items by schedule (category). Blank category => "Ungrouped".
+  const groups = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const it of items) {
+      const key = (it.category && it.category.trim()) ? it.category.trim() : 'Ungrouped'
+      map.set(key, round2((map.get(key) ?? 0) + Number(it.amount || 0)))
+    }
+    return [...map.entries()].map(([schedule, amount]) => ({ schedule, amount }))
+      .sort((a, b) => a.schedule.localeCompare(b.schedule))
+  }, [items])
 
-  // validation
-  const trimmed = pctStr.trim()
-  const pct = trimmed === '' ? 0 : Number(trimmed)
-  const invalid = trimmed !== '' && (!isFinite(pct) || pct < 0)
-  const atPar = !invalid && pct === 0
+  // per-schedule adjustment state: { [schedule]: { type, pct } }
+  const [adj, setAdj] = useState<Record<string, { type: BidType; pct: string }>>({})
 
-  const rate = invalid ? null : quotedRate(total, type, pct)
-  const diff = rate != null ? round2(rate - total) : 0
+  function getAdj(schedule: string) {
+    return adj[schedule] ?? { type: 'less' as BidType, pct: '' }
+  }
+  function setType(schedule: string, type: BidType) {
+    setAdj(a => ({ ...a, [schedule]: { ...getAdj(schedule), type } }))
+  }
+  function setPct(schedule: string, pct: string) {
+    setAdj(a => ({ ...a, [schedule]: { ...getAdj(schedule), pct: pct.replace(/[^\d.]/g, '') } }))
+  }
+
+  // compute per schedule + totals
+  let quotedTotal = 0
+  let anyInvalid = false
+  const rows = groups.map(g => {
+    const a = getAdj(g.schedule)
+    const trimmed = a.pct.trim()
+    const p = trimmed === '' ? 0 : Number(trimmed)
+    const invalid = trimmed !== '' && (!isFinite(p) || p < 0)
+    if (invalid) anyInvalid = true
+    const q = invalid ? null : quotedRate(g.amount, a.type, p)
+    if (q != null) quotedTotal = round2(quotedTotal + q)
+    return { ...g, type: a.type, pct: p, pctStr: a.pct, invalid, quoted: q, atPar: !invalid && p === 0 }
+  })
+  const overallDiff = round2(quotedTotal - total)
+  const effectivePct = total ? round2(overallDiff / total * 100) : 0
 
   return (
     <div className="card p-5 mb-5">
       <div className="flex items-center gap-2 mb-4">
         <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>gavel</span>
         <span className="text-sm font-semibold text-[#e2e2e8]">Bid Adjustment</span>
-        <span className="text-[11px] text-[#dcc1ae]/60">(tender quoted rate)</span>
+        <span className="text-[11px] text-[#dcc1ae]/60">(schedule-wise Less / Excess quotation)</span>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 mb-4">
-        <label className="block">
-          <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Adjustment</span>
-          <select className="input" value={type} onChange={e => setType(e.target.value as BidType)} style={{ minWidth: 130 }}>
-            <option value="less">Less (−)</option>
-            <option value="excess">Excess (+)</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Percentage (%)</span>
-          <input
-            className="input mono"
-            inputMode="decimal"
-            value={pctStr}
-            onChange={e => setPctStr(e.target.value.replace(/[^\d.]/g, ''))}
-            placeholder="0.00"
-            style={{ width: 120 }}
-          />
-        </label>
-        <div className="text-[12px] text-[#dcc1ae] pb-2">
-          BOQ Total: <span className="font-mono text-[#e2e2e8]">{inr(total)}</span>
-        </div>
-      </div>
+      {!groups.length && <div className="text-[13px] text-[#dcc1ae]/60">Add items (with a Category / Schedule) to set schedule-wise quotation.</div>}
 
-      {invalid && <div className="text-[13px] text-red-400 mb-3">Enter a valid non-negative percentage.</div>}
-
-      {!invalid && (
-        <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            {atPar
-              ? <span className="px-2.5 py-1 rounded-md text-[11px] font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">At Par (0%)</span>
-              : <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase border ${type === 'less' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
-                  {type === 'less' ? 'Less' : 'Excess'} {pct}%
-                </span>}
-            {!atPar && rate != null && (
-              <span className={`text-[12px] font-mono ${type === 'less' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {type === 'less' ? '−' : '+'} {inr(Math.abs(diff))}
-              </span>
-            )}
-          </div>
-          <div className="flex items-baseline justify-between gap-4 flex-wrap">
-            <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide">Quoted Rate (in figures)</span>
-            <span className="font-mono text-[26px] font-bold text-[#e2e2e8]">{rate != null ? inr(rate) : '—'}</span>
-          </div>
-          {rate != null && (
-            <div className="mt-2 pt-2 border-t border-white/5">
-              <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide block mb-0.5">Quoted Rate (in words)</span>
-              <span className="text-[13px] text-[#dcc1ae] italic">{amountInWords(rate)}</span>
-            </div>
-          )}
+      {groups.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-white/[0.05]">
+          <table className="w-full text-sm">
+            <thead className="bg-[#282a2e]"><tr>
+              {['Schedule', 'BOQ Amount', 'Adjustment', '%', 'Quoted Amount'].map(h => (
+                <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {rows.map(r => (
+                <tr key={r.schedule} className="hover:bg-white/[0.02]">
+                  <td className="px-3 py-2 text-[#e2e2e8] max-w-[240px]">
+                    <div className="truncate" title={r.schedule}>{r.schedule}</div>
+                    {r.atPar && <span className="text-[10px] text-blue-400 font-bold uppercase">At Par</span>}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right whitespace-nowrap">{inr(r.amount)}</td>
+                  <td className="px-3 py-2">
+                    <select className="input" value={r.type} onChange={e => setType(r.schedule, e.target.value as BidType)} style={{ padding: '4px 8px', fontSize: '12px', width: 110 }}>
+                      <option value="less">Less (−)</option>
+                      <option value="excess">Excess (+)</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input className="input mono text-right" inputMode="decimal" value={r.pctStr} onChange={e => setPct(r.schedule, e.target.value)} placeholder="0.00" style={{ padding: '4px 8px', fontSize: '13px', width: 80 }} />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-right font-semibold whitespace-nowrap">
+                    {r.invalid ? <span className="text-red-400 text-[11px]">invalid %</span>
+                      : <span className={r.atPar ? 'text-[#e2e2e8]' : r.type === 'less' ? 'text-emerald-400' : 'text-amber-400'}>{r.quoted != null ? inr(r.quoted) : '—'}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-white/10 bg-white/[0.02]">
+                <td className="px-3 py-3 text-[12px] font-bold text-[#dcc1ae] uppercase tracking-wider">Total</td>
+                <td className="px-3 py-3 font-mono text-[#dcc1ae] text-right font-bold whitespace-nowrap">{inr(total)}</td>
+                <td colSpan={2} className="px-3 py-3 text-right text-[11px] text-[#dcc1ae]/60">
+                  {anyInvalid ? <span className="text-red-400">fix invalid %</span> : <>effective <span className={`font-mono font-bold ${overallDiff < 0 ? 'text-emerald-400' : overallDiff > 0 ? 'text-amber-400' : 'text-[#dcc1ae]'}`}>{overallDiff <= 0 ? '' : '+'}{effectivePct}%</span></>}
+                </td>
+                <td className="px-3 py-3 font-mono text-right font-bold whitespace-nowrap text-[#e2e2e8]">{anyInvalid ? '—' : inr(quotedTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       )}
+
+      {groups.length > 0 && !anyInvalid && (
+        <div className="mt-3 rounded-lg bg-white/[0.03] border border-white/[0.05] p-4">
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide">Total Quoted (in figures)</span>
+            <span className="font-mono text-[24px] font-bold text-[#e2e2e8]">{inr(quotedTotal)}</span>
+          </div>
+          <div className="mt-2 pt-2 border-t border-white/5">
+            <span className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide block mb-0.5">Total Quoted (in words)</span>
+            <span className="text-[13px] text-[#dcc1ae] italic">{amountInWords(quotedTotal)}</span>
+          </div>
+        </div>
+      )}
+      {groups.length > 0 && <p className="text-[11px] text-[#dcc1ae]/50 mt-3">Each schedule\'s quoted amount is rounded to 2 decimals, then summed. Blank % = At Par (0%).</p>}
     </div>
   )
 }

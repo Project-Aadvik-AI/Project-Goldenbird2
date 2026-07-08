@@ -392,9 +392,9 @@ function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId:
   const [y, m] = month.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()
   const perDay = monthlySalary / daysInMonth
-  const unpaidDays = absent + half * 0.5
-  const deduction = Math.round(perDay * unpaidDays)
-  const net = Math.max(0, Math.round(monthlySalary - deduction))
+  // Earned-based: pay ONLY for Present (+ half of Half-day). Unmarked/Absent/Leave/Holiday/WeekOff = not paid.
+  const paidDays = present + half * 0.5
+  const net = Math.round(perDay * paidDays)
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
 
   async function record() {
@@ -403,7 +403,7 @@ function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId:
     const { error } = await supabase.from('employee_payments').insert({
       org_id: prof?.org_id, employee_id: empId, date: new Date().toISOString().slice(0, 10),
       pay_type: 'Salary', amount: net, mode: 'Bank', period: monthLabel,
-      remark: `Auto payroll · ${present}P / ${half}HD / ${absent}A · deduction ₹${deduction.toLocaleString('en-IN')}`,
+      remark: `Auto payroll · ${present}P / ${half}HD · paid ${paidDays} days × ₹${Math.round(perDay).toLocaleString('en-IN')}/day`,
     })
     setBusy(false)
     if (error) { setMsg(error.message); return }
@@ -450,16 +450,16 @@ function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId:
       </div>
 
       {inMonth.length === 0 && (
-        <div className="text-[12px] text-amber-400/90 mb-3">No attendance marked for {monthLabel}. Net = full salary (no deductions).</div>
+        <div className="text-[12px] text-amber-400/90 mb-3">No attendance marked for {monthLabel}. Mark Present days to calculate salary — currently net is ₹0.</div>
       )}
 
       <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.05] mb-3">
         <div className="text-[12px] text-[#dcc1ae]">
-          Deduction for absences: <span className="font-mono text-red-400">− ₹{deduction.toLocaleString('en-IN')}</span>
-          <span className="text-[#dcc1ae]/50"> ({unpaidDays} unpaid days)</span>
+          Paid days: <span className="font-mono text-emerald-400">{paidDays}</span>
+          <span className="text-[#dcc1ae]/50"> × ₹{Math.round(perDay).toLocaleString('en-IN')}/day (Present + ½ Half-day)</span>
         </div>
         <div className="text-right">
-          <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">Net Payable</div>
+          <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">Net Payable (earned)</div>
           <div className="font-mono text-[20px] font-bold text-emerald-400">₹{net.toLocaleString('en-IN')}</div>
         </div>
       </div>

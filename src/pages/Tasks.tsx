@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
@@ -238,7 +239,7 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -277,7 +278,7 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function TaskDetail({ task, nameOf, onClose, onChanged }: {
@@ -307,7 +308,7 @@ function TaskDetail({ task, nameOf, onClose, onChanged }: {
 
   const overdue = task.due_date && task.status !== 'Done' && isOverdue(task.due_date)
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[92vh]">
@@ -348,7 +349,7 @@ function TaskDetail({ task, nameOf, onClose, onChanged }: {
         </form>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 function isOverdue(due: string) {

@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateImage } from '../components/PrivateFile'
-import ExportButtons from '../components/ExportButtons'
 
 type DprRow = {
   id: string; date: string; schedule: string; item: string; unit: string
@@ -217,7 +218,7 @@ function DprForm({ projectId, boq, dprRows, onClose, onSaved }: { projectId: str
 
   const schedules = [...new Set(boq.map(b => b.schedule))].sort()
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -256,7 +257,7 @@ function DprForm({ projectId, boq, dprRows, onClose, onSaved }: { projectId: str
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function HindranceForm({ projectId, onClose, onSaved }: { projectId: string; onClose: () => void; onSaved: () => void }) {
@@ -292,7 +293,7 @@ function HindranceForm({ projectId, onClose, onSaved }: { projectId: string; onC
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-md shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
@@ -324,7 +325,7 @@ function HindranceForm({ projectId, onClose, onSaved }: { projectId: string; onC
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {

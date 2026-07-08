@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
@@ -207,7 +208,7 @@ function PermsDrawer({ user, onClose }: { user: Staff; onClose: () => void }) {
     }))
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-3xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[92vh]">
@@ -290,7 +291,7 @@ function PermsDrawer({ user, onClose }: { user: Staff; onClose: () => void }) {
         )}
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 function NotAdmin() {

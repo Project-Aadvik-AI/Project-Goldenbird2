@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, Project } from '../lib/project'
 import { useAuth } from '../lib/auth'
@@ -150,7 +151,7 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -196,7 +197,7 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children }: { label: string; children: React.ReactNode }) {

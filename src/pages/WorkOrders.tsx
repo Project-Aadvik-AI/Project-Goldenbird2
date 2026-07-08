@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
@@ -290,7 +291,7 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-3xl shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[92vh]">
@@ -387,7 +388,7 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 async function printWO(wo: WO, items: WOItem[], vendors: Vendor[]) {

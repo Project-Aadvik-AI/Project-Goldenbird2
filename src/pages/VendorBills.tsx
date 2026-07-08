@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateLink } from '../components/PrivateFile'
@@ -282,7 +283,7 @@ function BillForm({ vendors, wos, projectId, onClose, onSaved }: {
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[92vh]">
@@ -326,7 +327,7 @@ function BillForm({ vendors, wos, projectId, onClose, onSaved }: {
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function MovementHistory({ bill, nameOf, onClose }: { bill: Bill; nameOf: (id: string | null) => string; onClose: () => void }) {
@@ -337,7 +338,7 @@ function MovementHistory({ bill, nameOf, onClose }: { bill: Bill; nameOf: (id: s
       .then(({ data }) => { setMoves((data as Movement[]) ?? []); setLoading(false) })
   }, [bill.id])
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-md shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[92vh]">
@@ -368,7 +369,7 @@ function MovementHistory({ bill, nameOf, onClose }: { bill: Bill; nameOf: (id: s
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children }: { label: string; children: React.ReactNode }) {

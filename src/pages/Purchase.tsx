@@ -1,10 +1,11 @@
+import ExportButtons from '../components/ExportButtons'
+import { createPortal } from 'react-dom'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateLink } from '../components/PrivateFile'
 import { useAuth } from '../lib/auth'
-import ExportButtons from '../components/ExportButtons'
 
 type PR = {
   id: string; date: string; pr_no: string | null; material: string; qty: number | null; unit: string | null
@@ -188,7 +189,7 @@ function PRForm({ projectId, onClose, onSaved }: { projectId: string; onClose: (
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -231,7 +232,7 @@ function PRForm({ projectId, onClose, onSaved }: { projectId: string; onClose: (
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {

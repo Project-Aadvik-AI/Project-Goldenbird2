@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -284,7 +285,7 @@ function FolderForm({ parentId, projectId, onClose, onSaved }: {
     if (error) { setErr(error.message); return }
     onSaved()
   }
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-sm p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
@@ -297,7 +298,7 @@ function FolderForm({ parentId, projectId, onClose, onSaved }: {
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function DrawingForm({ existing, folderId, projectId, onClose, onSaved }: {
@@ -351,7 +352,7 @@ function DrawingForm({ existing, folderId, projectId, onClose, onSaved }: {
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -397,7 +398,7 @@ function DrawingForm({ existing, folderId, projectId, onClose, onSaved }: {
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function nextRev(cur: string): string {

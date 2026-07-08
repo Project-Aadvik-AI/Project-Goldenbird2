@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
-import ExportButtons from '../components/ExportButtons'
 
 type MachineRow = {
   id: string; date: string; machine: string; type: string | null; status: string
@@ -197,7 +198,7 @@ function MachineForm({
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -258,7 +259,7 @@ function MachineForm({
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
-import ExportButtons from '../components/ExportButtons'
 
 type LedgerRow = {
   id: string; date: string; direction: string; item: string; unit: string
@@ -57,6 +58,7 @@ export default function Store() {
         )}
       </div>
 
+      {/* Stock balance cards */}
       {stock.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
           {stock.map(s => (
@@ -185,7 +187,7 @@ function StoreForm({ projectId, stock, onClose, onSaved }: { projectId: string; 
     onSaved()
   }
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={save}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh]">
@@ -196,6 +198,7 @@ function StoreForm({ projectId, stock, onClose, onSaved }: { projectId: string; 
           </button>
         </div>
         <div className="p-5">
+          {/* Direction toggle */}
           <div className="flex gap-2 mb-4">
             {(['IN', 'OUT'] as const).map(d => (
               <button key={d} type="button"
@@ -248,7 +251,7 @@ function StoreForm({ projectId, stock, onClose, onSaved }: { projectId: string; 
         </div>
       </form>
     </div>
-  )
+  ), document.body)
 }
 
 function L({ label, children }: { label: string; children: React.ReactNode }) {

@@ -21,6 +21,8 @@ const NAV: Entry[] = [
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
   ] },
   { group: 'Procurement', icon: 'shopping_cart', items: [
+    { to: '/boq', label: 'BOQ', icon: 'request_quote' },
+    { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten' },
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
@@ -39,6 +41,7 @@ const NAV: Entry[] = [
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
   { group: 'Reports & AI', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
+    { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed' },
     { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
   ] },
   { to: '/masters', label: 'Master Data', icon: 'database', module: 'masters' },
@@ -85,6 +88,7 @@ export default function AppShell() {
     return true
   }
 
+  // which group holds the current route?
   const activeGroup = (() => {
     for (const e of NAV) {
       if (isGroup(e) && e.items.some(i => i.to === pathname)) return e.group
@@ -96,6 +100,7 @@ export default function AppShell() {
     () => (activeGroup ? { [activeGroup]: true } : {})
   )
 
+  // auto-expand the group containing the current route
   useEffect(() => {
     if (activeGroup) setOpenGroups(prev => ({ ...prev, [activeGroup]: true }))
   }, [activeGroup])
@@ -126,6 +131,7 @@ export default function AppShell() {
                 </NavLink>
               )
             }
+            // group
             const items = e.items.filter(leafVisible)
             if (!items.length) return null
             const expanded = !!openGroups[e.group]

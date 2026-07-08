@@ -234,6 +234,7 @@ export default function EmployeeDetail() {
               <span className="text-[11px] text-[#dcc1ae]/70 ml-1.5 uppercase tracking-wide">Total Paid</span>
             </div>
           </div>
+          {isAdmin && emp && <PayrollPanel empId={emp.id} monthlySalary={emp.monthly_salary} attendance={att} onRecorded={() => loadPayments(emp.id)} />}
           {isAdmin && emp && <PaymentForm employeeId={emp.id} onSaved={() => loadPayments(emp.id)} />}
           <div className="card overflow-hidden overflow-x-auto">
             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
@@ -362,6 +363,113 @@ export default function EmployeeDetail() {
     }).eq('id', advId)
     if (emp) loadAdvances(emp.id)
   }
+}
+
+function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId: string; monthlySalary: number | null; attendance: { date: string; status: string }[]; onRecorded: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)) // YYYY-MM
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  if (monthlySalary == null) {
+    return (
+      <div className="card p-4 mb-4 text-[13px] text-[#dcc1ae]">
+        Set a <span className="text-[#e2e2e8] font-semibold">Monthly Salary</span> on this employee (Edit) to auto-calculate payroll from attendance.
+      </div>
+    )
+  }
+
+  if (!open) return (
+    <button className="btn btn-ghost mb-4" onClick={() => setOpen(true)}>
+      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>calculate</span> Payroll from Attendance
+    </button>
+  )
+
+  const inMonth = attendance.filter(a => a.date.startsWith(month))
+  const c = (st: string) => inMonth.filter(a => a.status === st).length
+  const present = c('Present'), half = c('Half Day'), absent = c('Absent')
+  const leave = c('Leave'), holiday = c('Holiday'), weekoff = c('Week Off')
+  const [y, m] = month.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const perDay = monthlySalary / daysInMonth
+  const unpaidDays = absent + half * 0.5
+  const deduction = Math.round(perDay * unpaidDays)
+  const net = Math.max(0, Math.round(monthlySalary - deduction))
+  const monthLabel = new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+
+  async function record() {
+    setBusy(true); setMsg(null)
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const { error } = await supabase.from('employee_payments').insert({
+      org_id: prof?.org_id, employee_id: empId, date: new Date().toISOString().slice(0, 10),
+      pay_type: 'Salary', amount: net, mode: 'Bank', period: monthLabel,
+      remark: `Auto payroll · ${present}P / ${half}HD / ${absent}A · deduction ₹${deduction.toLocaleString('en-IN')}`,
+    })
+    setBusy(false)
+    if (error) { setMsg(error.message); return }
+    setMsg('Recorded ✓'); onRecorded()
+  }
+
+  const chip = (label: string, val: number, cls = 'text-[#dcc1ae]') => (
+    <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.05] text-center">
+      <div className={`text-[15px] font-bold ${cls}`}>{val}</div>
+      <div className="text-[9px] text-[#dcc1ae]/60 uppercase tracking-wide">{label}</div>
+    </div>
+  )
+
+  return (
+    <div className="card p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-[#e2e2e8] flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>calculate</span> Payroll from Attendance
+        </span>
+        <button className="text-[#dcc1ae] hover:text-white" onClick={() => { setOpen(false); setMsg(null) }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <label className="block">
+          <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Month</span>
+          <input type="month" className="input" value={month} onChange={e => { setMonth(e.target.value); setMsg(null) }} />
+        </label>
+        <div className="text-[12px] text-[#dcc1ae]">
+          Monthly salary <span className="font-mono text-[#e2e2e8]">₹{monthlySalary.toLocaleString('en-IN')}</span>
+          {' · '}per-day <span className="font-mono text-[#e2e2e8]">₹{Math.round(perDay).toLocaleString('en-IN')}</span>
+          {' · '}{daysInMonth} days
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+        {chip('Present', present, 'text-emerald-400')}
+        {chip('Half Day', half, 'text-amber-400')}
+        {chip('Absent', absent, 'text-red-400')}
+        {chip('Leave', leave)}
+        {chip('Holiday', holiday)}
+        {chip('Week Off', weekoff)}
+      </div>
+
+      {inMonth.length === 0 && (
+        <div className="text-[12px] text-amber-400/90 mb-3">No attendance marked for {monthLabel}. Net = full salary (no deductions).</div>
+      )}
+
+      <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.05] mb-3">
+        <div className="text-[12px] text-[#dcc1ae]">
+          Deduction for absences: <span className="font-mono text-red-400">− ₹{deduction.toLocaleString('en-IN')}</span>
+          <span className="text-[#dcc1ae]/50"> ({unpaidDays} unpaid days)</span>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">Net Payable</div>
+          <div className="font-mono text-[20px] font-bold text-emerald-400">₹{net.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+
+      {msg && <div className={`text-sm mb-2 ${msg.includes('✓') ? 'text-emerald-400' : 'text-red-400'}`}>{msg}</div>}
+      <button className="btn btn-primary w-full" disabled={busy || !!msg?.includes('✓')} onClick={record}>
+        {busy ? 'Recording…' : `Record Salary Payment for ${monthLabel}`}
+      </button>
+    </div>
+  )
 }
 
 function PaymentForm({ employeeId, onSaved }: { employeeId: string; onSaved: () => void }) {

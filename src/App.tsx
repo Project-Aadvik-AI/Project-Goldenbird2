@@ -22,6 +22,10 @@ import AIBrief from './pages/AIBrief'
 import Projects from './pages/Projects'
 import OrgDashboard from './pages/OrgDashboard'
 import Employees from './pages/Employees'
+import Boq from './pages/Boq'
+import BoqEditor from './pages/BoqEditor'
+import MeasurementBook from './pages/MeasurementBook'
+import MonthlyPerformance from './pages/MonthlyPerformance'
 import EmployeeDetail from './pages/EmployeeDetail'
 import Attendance from './pages/Attendance'
 import Leaves from './pages/Leaves'
@@ -76,6 +80,10 @@ export default function App() {
           <Route path="/masters" element={<Masters />} />
           <Route path="/team" element={<Team />} />
           <Route path="/employees" element={<Employees />} />
+          <Route path="/boq" element={<Boq />} />
+          <Route path="/boq/:id" element={<BoqEditor />} />
+          <Route path="/measurement-book" element={<MeasurementBook />} />
+          <Route path="/monthly-performance" element={<MonthlyPerformance />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/leaves" element={<Leaves />} />

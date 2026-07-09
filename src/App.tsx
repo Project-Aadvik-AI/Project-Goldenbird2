@@ -28,6 +28,7 @@ import MeasurementBook from './pages/MeasurementBook'
 import MonthlyPerformance from './pages/MonthlyPerformance'
 import Billing from './pages/Billing'
 import BoqDashboard from './pages/BoqDashboard'
+import BoqBudget from './pages/BoqBudget'
 import BugReports from './pages/BugReports'
 import BillingDetail from './pages/BillingDetail'
 import EmployeeDetail from './pages/EmployeeDetail'
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/monthly-performance" element={<MonthlyPerformance />} />
           <Route path="/billing" element={<Billing />} />
           <Route path="/boq-dashboard" element={<BoqDashboard />} />
+          <Route path="/boq-budget" element={<BoqBudget />} />
           <Route path="/bugs" element={<BugReports />} />
           <Route path="/billing/:id" element={<BillingDetail />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />

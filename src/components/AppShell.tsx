@@ -124,6 +124,13 @@ export default function AppShell() {
             <div className="text-[13px] font-semibold tracking-[0.24em] text-[var(--text)] leading-none">AADVIK</div>
             <div className="text-[9px] text-[var(--faint)] uppercase tracking-[0.24em] mt-1">Construction OS</div>
           </div>
+          <button
+            className="lg:hidden ml-auto text-[var(--faint)] hover:text-[var(--text)] p-1 -mr-1"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>close</span>
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 space-y-0.5">

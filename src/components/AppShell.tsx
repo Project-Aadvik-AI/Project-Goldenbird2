@@ -20,12 +20,14 @@ const NAV: Entry[] = [
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
   ] },
-  { group: 'Procurement', icon: 'shopping_cart', items: [
+  { group: 'BOQ & Billing', icon: 'request_quote', items: [
     { to: '/boq', label: 'BOQ', icon: 'request_quote' },
     { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard' },
     { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet' },
     { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten' },
     { to: '/billing', label: 'RA Billing', icon: 'receipt_long' },
+  ] },
+  { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },

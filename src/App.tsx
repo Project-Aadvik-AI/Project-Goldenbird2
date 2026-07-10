@@ -33,6 +33,8 @@ import MonthlyPerformance from './pages/MonthlyPerformance'
 import Billing from './pages/Billing'
 import BoqDashboard from './pages/BoqDashboard'
 import BoqBudget from './pages/BoqBudget'
+import BoqSchedules from './pages/BoqSchedules'
+import MyImprest from './pages/MyImprest'
 import BugReports from './pages/BugReports'
 import BillingDetail from './pages/BillingDetail'
 import EmployeeDetail from './pages/EmployeeDetail'
@@ -98,6 +100,8 @@ export default function App() {
           <Route path="/billing" element={<ModuleGuard module="billing"><Billing /></ModuleGuard>} />
           <Route path="/boq-dashboard" element={<ModuleGuard module="boq_dashboard"><BoqDashboard /></ModuleGuard>} />
           <Route path="/boq-budget" element={<ModuleGuard module="boq_budget"><BoqBudget /></ModuleGuard>} />
+          <Route path="/boq-schedules" element={<BoqSchedules />} />
+          <Route path="/my-imprest" element={<MyImprest />} />
           <Route path="/bugs" element={<BugReports />} />
           <Route path="/billing/:id" element={<BillingDetail />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />

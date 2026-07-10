@@ -72,6 +72,26 @@ export default function BoqEditor() {
     if (id) loadItems(id)
   }
 
+  async function saveAsTemplate() {
+    if (!items.length) { alert('Add items before saving as a template.'); return }
+    const tName = prompt('Template name:', boq?.name ? `${boq.name} (template)` : 'BOQ Template')
+    if (!tName || !tName.trim()) return
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    // strip ids/completed so the template is clean & reusable
+    const snapshot = items.map(it => ({
+      category: it.category, package: it.package, item_code: it.item_code,
+      description: it.description, unit: it.unit, quantity: it.quantity,
+      material_rate: it.material_rate, labour_rate: it.labour_rate, equipment_rate: it.equipment_rate,
+      overhead_pct: it.overhead_pct, profit_pct: it.profit_pct, tax_pct: it.tax_pct,
+      final_rate: it.final_rate, amount: it.amount,
+    }))
+    const { error } = await supabase.from('boq_templates').insert({
+      org_id: prof?.org_id, name: tName.trim(), items_snapshot: snapshot, item_count: snapshot.length,
+    })
+    if (error) { alert('Could not save template: ' + error.message); return }
+    alert(`Template "${tName.trim()}" saved with ${snapshot.length} items. You can now use it when creating a new BOQ.`)
+  }
+
   async function createRevision(reason: string) {
     if (!boq) return
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
@@ -118,6 +138,7 @@ export default function BoqEditor() {
               </select>
               {locked && <span className="text-[11px] text-blue-400">🔒 Locked — items read-only</span>}
               <button className="text-[11px] font-bold uppercase tracking-wider text-[#dcc1ae] hover:text-[#e2e2e8] ml-2" onClick={() => setShowRevisions(true)}>History</button>
+              <button className="text-[11px] font-bold uppercase tracking-wider text-[#dcc1ae] hover:text-[#e2e2e8] ml-2" onClick={saveAsTemplate} disabled={!items.length}>Save as Template</button>
               {boq.status !== 'Draft' && (
                 <button className="text-[11px] font-bold uppercase tracking-wider text-[#ffb87b] hover:text-[#ffc998]" onClick={() => setShowReviseForm(true)}>Create Revision</button>
               )}
@@ -862,6 +883,13 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 function ItemForm({ boqId, editing, onClose, onSaved }: { boqId: string; editing: Item | null; onClose: () => void; onSaved: () => void }) {
   const [category, setCategory] = useState(editing?.category ?? '')
+  const [scheduleOptions, setScheduleOptions] = useState<{ id: string; name: string; schedule_no: string | null }[]>([])
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('boq_schedule_master').select('id, name, schedule_no').eq('disabled', false).order('schedule_no').order('name')
+      setScheduleOptions((data as { id: string; name: string; schedule_no: string | null }[]) ?? [])
+    })()
+  }, [])
   const [pkg, setPkg] = useState(editing?.package ?? '')
   const [itemCode, setItemCode] = useState(editing?.item_code ?? '')
   const [description, setDescription] = useState(editing?.description ?? '')
@@ -917,7 +945,13 @@ function ItemForm({ boqId, editing, onClose, onSaved }: { boqId: string; editing
         <div className="p-5 overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
             <Lb label="Item Code"><input className="input mono" value={itemCode} onChange={e => setItemCode(e.target.value)} /></Lb>
-            <Lb label="Category"><input className="input" value={category} onChange={e => setCategory(e.target.value)} placeholder="Earthwork" /></Lb>
+            <Lb label="Schedule / Category">
+              <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
+                <option value="">— Select schedule —</option>
+                {scheduleOptions.map(o => <option key={o.id} value={o.name}>{o.schedule_no ? `${o.schedule_no} · ` : ''}{o.name}</option>)}
+                {category && !scheduleOptions.some(o => o.name === category) && <option value={category}>{category} (existing)</option>}
+              </select>
+            </Lb>
             <Lb label="Package"><input className="input" value={pkg} onChange={e => setPkg(e.target.value)} /></Lb>
             <Lb label="Unit"><input className="input" value={unit} onChange={e => setUnit(e.target.value)} placeholder="cum, sqm, kg" /></Lb>
           </div>

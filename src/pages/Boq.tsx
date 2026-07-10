@@ -113,8 +113,17 @@ function NewBoqForm({ projects, defaultProject, onClose, onCreated }: {
   const [number, setNumber] = useState('')
   const [projectId, setProjectId] = useState(defaultProject)
   const [version, setVersion] = useState('1')
+  const [templateId, setTemplateId] = useState('')
+  const [templates, setTemplates] = useState<{ id: string; name: string; item_count: number }[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('boq_templates').select('id, name, item_count').order('created_at', { ascending: false })
+      setTemplates((data as { id: string; name: string; item_count: number }[]) ?? [])
+    })()
+  }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -125,9 +134,21 @@ function NewBoqForm({ projects, defaultProject, onClose, onCreated }: {
       org_id: prof?.org_id, name, boq_number: number || null,
       project_id: projectId || null, version: Number(version) || 1, status: 'Draft',
     }).select('id').single()
+    if (error) { setBusy(false); setErr(error.message); return }
+    const newBoqId = (data as { id: string }).id
+    // If a template was picked, copy its items into the new BOQ
+    if (templateId) {
+      const { data: tpl } = await supabase.from('boq_templates').select('items_snapshot').eq('id', templateId).single()
+      const snap = ((tpl as { items_snapshot: any[] } | null)?.items_snapshot) ?? []
+      if (snap.length) {
+        const rows = snap.map((it: any) => ({ ...it, org_id: prof?.org_id, boq_id: newBoqId, completed_qty: 0 }))
+        for (let i = 0; i < rows.length; i += 100) {
+          await supabase.from('boq_items').insert(rows.slice(i, i + 100))
+        }
+      }
+    }
     setBusy(false)
-    if (error) { setErr(error.message); return }
-    onCreated((data as { id: string }).id)
+    onCreated(newBoqId)
   }
 
   return createPortal((
@@ -150,6 +171,14 @@ function NewBoqForm({ projects, defaultProject, onClose, onCreated }: {
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </Lb>
+          {templates.length > 0 && (
+            <Lb label="Start from Template (optional)">
+              <select className="input" value={templateId} onChange={e => setTemplateId(e.target.value)}>
+                <option value="">— Blank BOQ —</option>
+                {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.item_count} items)</option>)}
+              </select>
+            </Lb>
+          )}
         </div>
         {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
         <div className="p-5 pt-2 flex gap-3">

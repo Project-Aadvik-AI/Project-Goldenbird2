@@ -41,7 +41,7 @@ export default function EmployeeDetail() {
   const [docs, setDocs] = useState<EmpDoc[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [advances, setAdvances] = useState<Advance[]>([])
-  const [imprestExpenses, setImprestExpenses] = useState<{ id: string; date: string; amount: number; expense_type: string | null; remark: string | null; vendor: string | null; bill_photo: string | null }[]>([])
+  const [imprestExpenses, setImprestExpenses] = useState<{ id: string; date: string; amount: number; expense_type: string | null; remark: string | null; vendor: string | null; bill_photo: string | null; approval_status: string | null; rejection_reason: string | null }[]>([])
 
   async function loadPayments(eid: string) {
     const { data } = await supabase.from('employee_payments').select('id,date,pay_type,amount,mode,period,remark')
@@ -80,7 +80,7 @@ export default function EmployeeDetail() {
       if (alive) setDocs((d as EmpDoc[]) ?? [])
       await loadPayments(id)
       await loadAdvances(id)
-      const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo')
+      const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo,approval_status,rejection_reason')
         .eq('imprest_employee_id', id).order('date', { ascending: false }).limit(300)
       if (alive) setImprestExpenses((iex as any[]) ?? [])
       if (alive) setLoading(false)
@@ -99,10 +99,49 @@ export default function EmployeeDetail() {
     advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.amount || 0), 0), [advances])
   const advManualSpent = useMemo(() =>
     advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.spent_amount || 0), 0), [advances])
+  const imprestApproved = useMemo(() => imprestExpenses.filter(e => (e.approval_status ?? 'Approved') === 'Approved'), [imprestExpenses])
+  const imprestPending = useMemo(() => imprestExpenses.filter(e => e.approval_status === 'Pending'), [imprestExpenses])
+  const imprestRejected = useMemo(() => imprestExpenses.filter(e => e.approval_status === 'Rejected'), [imprestExpenses])
   const imprestSpent = useMemo(() =>
-    imprestExpenses.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestExpenses])
+    imprestApproved.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestApproved])
+  const imprestPendingTotal = useMemo(() => imprestPending.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestPending])
   const advTotalSpent = Math.round((advManualSpent + imprestSpent) * 100) / 100
   const advOutstanding = Math.round((advGiven - advTotalSpent) * 100) / 100
+
+  async function returnRemainingCash() {
+    if (advOutstanding <= 0 || !emp) { alert('Nothing outstanding to return.'); return }
+    if (!confirm(`Record ₹${advOutstanding.toLocaleString('en-IN')} returned as cash and mark these advances settled?`)) return
+    // apply the returned amount to oldest advances' spent_amount (FIFO), and mark settled where cleared
+    const { data: advs } = await supabase.from('advances').select('id, amount, spent_amount, status')
+      .eq('employee_id', emp.id).neq('status', 'Rejected').order('date', { ascending: true })
+    let left = advOutstanding
+    for (const a of (advs ?? []) as any[]) {
+      if (left <= 0) break
+      const remaining = Number(a.amount || 0) - Number(a.spent_amount || 0)
+      if (remaining <= 0) continue
+      const take = Math.min(remaining, left)
+      await supabase.from('advances').update({
+        returned_amount: Math.round(((Number(a.spent_amount || 0)) ) * 0 + take * 100) / 100,
+        spent_amount: Math.round((Number(a.spent_amount || 0) + take) * 100) / 100,
+        settled: (remaining - take) <= 0.009, settled_at: new Date().toISOString(),
+      }).eq('id', a.id)
+      left = Math.round((left - take) * 100) / 100
+    }
+    loadAdvances(emp.id)
+  }
+
+  async function approveImprestExpense(id: string) {
+    const { data: u } = await supabase.auth.getUser()
+    await supabase.from('expenses').update({ approval_status: 'Approved', approved_by: u?.user?.id ?? null, approved_at: new Date().toISOString(), rejection_reason: null }).eq('id', id)
+    if (emp) { const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo,approval_status,rejection_reason').eq('imprest_employee_id', emp.id).order('date', { ascending: false }).limit(300); setImprestExpenses((iex as any[]) ?? []) }
+  }
+  async function rejectImprestExpense(id: string) {
+    const reason = prompt('Rejection reason (the employee will see this):')
+    if (reason === null) return
+    const { data: u } = await supabase.auth.getUser()
+    await supabase.from('expenses').update({ approval_status: 'Rejected', approved_by: u?.user?.id ?? null, approved_at: new Date().toISOString(), rejection_reason: reason || 'Rejected' }).eq('id', id)
+    if (emp) { const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo,approval_status,rejection_reason').eq('imprest_employee_id', emp.id).order('date', { ascending: false }).limit(300); setImprestExpenses((iex as any[]) ?? []) }
+  }
 
   if (loading) return <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>
   if (!emp) return (
@@ -299,35 +338,55 @@ export default function EmployeeDetail() {
               <div className="text-[16px] font-mono font-bold text-[#dcc1ae]">₹{advTotalSpent.toLocaleString('en-IN')}</div>
             </div>
             <div className={`px-3 py-2.5 rounded-lg border ${advOutstanding > 0 ? 'bg-amber-500/5 border-amber-500/15' : 'bg-emerald-500/5 border-emerald-500/15'}`}>
-              <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide mb-0.5">{advOutstanding >= 0 ? 'Balance (to recover)' : 'Overspent'}</div>
+              <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide mb-0.5">{advOutstanding > 0 ? 'Balance (to recover)' : advOutstanding < 0 ? 'Overspent' : 'Settled'}</div>
               <div className={`text-[16px] font-mono font-bold ${advOutstanding > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>₹{Math.abs(advOutstanding).toLocaleString('en-IN')}</div>
             </div>
           </div>
+          {advOutstanding > 0 && (
+            <div className="mb-3">
+              <button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '12px' }} onClick={returnRemainingCash}>
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>payments</span> Record cash returned &amp; settle (₹{advOutstanding.toLocaleString('en-IN')})
+              </button>
+            </div>
+          )}
           {imprestExpenses.length > 0 && (
             <div className="card overflow-hidden overflow-x-auto mb-4">
               <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-                <span className="text-sm font-semibold text-[#e2e2e8]">Imprest Expenses (bills to verify)</span>
-                <span className="text-[11px] text-[#dcc1ae]/60">₹{imprestSpent.toLocaleString('en-IN')} · {imprestExpenses.length} bill(s)</span>
+                <span className="text-sm font-semibold text-[#e2e2e8]">Imprest Expenses (bills)</span>
+                <span className="text-[11px] text-[#dcc1ae]/60">Approved ₹{imprestSpent.toLocaleString('en-IN')}{imprestPendingTotal > 0 ? ` · Pending ₹${imprestPendingTotal.toLocaleString('en-IN')}` : ''} · {imprestExpenses.length} bill(s)</span>
               </div>
               <table className="w-full text-sm">
                 <thead className="bg-[#282a2e]"><tr>
-                  {['Date', 'Type', 'Vendor', 'Amount', 'Remark', 'Bill'].map(h => <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
+                  {['Date', 'Type', 'Vendor', 'Amount', 'Status', 'Bill', ''].map(h => <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
                 </tr></thead>
                 <tbody className="divide-y divide-white/[0.05]">
-                  {imprestExpenses.map(e => (
+                  {imprestExpenses.map(e => {
+                    const st = e.approval_status ?? 'Approved'
+                    return (
                     <tr key={e.id} className="hover:bg-white/[0.02]">
                       <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{e.date}</td>
                       <td className="px-4 py-2.5 text-[#e2e2e8]">{e.expense_type || '—'}</td>
                       <td className="px-4 py-2.5 text-[#dcc1ae]">{e.vendor || '—'}</td>
                       <td className="px-4 py-2.5 font-mono text-[#e2e2e8] text-right">₹{Number(e.amount).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-2.5 text-[#dcc1ae] max-w-[160px] truncate" title={e.remark || ''}>{e.remark || '—'}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${st === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : st === 'Rejected' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>{st}</span>
+                        {st === 'Rejected' && e.rejection_reason && <div className="text-[10px] text-red-400/70 mt-0.5">{e.rejection_reason}</div>}
+                      </td>
                       <td className="px-4 py-2.5">
                         {e.bill_photo
                           ? <PrivateLink bucket="expense-bills" path={e.bill_photo} className="btn btn-ghost">View bill</PrivateLink>
                           : <span className="text-[11px] text-amber-400/70">no bill</span>}
                       </td>
+                      <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                        {isAdmin && st === 'Pending' && (
+                          <>
+                            <button className="text-emerald-400 hover:text-emerald-300 text-[11px] font-semibold uppercase mr-2" onClick={() => approveImprestExpense(e.id)}>Approve</button>
+                            <button className="text-red-400 hover:text-red-300 text-[11px] font-semibold uppercase" onClick={() => rejectImprestExpense(e.id)}>Reject</button>
+                          </>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -535,12 +594,16 @@ function PayrollPanel({ empId, monthlySalary, attendance, advanceOutstanding, on
         </div>
 
         {advanceOutstanding > 0 && grossNet > 0 && (
-          <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+          <div className="mt-2 pt-2 border-t border-white/5">
+            <div className="text-[11px] text-amber-400 mb-1.5 flex items-center gap-1">
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>warning</span>
+              This employee has ₹{advanceOutstanding.toLocaleString('en-IN')} unsettled advance. Recover it here, or settle first in Site Advances.
+            </div>
             <label className="flex items-center gap-2 cursor-pointer text-[12px] text-amber-400">
               <input type="checkbox" className="accent-amber-500" checked={recover} onChange={e => setRecover(e.target.checked)} />
               Recover pending advance (₹{advanceOutstanding.toLocaleString('en-IN')} outstanding)
+              <span className="ml-auto font-mono">− ₹{recoverAmt.toLocaleString('en-IN')}</span>
             </label>
-            <span className="font-mono text-[13px] text-amber-400">− ₹{recoverAmt.toLocaleString('en-IN')}</span>
           </div>
         )}
 
@@ -612,6 +675,7 @@ function AdvanceForm({ employeeId, personName, onSaved }: { employeeId: string; 
   const [amount, setAmount] = useState('')
   const [spent, setSpent] = useState('')
   const [purpose, setPurpose] = useState('')
+  const [paymentMode, setPaymentMode] = useState('Cash')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -631,11 +695,11 @@ function AdvanceForm({ employeeId, personName, onSaved }: { employeeId: string; 
     const { error } = await supabase.from('advances').insert({
       org_id: prof?.org_id, employee_id: employeeId, person: personName, date,
       amount: amount ? Number(amount) : null, spent_amount: spent ? Number(spent) : null,
-      purpose: purpose || null, proof: proofPath, status: 'Pending',
+      purpose: purpose || null, payment_mode: paymentMode || null, proof: proofPath, status: 'Pending',
     })
     setBusy(false)
     if (error) { setErr(error.message); return }
-    setAmount(''); setSpent(''); setPurpose(''); setFile(null); setOpen(false); onSaved()
+    setAmount(''); setSpent(''); setPurpose(''); setPaymentMode('Cash'); setFile(null); setOpen(false); onSaved()
   }
 
   if (!open) return (
@@ -650,6 +714,11 @@ function AdvanceForm({ employeeId, personName, onSaved }: { employeeId: string; 
         <F label="Amount Given (INR)"><input className="input mono" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value.replace(/\D/g, ''))} /></F>
         <F label="Amount Spent (INR)"><input className="input mono" inputMode="numeric" value={spent} onChange={e => setSpent(e.target.value.replace(/\D/g, ''))} /></F>
         <F label="Purpose"><input className="input" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="Diesel, tools…" /></F>
+        <F label="Payment Mode">
+          <select className="input" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
+            <option>Cash</option><option>Bank</option><option>UPI</option><option>Cheque</option>
+          </select>
+        </F>
         <F label="Proof (bill/photo)">
           <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
           <button type="button" className="btn btn-ghost w-full" style={{ fontSize: '12px' }} onClick={() => fileRef.current?.click()}>

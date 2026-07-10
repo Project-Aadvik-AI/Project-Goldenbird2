@@ -25,6 +25,7 @@ const NAV: Entry[] = [
     { to: '/boq', label: 'BOQ', icon: 'request_quote', module: 'boq' },
     { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard', module: 'boq_dashboard' },
     { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet', module: 'boq_budget' },
+    { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt', adminOnly: true },
     { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten', module: 'measurement_book' },
     { to: '/billing', label: 'RA Billing', icon: 'receipt_long', module: 'billing' },
   ] },
@@ -35,6 +36,7 @@ const NAV: Entry[] = [
   ] },
   { group: 'HR Management', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge', module: 'employees' },
+    { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
     { to: '/designations', label: 'Designations', icon: 'badge', adminOnly: true },
     { to: '/permissions', label: 'Permissions', icon: 'lock', adminOnly: true },
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },

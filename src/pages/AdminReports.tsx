@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 
-type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary'
+type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary' | 'imprest'
 
 const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'expenses', label: 'Expenses by head', help: 'Sum of amounts by expense type, filtered by project + date range.' },
@@ -15,6 +15,7 @@ const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'prs', label: 'Open purchase requests', help: 'PRs with status Open in the range.' },
   { key: 'attendance', label: 'Attendance summary', help: 'Per employee: Present / Absent / Half-day / Leave / Holiday / Week-off counts in the date range.' },
   { key: 'salary', label: 'Salary (payroll)', help: 'Earned salary for the range: pays only for Present (+ half of Half-day) days at per-day rate (monthly salary / days in month). Unmarked/Absent days are not paid.' },
+  { key: 'imprest', label: 'Staff Imprest / Advances', help: 'Employee-wise advances: total given, spent (bills), balance outstanding, settlement status, and aging of unsettled advances.' },
 ]
 
 export default function AdminReports() {
@@ -311,6 +312,55 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
       const { _monthly, Paid, ...rest } = row
       return { ...rest, 'Per Day': round2(perDay), 'Paid Days': paidDays, 'Net Payable': earned }
     }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
+  }
+
+  if (report === 'imprest') {
+    const [{ data: emps }, { data: advs }, { data: iexp }] = await Promise.all([
+      supabase.from('employees').select('id, full_name, emp_code'),
+      supabase.from('advances').select('employee_id, amount, spent_amount, date, settled'),
+      supabase.from('expenses').select('imprest_employee_id, amount'),
+    ])
+    const nameById = new Map((emps as any[] ?? []).map(e => [e.id, e]))
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+    const today = new Date()
+    const map = new Map<string, any>()
+    for (const e of (emps as any[]) ?? []) {
+      map.set(e.id, { Code: e.emp_code || '—', Employee: e.full_name,
+        Given: 0, SpentManual: 0, SpentBills: 0, _oldest: null as Date | null, _anyUnsettled: false })
+    }
+    for (const a of (advs as any[]) ?? []) {
+      const row = map.get(a.employee_id); if (!row) continue
+      if (a.settled) continue
+      row.Given = round2(row.Given + Number(a.amount || 0))
+      row.SpentManual = round2(row.SpentManual + Number(a.spent_amount || 0))
+      const bal = Number(a.amount || 0) - Number(a.spent_amount || 0)
+      if (bal > 0.009) {
+        row._anyUnsettled = true
+        const d = a.date ? new Date(a.date) : null
+        if (d && (!row._oldest || d < row._oldest)) row._oldest = d
+      }
+    }
+    for (const x of (iexp as any[]) ?? []) {
+      if (!x.imprest_employee_id) continue
+      const row = map.get(x.imprest_employee_id); if (!row) continue
+      row.SpentBills = round2(row.SpentBills + Number(x.amount || 0))
+    }
+    const rows = [...map.values()].map(r => {
+      const spent = round2(r.SpentManual + r.SpentBills)
+      const balance = round2(r.Given - spent)
+      let ageDays = 0
+      if (r._oldest) ageDays = Math.floor((today.getTime() - r._oldest.getTime()) / 86400000)
+      const ageBucket = balance <= 0 ? '—' : ageDays > 90 ? '90+ days' : ageDays > 60 ? '60-90 days' : ageDays > 30 ? '30-60 days' : '0-30 days'
+      return {
+        Code: r.Code, Employee: r.Employee,
+        'Advance Given': r.Given, 'Spent (bills)': spent,
+        'Balance': balance,
+        'Status': balance <= 0.009 ? 'Settled' : 'Outstanding',
+        'Aging': ageBucket,
+      }
+    }).filter(r => r['Advance Given'] > 0 || r['Spent (bills)'] > 0)
+      .sort((a, b) => b['Balance'] - a['Balance'])
+    return rows
   }
 
   return []

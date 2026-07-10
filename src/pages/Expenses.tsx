@@ -142,6 +142,8 @@ function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClo
     if (!amount || Number(amount) <= 0) { setErr('Enter an amount'); return }
     setBusy(true); setErr(null)
 
+    // Imprest expenses require a bill and go through approval
+    if (imprestEmp && !file) { setErr('A bill/invoice is required for staff imprest expenses.'); return }
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
 
     let billPhotoPath: string | null = null
@@ -158,6 +160,7 @@ function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClo
       vendor: vendor || null, payment_status: status, paid_by: status === 'Paid' ? (paidBy || null) : null,
       remark: remark || null, bill_photo: billPhotoPath,
       imprest_employee_id: imprestEmp || null,
+      approval_status: imprestEmp ? 'Pending' : 'Approved',
     })
     setBusy(false)
     if (error) { setErr(error.message); return }

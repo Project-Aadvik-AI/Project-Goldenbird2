@@ -584,10 +584,10 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
   }, [items])
 
   // per-schedule adjustment state: { [schedule]: { type, pct } }
-  const [adj, setAdj] = useState<Record<string, { type: BidType; pct: string }>>({})
+  const [adj, setAdj] = useState<Record<string, { type: BidType; pct: string; appliedPct: number; appliedType: BidType }>>({})
 
   function getAdj(schedule: string) {
-    return adj[schedule] ?? { type: 'less' as BidType, pct: '' }
+    return adj[schedule] ?? { type: 'less' as BidType, pct: '', appliedPct: 0, appliedType: 'less' as BidType }
   }
   function setType(schedule: string, type: BidType) {
     setAdj(a => ({ ...a, [schedule]: { ...getAdj(schedule), type } }))
@@ -606,10 +606,13 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
   useEffect(() => {
     if (!boqId) return
     (async () => {
-      const { data } = await supabase.from('boq_bid_adjustments').select('schedule, adj_type, pct').eq('boq_id', boqId)
-      const next: Record<string, { type: BidType; pct: string }> = {}
-      for (const r of (data ?? []) as { schedule: string; adj_type: string; pct: number }[]) {
-        next[r.schedule] = { type: (r.adj_type === 'excess' ? 'excess' : 'less'), pct: String(r.pct ?? '') }
+      const { data } = await supabase.from('boq_bid_adjustments').select('schedule, adj_type, pct, applied_pct, applied_type').eq('boq_id', boqId)
+      const next: Record<string, { type: BidType; pct: string; appliedPct: number; appliedType: BidType }> = {}
+      for (const r of (data ?? []) as { schedule: string; adj_type: string; pct: number; applied_pct: number; applied_type: string }[]) {
+        next[r.schedule] = {
+          type: (r.adj_type === 'excess' ? 'excess' : 'less'), pct: String(r.pct ?? ''),
+          appliedPct: Number(r.applied_pct ?? 0), appliedType: (r.applied_type === 'excess' ? 'excess' : 'less'),
+        }
       }
       setAdj(next); setLoaded(true)
     })()
@@ -621,7 +624,7 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
     const rowsToSave = groups.map(g => {
       const a = getAdj(g.schedule)
       const p = a.pct.trim() === '' ? 0 : Number(a.pct)
-      return { org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule, adj_type: a.type, pct: isFinite(p) && p >= 0 ? p : 0, updated_at: new Date().toISOString() }
+      return { org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule, adj_type: a.type, pct: isFinite(p) && p >= 0 ? p : 0, applied_pct: a.appliedPct ?? 0, applied_type: a.appliedType ?? 'less', updated_at: new Date().toISOString() }
     })
     // upsert on (boq_id, schedule)
     const { error } = await supabase.from('boq_bid_adjustments').upsert(rowsToSave, { onConflict: 'boq_id,schedule' })
@@ -633,18 +636,32 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
   const [applyMsg, setApplyMsg] = useState<string | null>(null)
 
   async function applyToRates() {
-    // schedules that have a real % to apply
-    const toApply = groups.map(g => ({ g, a: getAdj(g.schedule) }))
-      .filter(({ a }) => { const p = Number(a.pct); return a.pct.trim() !== '' && isFinite(p) && p > 0 })
-    if (!toApply.length) { setApplyMsg('No schedule has a percentage to apply.'); return }
-    const names = toApply.map(x => `${x.g.schedule} (${x.a.type === 'less' ? '−' : '+'}${x.a.pct}%)`).join(', ')
-    if (!confirm(`Apply quoted rates permanently?\n\n${names}\n\nA backup revision will be saved first. After applying, these schedules reset to At Par (0%) to avoid double-discount.`)) return
+    // For each schedule, compute the DIFFERENCE between the current desired % and what's already applied,
+    // so applying twice never double-discounts. The % stays visible after applying.
+    const factorFor = (type: BidType, p: number) => p === 0 ? 1 : type === 'less' ? (100 - p) / 100 : (100 + p) / 100
+    const signed = (type: BidType, p: number) => type === 'less' ? -p : p // convert to signed % for comparison
+
+    const toApply = groups.map(g => {
+      const a = getAdj(g.schedule)
+      const curP = a.pct.trim() === '' ? 0 : Number(a.pct)
+      const desired = isFinite(curP) ? signed(a.type, curP) : 0          // e.g. -6.66
+      const already = signed(a.appliedType, a.appliedPct)                 // e.g. 0 or -6.66
+      return { g, a, desired, already }
+    }).filter(x => Math.abs(x.desired - x.already) > 0.0001)              // only where something changed
+
+    if (!toApply.length) { setApplyMsg('Nothing new to apply — current rates already reflect these percentages.'); return }
+
+    const names = toApply.map(x => {
+      const p = x.a.pct.trim() === '' ? 0 : Number(x.a.pct)
+      return `${x.g.schedule} (${x.a.type === 'less' ? '−' : '+'}${p}%)`
+    }).join(', ')
+    if (!confirm(`Apply quoted rates to actual item rates?\n\n${names}\n\nA backup revision is saved first. The percentage stays visible; applying again only applies further changes (never double-discounts).`)) return
 
     setApplying(true); setApplyMsg(null)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     const { data: uinfo } = await supabase.auth.getUser()
 
-    // 1) BACKUP: snapshot current items into a revision
+    // 1) BACKUP snapshot
     const { data: boqRow } = await supabase.from('boqs').select('version').eq('id', boqId).single()
     const curVer = (boqRow as any)?.version ?? 1
     await supabase.from('boq_revisions').insert({
@@ -654,30 +671,41 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
       created_by: uinfo?.user?.id ?? null, created_by_name: null,
     })
 
-    // 2) update each item's final_rate + amount for the applied schedules
-    const factorFor = (type: BidType, p: number) => p === 0 ? 1 : type === 'less' ? (100 - p) / 100 : (100 + p) / 100
-    for (const { g, a } of toApply) {
-      const p = Number(a.pct)
-      const f = factorFor(a.type, p)
+    // 2) apply ONLY the incremental factor: desired-factor / already-applied-factor
+    for (const { g, a, desired, already } of toApply) {
+      const desiredFactor = desired < 0 ? (100 + desired) / 100 : (100 + desired) / 100 // desired already signed
+      const alreadyFactor = already < 0 ? (100 + already) / 100 : (100 + already) / 100
+      const incremental = alreadyFactor === 0 ? 1 : round2(desiredFactor / alreadyFactor)
       const schedItems = items.filter(it => ((it.category && it.category.trim()) ? it.category.trim() : 'Ungrouped') === g.schedule)
       for (const it of schedItems) {
-        const newRate = round2(Number(it.final_rate || 0) * f)
+        const newRate = round2(Number(it.final_rate || 0) * incremental)
         const newAmount = round2(Number(it.quantity || 0) * newRate)
         await supabase.from('boq_items').update({ final_rate: newRate, amount: newAmount }).eq('id', it.id)
       }
     }
 
-    // 3) reset applied schedules to 0 (At Par) both in state and saved table
-    const resetRows = toApply.map(({ g }) => ({ org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule, adj_type: 'less', pct: 0, updated_at: new Date().toISOString() }))
-    await supabase.from('boq_bid_adjustments').upsert(resetRows, { onConflict: 'boq_id,schedule' })
+    // 3) record what is now applied (KEEP the % visible — do NOT reset)
+    const savedRows = toApply.map(({ g, a }) => {
+      const curP = a.pct.trim() === '' ? 0 : Number(a.pct)
+      return {
+        org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule,
+        adj_type: a.type, pct: isFinite(curP) ? curP : 0,
+        applied_pct: isFinite(curP) ? curP : 0, applied_type: a.type,
+        updated_at: new Date().toISOString(),
+      }
+    })
+    await supabase.from('boq_bid_adjustments').upsert(savedRows, { onConflict: 'boq_id,schedule' })
     setAdj(prev => {
       const next = { ...prev }
-      for (const { g } of toApply) next[g.schedule] = { type: 'less', pct: '' }
+      for (const { g, a } of toApply) {
+        const curP = a.pct.trim() === '' ? 0 : Number(a.pct)
+        next[g.schedule] = { type: a.type, pct: a.pct, appliedPct: isFinite(curP) ? curP : 0, appliedType: a.type }
+      }
       return next
     })
 
     setApplying(false)
-    setApplyMsg(`✓ Applied to ${toApply.length} schedule(s). Rates updated everywhere. Backup saved in Revision History.`)
+    setApplyMsg(`✓ Applied to ${toApply.length} schedule(s). Rates updated. The percentage stays shown. Backup saved in Revision History.`)
     onApplied()
   }
 
@@ -692,7 +720,7 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
     if (invalid) anyInvalid = true
     const q = invalid ? null : quotedRate(g.amount, a.type, p)
     if (q != null) quotedTotal = round2(quotedTotal + q)
-    return { ...g, type: a.type, pct: p, pctStr: a.pct, invalid, quoted: q, atPar: !invalid && p === 0 }
+    return { ...g, type: a.type, pct: p, pctStr: a.pct, invalid, quoted: q, atPar: !invalid && p === 0, appliedPct: a.appliedPct, appliedType: a.appliedType }
   })
   const overallDiff = round2(quotedTotal - total)
   const effectivePct = total ? round2(overallDiff / total * 100) : 0
@@ -738,7 +766,12 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
                 <tr key={r.schedule} className="hover:bg-white/[0.02]">
                   <td className="px-3 py-2 text-[#e2e2e8] max-w-[240px]">
                     <div className="truncate" title={r.schedule}>{r.schedule}</div>
-                    {r.atPar && <span className="text-[10px] text-blue-400 font-bold uppercase">At Par</span>}
+                    {r.atPar && r.appliedPct === 0 && <span className="text-[10px] text-blue-400 font-bold uppercase">At Par</span>}
+                    {r.appliedPct > 0 && (
+                      <span className={`text-[10px] font-bold ${r.appliedType === 'less' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        Applied: {r.appliedType === 'less' ? '−' : '+'}{r.appliedPct}%
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right whitespace-nowrap">{inr(r.amount)}</td>
                   <td className="px-3 py-2">

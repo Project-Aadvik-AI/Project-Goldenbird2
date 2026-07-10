@@ -41,6 +41,7 @@ export default function EmployeeDetail() {
   const [docs, setDocs] = useState<EmpDoc[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [advances, setAdvances] = useState<Advance[]>([])
+  const [imprestExpenses, setImprestExpenses] = useState<{ id: string; date: string; amount: number; expense_type: string | null; remark: string | null }[]>([])
 
   async function loadPayments(eid: string) {
     const { data } = await supabase.from('employee_payments').select('id,date,pay_type,amount,mode,period,remark')
@@ -79,6 +80,9 @@ export default function EmployeeDetail() {
       if (alive) setDocs((d as EmpDoc[]) ?? [])
       await loadPayments(id)
       await loadAdvances(id)
+      const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark')
+        .eq('imprest_employee_id', id).order('date', { ascending: false }).limit(300)
+      if (alive) setImprestExpenses((iex as any[]) ?? [])
       if (alive) setLoading(false)
     })()
     return () => { alive = false }
@@ -91,8 +95,14 @@ export default function EmployeeDetail() {
   }, [att])
 
   const paidTotal = useMemo(() => payments.filter(p => p.pay_type !== 'Deduction').reduce((n, p) => n + Number(p.amount || 0), 0), [payments])
-  const advOutstanding = useMemo(() =>
-    advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + (Number(a.amount || 0) - Number(a.spent_amount || 0)), 0), [advances])
+  const advGiven = useMemo(() =>
+    advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.amount || 0), 0), [advances])
+  const advManualSpent = useMemo(() =>
+    advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.spent_amount || 0), 0), [advances])
+  const imprestSpent = useMemo(() =>
+    imprestExpenses.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestExpenses])
+  const advTotalSpent = Math.round((advManualSpent + imprestSpent) * 100) / 100
+  const advOutstanding = Math.round((advGiven - advTotalSpent) * 100) / 100
 
   if (loading) return <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>
   if (!emp) return (
@@ -234,7 +244,7 @@ export default function EmployeeDetail() {
               <span className="text-[11px] text-[#dcc1ae]/70 ml-1.5 uppercase tracking-wide">Total Paid</span>
             </div>
           </div>
-          {isAdmin && emp && <PayrollPanel empId={emp.id} monthlySalary={emp.monthly_salary} attendance={att} onRecorded={() => loadPayments(emp.id)} />}
+          {isAdmin && emp && <PayrollPanel empId={emp.id} monthlySalary={emp.monthly_salary} attendance={att} advanceOutstanding={advOutstanding} onRecorded={() => { loadPayments(emp.id); loadAdvances(emp.id) }} />}
           {isAdmin && emp && <PaymentForm employeeId={emp.id} onSaved={() => loadPayments(emp.id)} />}
           <div className="card overflow-hidden overflow-x-auto">
             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
@@ -279,12 +289,25 @@ export default function EmployeeDetail() {
       {/* Site Advances */}
       {tab === 'advances' && (
         <div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <div className="px-3 py-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
-              <span className="text-[16px] font-bold text-amber-400">₹{advOutstanding.toLocaleString('en-IN')}</span>
-              <span className="text-[11px] text-[#dcc1ae]/70 ml-1.5 uppercase tracking-wide">Unspent / Outstanding</span>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide mb-0.5">Advance Given</div>
+              <div className="text-[16px] font-mono font-bold text-[#e2e2e8]">₹{advGiven.toLocaleString('en-IN')}</div>
+            </div>
+            <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide mb-0.5">Spent (bills)</div>
+              <div className="text-[16px] font-mono font-bold text-[#dcc1ae]">₹{advTotalSpent.toLocaleString('en-IN')}</div>
+            </div>
+            <div className={`px-3 py-2.5 rounded-lg border ${advOutstanding > 0 ? 'bg-amber-500/5 border-amber-500/15' : 'bg-emerald-500/5 border-emerald-500/15'}`}>
+              <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide mb-0.5">{advOutstanding >= 0 ? 'Balance (to recover)' : 'Overspent'}</div>
+              <div className={`text-[16px] font-mono font-bold ${advOutstanding > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>₹{Math.abs(advOutstanding).toLocaleString('en-IN')}</div>
             </div>
           </div>
+          {imprestSpent > 0 && (
+            <div className="text-[11px] text-[#dcc1ae]/60 mb-3">
+              Includes ₹{imprestSpent.toLocaleString('en-IN')} from {imprestExpenses.length} expense(s) tagged to this staff's imprest.
+            </div>
+          )}
           {emp && <AdvanceForm employeeId={emp.id} personName={emp.full_name} onSaved={() => loadAdvances(emp.id)} />}
           <div className="card overflow-hidden overflow-x-auto">
             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
@@ -365,7 +388,7 @@ export default function EmployeeDetail() {
   }
 }
 
-function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId: string; monthlySalary: number | null; attendance: { date: string; status: string }[]; onRecorded: () => void }) {
+function PayrollPanel({ empId, monthlySalary, attendance, advanceOutstanding, onRecorded }: { empId: string; monthlySalary: number | null; attendance: { date: string; status: string }[]; advanceOutstanding: number; onRecorded: () => void }) {
   const [open, setOpen] = useState(false)
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)) // YYYY-MM
   const [busy, setBusy] = useState(false)
@@ -394,20 +417,42 @@ function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId:
   const perDay = monthlySalary / daysInMonth
   // Earned-based: pay ONLY for Present (+ half of Half-day). Unmarked/Absent/Leave/Holiday/WeekOff = not paid.
   const paidDays = present + half * 0.5
-  const net = Math.round(perDay * paidDays)
+  const grossNet = Math.round(perDay * paidDays)
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+  // Advance recovery: recover up to whichever is smaller (outstanding vs this salary)
+  const [recover, setRecover] = useState(true)
+  const recoverable = Math.max(0, Math.min(advanceOutstanding, grossNet))
+  const recoverAmt = recover ? recoverable : 0
+  const net = Math.round(grossNet - recoverAmt)
 
   async function record() {
     setBusy(true); setMsg(null)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const today = new Date().toISOString().slice(0, 10)
+    // 1) salary payment (net of recovery)
     const { error } = await supabase.from('employee_payments').insert({
-      org_id: prof?.org_id, employee_id: empId, date: new Date().toISOString().slice(0, 10),
+      org_id: prof?.org_id, employee_id: empId, date: today,
       pay_type: 'Salary', amount: net, mode: 'Bank', period: monthLabel,
-      remark: `Auto payroll · ${present}P / ${half}HD · paid ${paidDays} days × ₹${Math.round(perDay).toLocaleString('en-IN')}/day`,
+      remark: `Auto payroll · ${present}P / ${half}HD · paid ${paidDays} days × ₹${Math.round(perDay).toLocaleString('en-IN')}/day` + (recoverAmt > 0 ? ` · advance recovered ₹${recoverAmt.toLocaleString('en-IN')}` : ''),
     })
+    if (error) { setBusy(false); setMsg(error.message); return }
+    // 2) if recovering, record it against the oldest outstanding advances (spent_amount) so the ledger clears
+    if (recoverAmt > 0) {
+      const { data: advs } = await supabase.from('advances').select('id, amount, spent_amount, status')
+        .eq('employee_id', empId).neq('status', 'Rejected').order('date', { ascending: true })
+      let left = recoverAmt
+      for (const a of (advs ?? []) as any[]) {
+        if (left <= 0) break
+        const remaining = Number(a.amount || 0) - Number(a.spent_amount || 0)
+        if (remaining <= 0) continue
+        const take = Math.min(remaining, left)
+        await supabase.from('advances').update({ spent_amount: Math.round((Number(a.spent_amount || 0) + take) * 100) / 100 }).eq('id', a.id)
+        left = Math.round((left - take) * 100) / 100
+      }
+    }
     setBusy(false)
-    if (error) { setMsg(error.message); return }
-    setMsg('Recorded ✓'); onRecorded()
+    setMsg(recoverAmt > 0 ? `Recorded ✓ (₹${recoverAmt.toLocaleString('en-IN')} advance recovered)` : 'Recorded ✓')
+    onRecorded()
   }
 
   const chip = (label: string, val: number, cls = 'text-[#dcc1ae]') => (
@@ -453,13 +498,30 @@ function PayrollPanel({ empId, monthlySalary, attendance, onRecorded }: { empId:
         <div className="text-[12px] text-amber-400/90 mb-3">No attendance marked for {monthLabel}. Mark Present days to calculate salary — currently net is ₹0.</div>
       )}
 
-      <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/[0.05] mb-3">
-        <div className="text-[12px] text-[#dcc1ae]">
-          Paid days: <span className="font-mono text-emerald-400">{paidDays}</span>
-          <span className="text-[#dcc1ae]/50"> × ₹{Math.round(perDay).toLocaleString('en-IN')}/day (Present + ½ Half-day)</span>
+      <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.05] mb-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[12px] text-[#dcc1ae]">
+            Paid days: <span className="font-mono text-emerald-400">{paidDays}</span>
+            <span className="text-[#dcc1ae]/50"> × ₹{Math.round(perDay).toLocaleString('en-IN')}/day</span>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">Earned salary</div>
+            <div className="font-mono text-[15px] font-bold text-[#e2e2e8]">₹{grossNet.toLocaleString('en-IN')}</div>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">Net Payable (earned)</div>
+
+        {advanceOutstanding > 0 && grossNet > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer text-[12px] text-amber-400">
+              <input type="checkbox" className="accent-amber-500" checked={recover} onChange={e => setRecover(e.target.checked)} />
+              Recover pending advance (₹{advanceOutstanding.toLocaleString('en-IN')} outstanding)
+            </label>
+            <span className="font-mono text-[13px] text-amber-400">− ₹{recoverAmt.toLocaleString('en-IN')}</span>
+          </div>
+        )}
+
+        <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between">
+          <div className="text-[11px] text-[#dcc1ae]/60 uppercase tracking-wide">Net to pay {recoverAmt > 0 ? '(after recovery)' : ''}</div>
           <div className="font-mono text-[20px] font-bold text-emerald-400">₹{net.toLocaleString('en-IN')}</div>
         </div>
       </div>

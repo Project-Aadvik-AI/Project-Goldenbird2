@@ -124,9 +124,18 @@ function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClo
   const [paidBy, setPaidBy] = useState('')
   const [remark, setRemark] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [imprestEmp, setImprestEmp] = useState('')
+  const [emps, setEmps] = useState<{ id: string; full_name: string; emp_code: string | null }[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('employees').select('id, full_name, emp_code').eq('status', 'Active').order('full_name')
+      setEmps((data as any[]) ?? [])
+    })()
+  }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -148,6 +157,7 @@ function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClo
       date, expense_type: type, amount: Number(amount),
       vendor: vendor || null, payment_status: status, paid_by: status === 'Paid' ? (paidBy || null) : null,
       remark: remark || null, bill_photo: billPhotoPath,
+      imprest_employee_id: imprestEmp || null,
     })
     setBusy(false)
     if (error) { setErr(error.message); return }
@@ -189,6 +199,13 @@ function ExpenseForm({ projectId, onClose, onSaved }: { projectId: string; onClo
             </L>
           </div>
           <L label="Remark"><input className="input" value={remark} onChange={e => setRemark(e.target.value)} /></L>
+          <L label="Imprest of (staff advance)">
+            <select className="input" value={imprestEmp} onChange={e => setImprestEmp(e.target.value)}>
+              <option value="">— Not from staff advance —</option>
+              {emps.map(em => <option key={em.id} value={em.id}>{em.emp_code ? `${em.emp_code} · ` : ''}{em.full_name}</option>)}
+            </select>
+          </L>
+          {imprestEmp && <p className="text-[11px] text-[#dcc1ae]/60 -mt-2 mb-2">Ye kharcha us staff ke advance/imprest se adjust hoga (unka balance kam ho jayega).</p>}
         </div>
         {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
         <div className="p-5 pt-2 flex gap-3">

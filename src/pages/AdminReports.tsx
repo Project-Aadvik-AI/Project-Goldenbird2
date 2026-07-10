@@ -279,9 +279,11 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
   }
 
   if (report === 'salary') {
-    const [{ data: emps }, { data: att }] = await Promise.all([
+    const [{ data: emps }, { data: att }, { data: advs }, { data: iexp }] = await Promise.all([
       supabase.from('employees').select('id, full_name, emp_code, department, monthly_salary'),
       supabase.from('attendance').select('employee_id, status, date').gte('date', from).lte('date', to),
+      supabase.from('advances').select('employee_id, amount, spent_amount, settled'),
+      supabase.from('expenses').select('imprest_employee_id, amount, approval_status'),
     ])
     const empList = (emps as any[]) ?? []
     const norm = (st: string) => (st || '').toLowerCase()
@@ -291,7 +293,7 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
     const map = new Map<string, any>()
     for (const e of empList) {
       const monthly = Number(e.monthly_salary || 0)
-      map.set(e.id, { _monthly: monthly, Code: e.emp_code || '—', Employee: e.full_name,
+      map.set(e.id, { _monthly: monthly, _id: e.id, Code: e.emp_code || '—', Employee: e.full_name,
         Department: e.department || '—', 'Monthly Salary': monthly,
         Present: 0, Absent: 0, 'Half Day': 0, Paid: 0 })
     }
@@ -304,13 +306,34 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
       else if (st === 'leave' || st === 'holiday' || st === 'week off' || st === 'week-off' || st === 'weekoff') row.Paid++
     }
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+    // Outstanding imprest per employee = advances given − APPROVED imprest bills (unsettled only)
+    const outMap = new Map<string, number>()
+    for (const a of (advs as any[]) ?? []) {
+      if (a.settled) continue
+      const cur = outMap.get(a.employee_id) ?? 0
+      outMap.set(a.employee_id, round2(cur + Number(a.amount || 0)))
+    }
+    for (const x of (iexp as any[]) ?? []) {
+      if (!x.imprest_employee_id) continue
+      if ((x.approval_status ?? 'Approved') !== 'Approved') continue
+      const cur = outMap.get(x.imprest_employee_id) ?? 0
+      outMap.set(x.imprest_employee_id, round2(cur - Number(x.amount || 0)))
+    }
+
     return [...map.values()].map(row => {
       const perDay = daysInMonth ? row._monthly / daysInMonth : 0
       // Earned-based: pay ONLY for Present (+ half of Half-day). Unmarked days are NOT paid.
       const paidDays = round2(row.Present + 0.5 * row['Half Day'])
       const earned = round2(perDay * paidDays)
-      const { _monthly, Paid, ...rest } = row
-      return { ...rest, 'Per Day': round2(perDay), 'Paid Days': paidDays, 'Net Payable': earned }
+      const { _monthly, Paid, _id, ...rest } = row
+      const outstanding = Math.max(0, round2(outMap.get(row._id) ?? 0))
+      const recovery = round2(Math.min(outstanding, earned))
+      const netAfter = round2(earned - recovery)
+      return { ...rest, 'Per Day': round2(perDay), 'Paid Days': paidDays,
+        'Net Payable': earned,
+        'Outstanding Imprest': outstanding,
+        'Net After Recovery': netAfter }
     }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
   }
 

@@ -97,15 +97,13 @@ export default function EmployeeDetail() {
   const paidTotal = useMemo(() => payments.filter(p => p.pay_type !== 'Deduction').reduce((n, p) => n + Number(p.amount || 0), 0), [payments])
   const advGiven = useMemo(() =>
     advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.amount || 0), 0), [advances])
-  const advManualSpent = useMemo(() =>
-    advances.filter(a => a.status !== 'Rejected').reduce((n, a) => n + Number(a.spent_amount || 0), 0), [advances])
   const imprestApproved = useMemo(() => imprestExpenses.filter(e => (e.approval_status ?? 'Approved') === 'Approved'), [imprestExpenses])
   const imprestPending = useMemo(() => imprestExpenses.filter(e => e.approval_status === 'Pending'), [imprestExpenses])
   const imprestRejected = useMemo(() => imprestExpenses.filter(e => e.approval_status === 'Rejected'), [imprestExpenses])
   const imprestSpent = useMemo(() =>
     imprestApproved.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestApproved])
   const imprestPendingTotal = useMemo(() => imprestPending.reduce((n, e) => n + Number(e.amount || 0), 0), [imprestPending])
-  const advTotalSpent = Math.round((advManualSpent + imprestSpent) * 100) / 100
+  const advTotalSpent = Math.round((imprestSpent) * 100) / 100
   const advOutstanding = Math.round((advGiven - advTotalSpent) * 100) / 100
 
   async function returnRemainingCash() {

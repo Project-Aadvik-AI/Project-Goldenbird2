@@ -37,6 +37,7 @@ const NAV: Entry[] = [
   { group: 'HR Management', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge', module: 'employees' },
     { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
+    { to: '/give-imprest', label: 'Give Imprest', icon: 'volunteer_activism', adminOnly: true },
     { to: '/designations', label: 'Designations', icon: 'badge', adminOnly: true },
     { to: '/permissions', label: 'Permissions', icon: 'lock', adminOnly: true },
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },

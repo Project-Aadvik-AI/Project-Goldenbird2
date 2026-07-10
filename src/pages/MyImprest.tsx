@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { PrivateLink } from '../components/PrivateFile'
+import { uploadPrivate, makeObjectPath } from '../lib/storage'
 
-type Adv = { amount: number | null; spent_amount: number | null; settled: boolean }
+type Adv = { amount: number | null; spent_amount: number | null; settled: boolean; returned_amount?: number | null }
 type Exp = { id: string; date: string; amount: number; expense_type: string | null; vendor: string | null; bill_photo: string | null; approval_status: string | null; rejection_reason: string | null }
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -15,6 +16,8 @@ export default function MyImprest() {
   const [exps, setExps] = useState<Exp[]>([])
   const [loading, setLoading] = useState(true)
   const [notLinked, setNotLinked] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -34,14 +37,14 @@ export default function MyImprest() {
       if (!emp) { setNotLinked(true); setLoading(false); return }
       setEmpId(emp.id)
       const [{ data: a }, { data: e }] = await Promise.all([
-        supabase.from('advances').select('amount, spent_amount, settled').eq('employee_id', emp.id),
+        supabase.from('advances').select('amount, spent_amount, settled, returned_amount').eq('employee_id', emp.id),
         supabase.from('expenses').select('id,date,amount,expense_type,vendor,bill_photo,approval_status,rejection_reason').eq('imprest_employee_id', emp.id).order('date', { ascending: false }),
       ])
       setAdvs((a as Adv[]) ?? [])
       setExps((e as Exp[]) ?? [])
       setLoading(false)
     })()
-  }, [user?.id])
+  }, [user?.id, reloadKey])
 
   if (loading) return <div className="p-6 text-[#dcc1ae] text-sm">Loading…</div>
   if (notLinked) return (
@@ -54,8 +57,9 @@ export default function MyImprest() {
   const given = round2(advs.filter(a => !a.settled).reduce((n, a) => n + Number(a.amount || 0), 0))
   const approved = round2(exps.filter(e => (e.approval_status ?? 'Approved') === 'Approved').reduce((n, e) => n + Number(e.amount || 0), 0))
   const pending = round2(exps.filter(e => e.approval_status === 'Pending').reduce((n, e) => n + Number(e.amount || 0), 0))
-  const manualSpent = round2(advs.filter(a => !a.settled).reduce((n, a) => n + Number(a.spent_amount || 0), 0))
-  const utilized = round2(approved + manualSpent)
+  // Utilized = approved imprest bills only (single source of truth). Cash returned is tracked via settlement.
+  const returned = round2(advs.reduce((n, a) => n + Number((a as any).returned_amount || 0), 0))
+  const utilized = round2(approved + returned)
   const balance = round2(given - utilized)
 
   return (
@@ -71,6 +75,13 @@ export default function MyImprest() {
         <Kpi label="Pending Approval" value={`₹${pending.toLocaleString('en-IN')}`} />
         <Kpi label="Remaining Balance" value={`₹${Math.abs(balance).toLocaleString('en-IN')}`} accent={balance > 0 ? 'emerald' : undefined} />
       </div>
+
+      {empId && !showForm && (
+        <button className="btn btn-primary mb-4" onClick={() => setShowForm(true)}>
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>receipt_long</span> Submit a Bill
+        </button>
+      )}
+      {empId && showForm && <SubmitBillForm employeeId={empId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); setReloadKey(k => k + 1) }} />}
 
       <div className="card overflow-hidden overflow-x-auto">
         <div className="px-4 py-3 border-b border-white/5"><span className="text-sm font-semibold text-[#e2e2e8]">My Bills</span></div>
@@ -112,4 +123,72 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
       <div className={`font-mono text-[20px] font-bold ${c}`}>{value}</div>
     </div>
   )
+}
+
+
+function SubmitBillForm({ employeeId, onClose, onSaved }: { employeeId: string; onClose: () => void; onSaved: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [type, setType] = useState('Material')
+  const [amount, setAmount] = useState('')
+  const [vendor, setVendor] = useState('')
+  const [desc, setDesc] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit() {
+    if (!amount || Number(amount) <= 0) { setErr('Enter the amount you spent.'); return }
+    if (!file) { setErr('A bill/invoice is required.'); return }
+    setBusy(true); setErr(null)
+    const { data: prof } = await supabase.from('profiles').select('org_id').maybeSingle()
+    // find the employee's default project (optional)
+    const { data: emp } = await supabase.from('employees').select('project_id, org_id').eq('id', employeeId).maybeSingle()
+    const orgForPath = prof?.org_id ?? (emp as any)?.org_id ?? 'org'
+    const path = makeObjectPath(orgForPath, file, 'bills')
+    const { path: stored, error: upErr } = await uploadPrivate('expense-bills', path, file)
+    if (upErr) { setErr('Upload failed: ' + upErr); setBusy(false); return }
+    // org_id is auto-filled by the DB trigger (set_org_id) from current_org(); we omit it here
+    const { error } = await supabase.from('expenses').insert({
+      project_id: (emp as any)?.project_id ?? null,
+      date, expense_type: type, amount: Number(amount), vendor: vendor || null,
+      payment_status: 'Paid', remark: desc || null, bill_photo: stored ?? null,
+      imprest_employee_id: employeeId, approval_status: 'Pending',
+    })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  return (
+    <div className="card p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-[#e2e2e8]">Submit a Bill (against your imprest)</span>
+        <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <L label="Date"><input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} /></L>
+        <L label="Category"><select className="input" value={type} onChange={e => setType(e.target.value)}><option>Material</option><option>Labour</option><option>Fuel</option><option>Transport</option><option>Food</option><option>Other</option></select></L>
+        <L label="Amount (INR)"><input className="input mono" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value.replace(/\D/g, ''))} /></L>
+        <L label="Vendor"><input className="input" value={vendor} onChange={e => setVendor(e.target.value)} placeholder="Shop name" /></L>
+        <L label="Description"><input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="What was it for" /></L>
+        <L label="Bill / Invoice (required)">
+          <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          <button type="button" className="btn btn-ghost w-full" style={{ fontSize: '12px' }} onClick={() => fileRef.current?.click()}>
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>attach_file</span>{file ? file.name.slice(0, 16) : 'Attach bill'}
+          </button>
+        </L>
+      </div>
+      {err && <div className="text-sm text-red-400 mt-2">{err}</div>}
+      <div className="flex gap-2 mt-3">
+        <button className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary flex-[2]" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit for approval'}</button>
+      </div>
+      <p className="text-[11px] text-[#dcc1ae]/50 mt-2">Your bill will be marked Pending. Once your admin approves it, your imprest balance reduces.</p>
+    </div>
+  )
+}
+
+function L({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><span className="text-[10px] font-bold text-[#dcc1ae]/70 uppercase tracking-wider block mb-1">{label}</span>{children}</label>
 }

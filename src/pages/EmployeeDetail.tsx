@@ -41,7 +41,7 @@ export default function EmployeeDetail() {
   const [docs, setDocs] = useState<EmpDoc[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [advances, setAdvances] = useState<Advance[]>([])
-  const [imprestExpenses, setImprestExpenses] = useState<{ id: string; date: string; amount: number; expense_type: string | null; remark: string | null }[]>([])
+  const [imprestExpenses, setImprestExpenses] = useState<{ id: string; date: string; amount: number; expense_type: string | null; remark: string | null; vendor: string | null; bill_photo: string | null }[]>([])
 
   async function loadPayments(eid: string) {
     const { data } = await supabase.from('employee_payments').select('id,date,pay_type,amount,mode,period,remark')
@@ -80,7 +80,7 @@ export default function EmployeeDetail() {
       if (alive) setDocs((d as EmpDoc[]) ?? [])
       await loadPayments(id)
       await loadAdvances(id)
-      const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark')
+      const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo')
         .eq('imprest_employee_id', id).order('date', { ascending: false }).limit(300)
       if (alive) setImprestExpenses((iex as any[]) ?? [])
       if (alive) setLoading(false)
@@ -303,9 +303,33 @@ export default function EmployeeDetail() {
               <div className={`text-[16px] font-mono font-bold ${advOutstanding > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>₹{Math.abs(advOutstanding).toLocaleString('en-IN')}</div>
             </div>
           </div>
-          {imprestSpent > 0 && (
-            <div className="text-[11px] text-[#dcc1ae]/60 mb-3">
-              Includes ₹{imprestSpent.toLocaleString('en-IN')} from {imprestExpenses.length} expense(s) tagged to this staff's imprest.
+          {imprestExpenses.length > 0 && (
+            <div className="card overflow-hidden overflow-x-auto mb-4">
+              <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                <span className="text-sm font-semibold text-[#e2e2e8]">Imprest Expenses (bills to verify)</span>
+                <span className="text-[11px] text-[#dcc1ae]/60">₹{imprestSpent.toLocaleString('en-IN')} · {imprestExpenses.length} bill(s)</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-[#282a2e]"><tr>
+                  {['Date', 'Type', 'Vendor', 'Amount', 'Remark', 'Bill'].map(h => <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
+                </tr></thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {imprestExpenses.map(e => (
+                    <tr key={e.id} className="hover:bg-white/[0.02]">
+                      <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{e.date}</td>
+                      <td className="px-4 py-2.5 text-[#e2e2e8]">{e.expense_type || '—'}</td>
+                      <td className="px-4 py-2.5 text-[#dcc1ae]">{e.vendor || '—'}</td>
+                      <td className="px-4 py-2.5 font-mono text-[#e2e2e8] text-right">₹{Number(e.amount).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-2.5 text-[#dcc1ae] max-w-[160px] truncate" title={e.remark || ''}>{e.remark || '—'}</td>
+                      <td className="px-4 py-2.5">
+                        {e.bill_photo
+                          ? <PrivateLink bucket="expense-bills" path={e.bill_photo} className="btn btn-ghost">View bill</PrivateLink>
+                          : <span className="text-[11px] text-amber-400/70">no bill</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           {emp && <AdvanceForm employeeId={emp.id} personName={emp.full_name} onSaved={() => loadAdvances(emp.id)} />}

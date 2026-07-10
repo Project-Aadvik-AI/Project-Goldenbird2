@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
+import { supabase } from '../lib/supabase'
 import { ThemeToggle } from '../lib/theme'
 
 // ============================================================
@@ -29,10 +30,24 @@ export default function AuthPages() {
     setMsg(error ? error : 'Password reset link sent — check your email.')
   }
 
+  async function resolveLoginEmail(input: string): Promise<string> {
+    const v = input.trim()
+    if (v.includes('@')) return v  // already an email
+    // looks like an Employee ID → look up its login email
+    try {
+      const { data, error } = await supabase.rpc('login_email_for_code', { p_code: v })
+      if (!error && data) return data as string
+    } catch { /* ignore, fall through */ }
+    return v  // fall back to what they typed
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setMsg(null)
     let res: { error?: string }
-    if (mode === 'in') res = await signIn(email, password)
+    if (mode === 'in') {
+      const loginEmail = await resolveLoginEmail(email)
+      res = await signIn(loginEmail, password)
+    }
     else if (signupMode === 'create') res = await signUp(email, password, fullName, orgName)
     else res = await signUpJoin(email, password, fullName, inviteCode)
     setBusy(false)
@@ -135,8 +150,8 @@ export default function AuthPages() {
                 )}
               </>
             )}
-            <Field label="Email">
-              <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <Field label={mode === 'in' ? 'Employee ID or Email' : 'Email'}>
+              <input className="input" type={mode === 'in' ? 'text' : 'email'} value={email} onChange={e => setEmail(e.target.value)} placeholder={mode === 'in' ? 'e.g. AS260001 or you@email.com' : ''} required />
             </Field>
             <Field label="Password">
               <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} required />

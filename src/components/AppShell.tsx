@@ -37,8 +37,8 @@ const NAV: Entry[] = [
     { to: '/employees', label: 'Employees', icon: 'badge', module: 'employees' },
     { to: '/designations', label: 'Designations', icon: 'badge', adminOnly: true },
     { to: '/permissions', label: 'Permissions', icon: 'lock', adminOnly: true },
-    { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'hr' },
-    { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'hr' },
+    { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },
+    { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'leaves' },
   ] },
   { group: 'Documents', icon: 'folder_open', items: [
     { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },

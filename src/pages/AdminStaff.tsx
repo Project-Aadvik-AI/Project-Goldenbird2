@@ -228,6 +228,9 @@ function PermsDrawer({ user, onClose }: { user: Staff; onClose: () => void }) {
           <>
             <div className="p-5 border-b border-white/5">
               <h4 className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-3">Module Permissions</h4>
+              <div className="text-[11px] text-amber-400/80 mb-3 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                Note: The main permission system is now <b>Designation-based</b> (HR → Permissions). These per-user settings are a legacy fallback used only when an employee has no designation.
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

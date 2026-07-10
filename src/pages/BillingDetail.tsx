@@ -21,6 +21,7 @@ export default function BillingDetail() {
   const { isAdmin, user } = useAuth()
   const [bill, setBill] = useState<RaBill | null>(null)
   const [lines, setLines] = useState<Line[]>([])
+  const [adjustments, setAdjustments] = useState<{ schedule: string; adj_type: string; pct: number }[]>([])
   const [loading, setLoading] = useState(true)
 
   async function load() {
@@ -29,7 +30,12 @@ export default function BillingDetail() {
     const { data: b } = await supabase.from('ra_bills').select('*').eq('id', id).single()
     setBill(b as RaBill)
     const { data: l } = await supabase.from('ra_bill_items').select('*').eq('ra_bill_id', id).order('created_at')
-    setLines((l as Line[]) ?? []); setLoading(false)
+    setLines((l as Line[]) ?? [])
+    if (b) {
+      const { data: adj } = await supabase.from('boq_bid_adjustments').select('schedule, adj_type, pct').eq('boq_id', (b as RaBill).boq_id)
+      setAdjustments(((adj ?? []) as any[]).filter(a => Number(a.pct) > 0))
+    }
+    setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -93,6 +99,23 @@ export default function BillingDetail() {
           <Sum label="Net payable" value={inr(bill.net_payable)} accent="emerald" big />
         </div>
       </div>
+
+      {adjustments.length > 0 && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '16px' }}>gavel</span>
+            <span className="text-[13px] font-semibold text-[#e2e2e8]">Saved Bid Adjustment (from BOQ)</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {adjustments.map(a => (
+              <span key={a.schedule} className={`px-2.5 py-1 rounded-md text-[11px] border ${a.adj_type === 'less' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                {a.schedule}: {a.adj_type === 'less' ? 'Less' : 'Excess'} {a.pct}%
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-[#dcc1ae]/50 mt-2">Reference only — this bill uses actual approved rates. Apply the quoted adjustment separately if your contract bills at quoted rates.</p>
+        </div>
+      )}
 
       {/* Line items */}
       <div className="card overflow-hidden overflow-x-auto mb-5">

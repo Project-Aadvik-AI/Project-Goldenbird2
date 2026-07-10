@@ -9,6 +9,7 @@ export type Profile = {
   org_id: string | null
   status: string
   is_admin: boolean
+  must_change_password?: boolean
 }
 
 export type Module =
@@ -16,8 +17,11 @@ export type Module =
   | 'purchase_requests' | 'reports' | 'hr' | 'documents'
   | 'correspondence' | 'contracts' | 'masters'
   | 'work_orders' | 'drawings' | 'tasks' | 'vendor_bills' | 'purchase'
+  | 'boq' | 'boq_dashboard' | 'boq_budget' | 'measurement_book' | 'billing'
+  | 'employees' | 'designations' | 'attendance' | 'leaves' | 'payroll'
+  | 'monthly_performance'
 
-export type Action = 'view' | 'add' | 'edit' | 'delete'
+export type Action = 'view' | 'add' | 'create' | 'edit' | 'delete' | 'approve' | 'export'
 
 type PermRow = {
   module: string
@@ -25,6 +29,13 @@ type PermRow = {
   can_add: boolean
   can_edit: boolean
   can_delete: boolean
+}
+
+// New designation-based permission row (Phase 2/3 RBAC)
+type DPermRow = {
+  module: string
+  can_view: boolean; can_create: boolean; can_edit: boolean
+  can_delete: boolean; can_approve: boolean; can_export: boolean
 }
 
 type AuthCtx = {
@@ -43,6 +54,9 @@ type AuthCtx = {
   signUpJoin: (email: string, password: string, fullName: string, inviteCode: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
   reloadPermissions: () => Promise<void>
+  mustChangePassword: boolean
+  changePassword: (newPassword: string) => Promise<{ error?: string }>
+  sendPasswordReset: (email: string) => Promise<{ error?: string }>
 }
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx)
@@ -53,12 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [perms, setPerms] = useState<PermRow[]>([])
+  const [dperms, setDperms] = useState<DPermRow[]>([])
+  const [rbacActive, setRbacActive] = useState(false)
   const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([])
 
   async function loadAll(uid: string) {
     const { data: prof } = await supabase
       .from('profiles')
-      .select('id, full_name, role, org_id, status, is_admin')
+      .select('id, full_name, role, org_id, status, is_admin, must_change_password')
       .eq('id', uid)
       .single()
     setProfile((prof as Profile) ?? null)
@@ -69,6 +85,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ])
     setPerms((perm as PermRow[]) ?? [])
     setAssignedProjectIds(((up as { project_id: string }[]) ?? []).map(r => r.project_id))
+
+    // ── RBAC: find this login's employee record (by profile_id, else by email) → designation → permissions
+    try {
+      const email = (prof as Profile & { email?: string })?.id ? null : null
+      let emp: { id: string; designation_id: string | null } | null = null
+      // by profile_id link first
+      const { data: byProfile } = await supabase.from('employees').select('id, designation_id').eq('profile_id', uid).limit(1)
+      if (byProfile && byProfile.length) emp = byProfile[0] as any
+      // fallback: by email match
+      if (!emp) {
+        const { data: authUser } = await supabase.auth.getUser()
+        const em = authUser?.user?.email
+        if (em) {
+          const { data: byEmail } = await supabase.from('employees').select('id, designation_id').ilike('email', em).limit(1)
+          if (byEmail && byEmail.length) emp = byEmail[0] as any
+        }
+      }
+      if (emp?.designation_id) {
+        const { data: dp } = await supabase.from('designation_permissions').select('module, can_view, can_create, can_edit, can_delete, can_approve, can_export').eq('designation_id', emp.designation_id)
+        if (dp && dp.length) { setDperms(dp as DPermRow[]); setRbacActive(true) }
+        else { setDperms([]); setRbacActive(false) }
+      } else { setDperms([]); setRbacActive(false) }
+    } catch { setDperms([]); setRbacActive(false) }
   }
 
   useEffect(() => {
@@ -81,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s)
       if (s) loadAll(s.user.id)
-      else { setProfile(null); setPerms([]); setAssignedProjectIds([]) }
+      else { setProfile(null); setPerms([]); setDperms([]); setRbacActive(false); setAssignedProjectIds([]) }
     })
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -92,10 +131,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const can: AuthCtx['can'] = (module, action) => {
     if (isAdmin) return true
+    // Phase 3 RBAC: if this user's designation has a permission template, use it
+    if (rbacActive) {
+      const dr = dperms.find(p => p.module === module)
+      if (!dr) return false
+      switch (action) {
+        case 'view': return dr.can_view
+        case 'add':
+        case 'create': return dr.can_create
+        case 'edit': return dr.can_edit
+        case 'delete': return dr.can_delete
+        case 'approve': return dr.can_approve
+        case 'export': return dr.can_export
+        default: return false
+      }
+    }
+    // Legacy fallback (old user_permissions)
     const row = perms.find(p => p.module === module)
     if (!row) return false
     if (action === 'view') return row.can_view
-    if (action === 'add') return row.can_add
+    if (action === 'add' || action === 'create') return row.can_add
     if (action === 'edit') return row.can_edit
     if (action === 'delete') return row.can_delete
     return false
@@ -107,6 +162,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthCtx['signIn'] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error) {
+      // best-effort login history log (never block login if it fails)
+      try {
+        const { data: u } = await supabase.auth.getUser()
+        if (u?.user) {
+          await supabase.from('login_history').insert({
+            user_id: u.user.id, email: u.user.email,
+            event: 'login', user_agent: navigator.userAgent.slice(0, 300),
+          })
+        }
+      } catch { /* ignore */ }
+    }
+    return { error: error?.message }
+  }
+
+  const changePassword: AuthCtx['changePassword'] = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { error: error.message }
+    // clear the must-change flag + log it
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      if (u?.user) {
+        await supabase.from('profiles').update({ must_change_password: false }).eq('id', u.user.id)
+        await supabase.from('login_history').insert({ user_id: u.user.id, email: u.user.email, event: 'password_changed', user_agent: navigator.userAgent.slice(0, 300) })
+        await loadAll(u.user.id)
+      }
+    } catch { /* ignore */ }
+    return {}
+  }
+
+  const sendPasswordReset: AuthCtx['sendPasswordReset'] = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
     return { error: error?.message }
   }
 
@@ -144,6 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready, configured: hasSupabaseConfig, session, user: session?.user ?? null,
       profile, isAdmin, isPending, isDisabled, assignedProjectIds, can,
       signIn, signUp, signUpJoin, signOut, reloadPermissions,
+      mustChangePassword: !!profile?.must_change_password,
+      changePassword, sendPasswordReset,
     }}>
       {children}
     </Ctx.Provider>

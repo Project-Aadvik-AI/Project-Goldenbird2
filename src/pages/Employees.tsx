@@ -43,8 +43,55 @@ const DOC_TYPES = ['Offer Letter', 'Degree / Qualification', 'Aadhaar', 'ID Proo
 
 export default function Employees() {
   const { projects } = useProject()
-  const { can } = useAuth()
+  const { can, isAdmin } = useAuth()
   const navigate = useNavigate()
+
+  const [creds, setCreds] = useState<{ name: string; username: string; password: string; emailed: boolean } | null>(null)
+  const [creatingLogin, setCreatingLogin] = useState<string | null>(null)
+
+  async function createLogin(r: Employee) {
+    if (!r.email) { alert('This employee has no email. Add an email first (needed for login).'); return }
+    if (!confirm(`Create a login account for ${r.full_name} (${r.email})?\nA temporary password will be generated.`)) return
+    setCreatingLogin(r.id)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess?.session?.access_token
+      const { data, error } = await supabase.functions.invoke('create-employee-login', {
+        body: { employee_id: r.id, email: r.email, full_name: r.full_name, employee_code: r.emp_code },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (error) { alert('Failed: ' + error.message); return }
+      if ((data as any)?.error) { alert('Failed: ' + (data as any).error); return }
+      setCreds({ name: r.full_name, username: (data as any).username, password: (data as any).temp_password, emailed: !!(data as any).emailed })
+      load()
+    } catch (e) {
+      alert('Failed: ' + String(e))
+    } finally { setCreatingLogin(null) }
+  }
+
+  async function deleteEmployee(r: Employee) {
+    // safety: check for linked history that would be orphaned
+    const [{ count: attC }, { count: payC }, { count: advC }] = await Promise.all([
+      supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('employee_id', r.id),
+      supabase.from('employee_payments').select('id', { count: 'exact', head: true }).eq('employee_id', r.id),
+      supabase.from('advances').select('id', { count: 'exact', head: true }).eq('employee_id', r.id),
+    ])
+    const hist = (attC ?? 0) + (payC ?? 0) + (advC ?? 0)
+    const warn = hist > 0
+      ? `\n\nWARNING: This employee has ${attC ?? 0} attendance, ${payC ?? 0} payment, and ${advC ?? 0} advance record(s). Deleting will also remove those. Consider setting status to Inactive instead.`
+      : ''
+    if (!confirm(`Delete employee "${r.full_name}" (${r.emp_code || 'no code'})?${warn}\n\nThis cannot be undone.`)) return
+    // delete dependent records first (no cascade guaranteed), then the employee
+    await Promise.all([
+      supabase.from('attendance').delete().eq('employee_id', r.id),
+      supabase.from('employee_payments').delete().eq('employee_id', r.id),
+      supabase.from('advances').delete().eq('employee_id', r.id),
+      supabase.from('employee_documents').delete().eq('employee_id', r.id),
+    ])
+    const { error } = await supabase.from('employees').delete().eq('id', r.id)
+    if (error) { alert('Could not delete: ' + error.message); return }
+    load()
+  }
   const [rows, setRows] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -139,7 +186,13 @@ export default function Employees() {
                     <button className="text-[#e2e2e8] text-xs font-semibold uppercase tracking-wider hover:underline mr-3" onClick={() => navigate(`/employees/${r.id}`)}>View</button>
                     <button className="text-[#ffb87b] text-xs font-semibold uppercase tracking-wider hover:underline mr-3" onClick={() => setManagingDocs(r)}>Docs</button>
                     {can('hr', 'edit') && (
-                      <button className="text-[#dcc1ae] text-xs font-semibold uppercase tracking-wider hover:underline" onClick={() => { setEditing(r); setShowForm(true) }}>Edit</button>
+                      <button className="text-[#dcc1ae] text-xs font-semibold uppercase tracking-wider hover:underline mr-3" onClick={() => { setEditing(r); setShowForm(true) }}>Edit</button>
+                    )}
+                    {isAdmin && (
+                      <button className="text-emerald-400 text-xs font-semibold uppercase tracking-wider hover:underline mr-3 disabled:opacity-40" disabled={creatingLogin === r.id} onClick={() => createLogin(r)}>{creatingLogin === r.id ? '…' : 'Create Login'}</button>
+                    )}
+                    {isAdmin && (
+                      <button className="text-red-400 text-xs font-semibold uppercase tracking-wider hover:underline" onClick={() => deleteEmployee(r)}>Delete</button>
                     )}
                   </td>
                 </tr>
@@ -163,6 +216,25 @@ export default function Employees() {
       {managingDocs && (
         <DocsDrawer employee={managingDocs} onClose={() => setManagingDocs(null)} />
       )}
+      {creds && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setCreds(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-md p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-emerald-400" style={{ fontSize: '22px' }}>key</span>
+              <h3 className="font-headline text-lg font-semibold text-[#e2e2e8]">Login created for {creds.name}</h3>
+            </div>
+            <p className="text-[12px] text-[#dcc1ae] mb-4">{creds.emailed ? 'Credentials were emailed to the employee. ' : 'Email was not sent — copy and share these securely. '}They must change this password on first login.</p>
+            <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3 mb-4 space-y-2">
+              <div className="flex items-center justify-between"><span className="text-[11px] text-[#dcc1ae]/60 uppercase">Username</span><span className="font-mono text-[#e2e2e8]">{creds.username}</span></div>
+              <div className="flex items-center justify-between"><span className="text-[11px] text-[#dcc1ae]/60 uppercase">Temp Password</span><span className="font-mono text-[#e2e2e8]">{creds.password}</span></div>
+            </div>
+            <div className="flex gap-2">
+              <button className="btn btn-ghost flex-1" onClick={() => { navigator.clipboard.writeText(`Username: ${creds.username}\nPassword: ${creds.password}`); }}>Copy</button>
+              <button className="btn btn-primary flex-1" onClick={() => setCreds(null)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -171,6 +243,8 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
   const { projects } = useProject()
   const [fullName, setFullName] = useState(editing?.full_name ?? '')
   const [designation, setDesignation] = useState(editing?.designation ?? '')
+  const [designationId, setDesignationId] = useState<string>((editing as any)?.designation_id ?? '')
+  const [desigOptions, setDesigOptions] = useState<{ id: string; name: string }[]>([])
   const [department, setDepartment] = useState(editing?.department ?? 'Site')
   const [phone, setPhone] = useState(editing?.phone ?? '')
   const [email, setEmail] = useState(editing?.email ?? '')
@@ -190,6 +264,13 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
   const [err, setErr] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('designations').select('id, name').eq('disabled', false).order('name')
+      setDesigOptions((data as { id: string; name: string }[]) ?? [])
+    })()
+  }, [])
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) { setErr('Name is required'); return }
@@ -208,6 +289,7 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
     const payload: Record<string, unknown> = {
       full_name: fullName,
       designation: designation || null,
+      designation_id: designationId || null,
       department: department || null,
       phone: phone || null,
       email: email || null,
@@ -229,14 +311,16 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
       setBusy(false)
       if (error) { setErr(error.message); return }
     } else {
-      // auto-generate the next AAD-#### code
-      const { data: all } = await supabase.from('employees').select('emp_code')
-      let max = 0
-      for (const x of all ?? []) {
-        const m = /^AAD-(\d+)$/.exec((x as { emp_code: string | null }).emp_code ?? '')
-        if (m) max = Math.max(max, parseInt(m[1], 10))
-      }
-      payload.emp_code = `AAD-${String(max + 1).padStart(4, '0')}`
+      // auto-generate Employee ID: <FirstInitial><LastInitial><JoinYY><seq>  e.g. AS260001
+      const parts = fullName.trim().split(/\s+/)
+      const first = parts[0] ?? ''
+      const last = parts.length > 1 ? parts[parts.length - 1] : ''
+      const { data: code, error: codeErr } = await supabase.rpc('next_employee_code', {
+        p_first: first, p_last: last, p_join_date: joinDate || new Date().toISOString().slice(0, 10),
+      })
+      if (codeErr) { setErr('Could not generate Employee ID: ' + codeErr.message); setBusy(false); return }
+      payload.employee_code = code
+      payload.emp_code = code  // keep legacy column in sync so existing screens still show it
       const { error } = await supabase.from('employees').insert({ ...payload, org_id: prof?.org_id })
       setBusy(false)
       if (error) { setErr(error.message); return }
@@ -281,7 +365,19 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
 
           <div className="grid grid-cols-2 gap-3">
             <L label="Full Name *"><input className="input" value={fullName} onChange={e => setFullName(e.target.value)} /></L>
-            <L label="Designation"><input className="input" value={designation} onChange={e => setDesignation(e.target.value)} /></L>
+            <L label="Designation">
+              <select className="input" value={designationId} onChange={e => {
+                setDesignationId(e.target.value)
+                const opt = desigOptions.find(o => o.id === e.target.value)
+                setDesignation(opt?.name ?? '')
+              }}>
+                <option value="">— Select —</option>
+                {desigOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                {editing?.designation && !desigOptions.some(o => o.name === editing.designation) && (
+                  <option value="">{editing.designation} (old)</option>
+                )}
+              </select>
+            </L>
             <L label="Department">
               <select className="input" value={department} onChange={e => setDepartment(e.target.value)}>
                 {DEPTS.map(d => <option key={d}>{d}</option>)}

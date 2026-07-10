@@ -132,7 +132,7 @@ export default function BoqEditor() {
       </div>
 
       {/* Bid adjustment */}
-      {boq && <BidAdjustment total={total} items={items} />}
+      {boq && <BidAdjustment boqId={boq.id} total={total} items={items} boqStatus={boq.status} onApplied={() => { if (id) loadItems(id) }} />}
 
       {/* Work pacing target */}
       {boq && <WorkTarget boq={boq} totalValue={total} completedValue={completedValue} onSaved={(sd, mt) => setBoq({ ...boq, start_date: sd, monthly_target: mt })} />}
@@ -550,7 +550,7 @@ function OpeningProgress({ boqId, projectId, items, onClose, onDone }: { boqId: 
   ), document.body)
 }
 
-function BidAdjustment({ total, items }: { total: number; items: Item[] }) {
+function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: string; total: number; items: Item[]; boqStatus: string; onApplied: () => void }) {
   // Group items by schedule (category). Blank category => "Ungrouped".
   const groups = useMemo(() => {
     const map = new Map<string, number>()
@@ -573,6 +573,91 @@ function BidAdjustment({ total, items }: { total: number; items: Item[] }) {
   }
   function setPct(schedule: string, pct: string) {
     setAdj(a => ({ ...a, [schedule]: { ...getAdj(schedule), pct: pct.replace(/[^\d.]/g, '') } }))
+    setSavedOk(false)
+  }
+  function setTypeTracked(schedule: string, type: BidType) { setType(schedule, type); setSavedOk(false) }
+
+  const [saving, setSaving] = useState(false)
+  const [savedOk, setSavedOk] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // Load saved adjustments once
+  useEffect(() => {
+    if (!boqId) return
+    (async () => {
+      const { data } = await supabase.from('boq_bid_adjustments').select('schedule, adj_type, pct').eq('boq_id', boqId)
+      const next: Record<string, { type: BidType; pct: string }> = {}
+      for (const r of (data ?? []) as { schedule: string; adj_type: string; pct: number }[]) {
+        next[r.schedule] = { type: (r.adj_type === 'excess' ? 'excess' : 'less'), pct: String(r.pct ?? '') }
+      }
+      setAdj(next); setLoaded(true)
+    })()
+  }, [boqId])
+
+  async function saveAll() {
+    setSaving(true)
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const rowsToSave = groups.map(g => {
+      const a = getAdj(g.schedule)
+      const p = a.pct.trim() === '' ? 0 : Number(a.pct)
+      return { org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule, adj_type: a.type, pct: isFinite(p) && p >= 0 ? p : 0, updated_at: new Date().toISOString() }
+    })
+    // upsert on (boq_id, schedule)
+    const { error } = await supabase.from('boq_bid_adjustments').upsert(rowsToSave, { onConflict: 'boq_id,schedule' })
+    setSaving(false)
+    if (!error) { setSavedOk(true) }
+  }
+
+  const [applying, setApplying] = useState(false)
+  const [applyMsg, setApplyMsg] = useState<string | null>(null)
+
+  async function applyToRates() {
+    // schedules that have a real % to apply
+    const toApply = groups.map(g => ({ g, a: getAdj(g.schedule) }))
+      .filter(({ a }) => { const p = Number(a.pct); return a.pct.trim() !== '' && isFinite(p) && p > 0 })
+    if (!toApply.length) { setApplyMsg('No schedule has a percentage to apply.'); return }
+    const names = toApply.map(x => `${x.g.schedule} (${x.a.type === 'less' ? '−' : '+'}${x.a.pct}%)`).join(', ')
+    if (!confirm(`Apply quoted rates permanently?\n\n${names}\n\nA backup revision will be saved first. After applying, these schedules reset to At Par (0%) to avoid double-discount.`)) return
+
+    setApplying(true); setApplyMsg(null)
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const { data: uinfo } = await supabase.auth.getUser()
+
+    // 1) BACKUP: snapshot current items into a revision
+    const { data: boqRow } = await supabase.from('boqs').select('version').eq('id', boqId).single()
+    const curVer = (boqRow as any)?.version ?? 1
+    await supabase.from('boq_revisions').insert({
+      org_id: prof?.org_id, boq_id: boqId, version: curVer,
+      change_reason: `Backup before applying bid adjustment: ${names}`,
+      total_amount: total, items_snapshot: items,
+      created_by: uinfo?.user?.id ?? null, created_by_name: null,
+    })
+
+    // 2) update each item's final_rate + amount for the applied schedules
+    const factorFor = (type: BidType, p: number) => p === 0 ? 1 : type === 'less' ? (100 - p) / 100 : (100 + p) / 100
+    for (const { g, a } of toApply) {
+      const p = Number(a.pct)
+      const f = factorFor(a.type, p)
+      const schedItems = items.filter(it => ((it.category && it.category.trim()) ? it.category.trim() : 'Ungrouped') === g.schedule)
+      for (const it of schedItems) {
+        const newRate = round2(Number(it.final_rate || 0) * f)
+        const newAmount = round2(Number(it.quantity || 0) * newRate)
+        await supabase.from('boq_items').update({ final_rate: newRate, amount: newAmount }).eq('id', it.id)
+      }
+    }
+
+    // 3) reset applied schedules to 0 (At Par) both in state and saved table
+    const resetRows = toApply.map(({ g }) => ({ org_id: prof?.org_id, boq_id: boqId, schedule: g.schedule, adj_type: 'less', pct: 0, updated_at: new Date().toISOString() }))
+    await supabase.from('boq_bid_adjustments').upsert(resetRows, { onConflict: 'boq_id,schedule' })
+    setAdj(prev => {
+      const next = { ...prev }
+      for (const { g } of toApply) next[g.schedule] = { type: 'less', pct: '' }
+      return next
+    })
+
+    setApplying(false)
+    setApplyMsg(`✓ Applied to ${toApply.length} schedule(s). Rates updated everywhere. Backup saved in Revision History.`)
+    onApplied()
   }
 
   // compute per schedule + totals
@@ -597,7 +682,25 @@ function BidAdjustment({ total, items }: { total: number; items: Item[] }) {
         <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>gavel</span>
         <span className="text-sm font-semibold text-[#e2e2e8]">Bid Adjustment</span>
         <span className="text-[11px] text-[#dcc1ae]/60">(schedule-wise Less / Excess quotation)</span>
+        {groups.length > 0 && (
+          <button
+            className="btn btn-primary ml-auto"
+            style={{ padding: '5px 14px', fontSize: '12px' }}
+            disabled={saving}
+            onClick={saveAll}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{savedOk ? 'check' : 'save'}</span>
+            {saving ? 'Saving…' : savedOk ? 'Saved' : 'Save Adjustment'}
+          </button>
+        )}
+        {groups.length > 0 && boqStatus === 'Draft' && (
+          <button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '12px' }} disabled={applying} onClick={applyToRates} title="Make quoted rates the actual rates (with backup)">
+            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>published_with_changes</span>
+            {applying ? 'Applying…' : 'Apply to Rates'}
+          </button>
+        )}
       </div>
+      {applyMsg && <div className={`text-[12px] mb-3 px-3 py-2 rounded-lg border ${applyMsg.startsWith('✓') ? 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' : 'text-amber-400 bg-amber-500/5 border-amber-500/10'}`}>{applyMsg}</div>}
 
       {!groups.length && <div className="text-[13px] text-[#dcc1ae]/60">Add items (with a Category / Schedule) to set schedule-wise quotation.</div>}
 
@@ -618,7 +721,7 @@ function BidAdjustment({ total, items }: { total: number; items: Item[] }) {
                   </td>
                   <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right whitespace-nowrap">{inr(r.amount)}</td>
                   <td className="px-3 py-2">
-                    <select className="input" value={r.type} onChange={e => setType(r.schedule, e.target.value as BidType)} style={{ padding: '4px 8px', fontSize: '12px', width: 110 }}>
+                    <select className="input" value={r.type} onChange={e => setTypeTracked(r.schedule, e.target.value as BidType)} style={{ padding: '4px 8px', fontSize: '12px', width: 110 }}>
                       <option value="less">Less (−)</option>
                       <option value="excess">Excess (+)</option>
                     </select>

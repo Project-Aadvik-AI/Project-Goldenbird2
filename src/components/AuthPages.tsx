@@ -3,12 +3,14 @@ import { useAuth } from '../lib/auth'
 import { ThemeToggle } from '../lib/theme'
 
 // ============================================================
-// Auth — themed to match the landing. Colors from CSS variables
-// so it flips dark/light. Flowing contour background + toggle.
+// Auth — matched to the landing's architectural-minimal look.
+// Near-black, hairlines, light-weight type, one orange mark,
+// off-white pill primary. Left: quiet brand + live project.
+// Right: the form.
 // ============================================================
 
 export default function AuthPages() {
-  const { signIn, signUp, signUpJoin } = useAuth()
+  const { signIn, signUp, signUpJoin, sendPasswordReset } = useAuth()
   const [mode, setMode] = useState<'in' | 'up'>('in')
   const [signupMode, setSignupMode] = useState<'create' | 'join'>('create')
   const [email, setEmail] = useState('')
@@ -18,6 +20,14 @@ export default function AuthPages() {
   const [inviteCode, setInviteCode] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  async function forgotPassword() {
+    if (!email.trim()) { setMsg('Enter your email above first, then click "Forgot password".'); return }
+    setBusy(true); setMsg(null)
+    const { error } = await sendPasswordReset(email.trim())
+    setBusy(false)
+    setMsg(error ? error : 'Password reset link sent — check your email.')
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setMsg(null)
@@ -30,9 +40,9 @@ export default function AuthPages() {
   }
 
   return (
-    <div className="flow-bg flex min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
-      {/* ---------- Left — brand (desktop) ---------- */}
-      <section className="relative hidden lg:flex flex-col justify-between w-[46%] border-r border-[var(--line)] px-14 py-12 z-10">
+    <div className="flex min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
+      {/* ---------- Left — brand + live project (desktop) ---------- */}
+      <section className="relative hidden lg:flex flex-col justify-between w-[46%] border-r border-[var(--line)] px-14 py-12">
         <div className="flex items-center gap-3">
           <span className="w-[7px] h-[7px] bg-[var(--accent)] rounded-[1px] mt-[1px]" />
           <span className="text-[13px] font-semibold tracking-[0.28em]">AADVIK</span>
@@ -53,14 +63,22 @@ export default function AuthPages() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90" />
-          <span className="text-[10px] tracking-[0.2em] text-[var(--faint)] font-mono uppercase">Systems operational</span>
+        <div>
+          <div className="flex items-baseline justify-between mb-4">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--faint)] font-mono">Live project</span>
+            <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--faint)] font-mono">01 / 10</span>
+          </div>
+          <div className="text-[15px] mb-4">Railway Siding Augmentation</div>
+          <div className="grid grid-cols-3 gap-6 border-t border-[var(--line)] pt-4">
+            <Stat k="Contract" v="₹33.55 Cr" accent />
+            <Stat k="Owner" v="NALCO" />
+            <Stat k="Supervision" v="RITES" />
+          </div>
         </div>
       </section>
 
       {/* ---------- Right — form ---------- */}
-      <main className="flex-1 flex flex-col justify-center items-center px-6 relative z-10">
+      <main className="flex-1 flex flex-col justify-center items-center px-6 relative">
         <div className="absolute top-6 right-6">
           <ThemeToggle />
         </div>
@@ -134,6 +152,11 @@ export default function AuthPages() {
               {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
             </button>
+            {mode === 'in' && (
+              <button type="button" onClick={forgotPassword} className="text-[12px] text-[var(--text-2)] hover:text-[var(--text)] hover:underline w-full text-center mt-1">
+                Forgot password?
+              </button>
+            )}
           </form>
 
           <div className="text-[13px] text-[var(--text-2)] mt-7 text-center">
@@ -145,8 +168,8 @@ export default function AuthPages() {
           </div>
         </div>
 
-        {/* status (mobile / small screens) */}
-        <div className="absolute bottom-8 flex items-center gap-2 lg:hidden">
+        {/* status */}
+        <div className="absolute bottom-8 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/90" />
           <span className="text-[10px] tracking-[0.2em] text-[var(--faint)] font-mono uppercase">Systems operational</span>
         </div>
@@ -161,5 +184,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-[10px] font-mono tracking-[0.16em] text-[var(--faint)] uppercase block mb-2">{label}</span>
       {children}
     </label>
+  )
+}
+
+function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className={`text-[15px] ${accent ? 'text-[var(--accent)] font-mono' : 'text-[var(--text)]'}`}>{v}</div>
+      <div className="text-[9px] tracking-[0.2em] uppercase text-[var(--faint)] font-mono mt-1">{k}</div>
+    </div>
   )
 }

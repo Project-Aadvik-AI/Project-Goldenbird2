@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import ChangePassword from '../pages/ChangePassword'
 import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
 import { ThemeToggle } from '../lib/theme'
@@ -21,11 +22,11 @@ const NAV: Entry[] = [
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
   ] },
   { group: 'BOQ & Billing', icon: 'request_quote', items: [
-    { to: '/boq', label: 'BOQ', icon: 'request_quote' },
-    { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard' },
-    { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet' },
-    { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten' },
-    { to: '/billing', label: 'RA Billing', icon: 'receipt_long' },
+    { to: '/boq', label: 'BOQ', icon: 'request_quote', module: 'boq' },
+    { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard', module: 'boq_dashboard' },
+    { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet', module: 'boq_budget' },
+    { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten', module: 'measurement_book' },
+    { to: '/billing', label: 'RA Billing', icon: 'receipt_long', module: 'billing' },
   ] },
   { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
@@ -33,7 +34,9 @@ const NAV: Entry[] = [
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
   ] },
   { group: 'HR Management', icon: 'badge', items: [
-    { to: '/employees', label: 'Employees', icon: 'badge', module: 'hr' },
+    { to: '/employees', label: 'Employees', icon: 'badge', module: 'employees' },
+    { to: '/designations', label: 'Designations', icon: 'badge', adminOnly: true },
+    { to: '/permissions', label: 'Permissions', icon: 'lock', adminOnly: true },
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'hr' },
     { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'hr' },
   ] },
@@ -47,7 +50,7 @@ const NAV: Entry[] = [
   { to: '/bugs', label: 'Bug Reports', icon: 'bug_report' },
   { group: 'Reports & AI', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
-    { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed' },
+    { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed', module: 'monthly_performance' },
     { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
   ] },
   { to: '/masters', label: 'Master Data', icon: 'database', module: 'masters' },
@@ -83,7 +86,7 @@ const childLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 export default function AppShell() {
-  const { profile, user, signOut, isAdmin, can } = useAuth()
+  const { profile, user, signOut, isAdmin, can, mustChangePassword } = useAuth()
   const { t } = useLang()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
@@ -113,6 +116,9 @@ export default function AppShell() {
 
   const visibleAdmin = isAdmin ? ADMIN_NAV : []
   const initials = (profile?.full_name || user?.email || 'U').slice(0, 2).toUpperCase()
+
+  // First-login forced password change: block the whole app until done
+  if (mustChangePassword) return <ChangePassword forced />
 
   return (
     <div className="h-full flex bg-[var(--bg)] text-[var(--text)]">

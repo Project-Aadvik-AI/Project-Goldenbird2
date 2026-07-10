@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import ModuleGuard from './components/ModuleGuard'
+import ChangePassword from './pages/ChangePassword'
 import { useAuth } from './lib/auth'
 import { ProjectProvider } from './lib/project'
 import AuthPages from './components/AuthPages'
@@ -22,6 +24,8 @@ import AIBrief from './pages/AIBrief'
 import Projects from './pages/Projects'
 import OrgDashboard from './pages/OrgDashboard'
 import Employees from './pages/Employees'
+import Designations from './pages/Designations'
+import Permissions from './pages/Permissions'
 import Boq from './pages/Boq'
 import BoqEditor from './pages/BoqEditor'
 import MeasurementBook from './pages/MeasurementBook'
@@ -75,39 +79,42 @@ export default function App() {
           <Route path="/" element={<OrgDashboard />} />
           <Route path="/project" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/store" element={<Store />} />
-          <Route path="/machines" element={<Machines />} />
-          <Route path="/dpr" element={<DPR />} />
-          <Route path="/labour" element={<Labour />} />
-          <Route path="/purchase" element={<Purchase />} />
-          <Route path="/reports" element={<Reports />} />
+          <Route path="/expenses" element={<ModuleGuard module="expenses"><Expenses /></ModuleGuard>} />
+          <Route path="/store" element={<ModuleGuard module="store"><Store /></ModuleGuard>} />
+          <Route path="/machines" element={<ModuleGuard module="machines"><Machines /></ModuleGuard>} />
+          <Route path="/dpr" element={<ModuleGuard module="dpr"><DPR /></ModuleGuard>} />
+          <Route path="/labour" element={<ModuleGuard module="labour"><Labour /></ModuleGuard>} />
+          <Route path="/purchase" element={<ModuleGuard module="purchase_requests"><Purchase /></ModuleGuard>} />
+          <Route path="/reports" element={<ModuleGuard module="reports"><Reports /></ModuleGuard>} />
           <Route path="/masters" element={<Masters />} />
           <Route path="/team" element={<Team />} />
-          <Route path="/employees" element={<Employees />} />
-          <Route path="/boq" element={<Boq />} />
+          <Route path="/employees" element={<ModuleGuard module="employees"><Employees /></ModuleGuard>} />
+          <Route path="/designations" element={<Designations />} />
+          <Route path="/permissions" element={<Permissions />} />
+          <Route path="/boq" element={<ModuleGuard module="boq"><Boq /></ModuleGuard>} />
           <Route path="/boq/:id" element={<BoqEditor />} />
-          <Route path="/measurement-book" element={<MeasurementBook />} />
-          <Route path="/monthly-performance" element={<MonthlyPerformance />} />
-          <Route path="/billing" element={<Billing />} />
-          <Route path="/boq-dashboard" element={<BoqDashboard />} />
-          <Route path="/boq-budget" element={<BoqBudget />} />
+          <Route path="/measurement-book" element={<ModuleGuard module="measurement_book"><MeasurementBook /></ModuleGuard>} />
+          <Route path="/monthly-performance" element={<ModuleGuard module="monthly_performance"><MonthlyPerformance /></ModuleGuard>} />
+          <Route path="/billing" element={<ModuleGuard module="billing"><Billing /></ModuleGuard>} />
+          <Route path="/boq-dashboard" element={<ModuleGuard module="boq_dashboard"><BoqDashboard /></ModuleGuard>} />
+          <Route path="/boq-budget" element={<ModuleGuard module="boq_budget"><BoqBudget /></ModuleGuard>} />
           <Route path="/bugs" element={<BugReports />} />
           <Route path="/billing/:id" element={<BillingDetail />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/leaves" element={<Leaves />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/correspondence" element={<Correspondence />} />
-          <Route path="/contracts" element={<Contracts />} />
+          <Route path="/attendance" element={<ModuleGuard module="attendance"><Attendance /></ModuleGuard>} />
+          <Route path="/leaves" element={<ModuleGuard module="leaves"><Leaves /></ModuleGuard>} />
+          <Route path="/documents" element={<ModuleGuard module="documents"><Documents /></ModuleGuard>} />
+          <Route path="/correspondence" element={<ModuleGuard module="correspondence"><Correspondence /></ModuleGuard>} />
+          <Route path="/contracts" element={<ModuleGuard module="contracts"><Contracts /></ModuleGuard>} />
           <Route path="/admin/staff" element={<AdminStaff />} />
           <Route path="/admin/invite" element={<AdminInvite />} />
           <Route path="/admin/reports" element={<AdminReports />} />
-          <Route path="/work-orders" element={<WorkOrders />} />
-          <Route path="/drawings" element={<Drawings />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/vendor-bills" element={<VendorBills />} />
+          <Route path="/work-orders" element={<ModuleGuard module="work_orders"><WorkOrders /></ModuleGuard>} />
+          <Route path="/drawings" element={<ModuleGuard module="drawings"><Drawings /></ModuleGuard>} />
+          <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
+          <Route path="/vendor-bills" element={<ModuleGuard module="vendor_bills"><VendorBills /></ModuleGuard>} />
           <Route path="/ai-brief" element={<AIBrief />} />
+          <Route path="/change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

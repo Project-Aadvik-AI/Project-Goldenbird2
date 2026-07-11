@@ -18,6 +18,7 @@ const NAV: Entry[] = [
     { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
     { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
     { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
+    { to: '/assets', label: 'Company Assets', icon: 'inventory', module: 'machines' },
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
   ] },

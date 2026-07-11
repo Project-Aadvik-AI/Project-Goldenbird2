@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, Project } from '../lib/project'
@@ -122,6 +122,37 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  // --- Head Office: attach employees & assets to this project ---
+  const [people, setPeople] = useState<{ id: string; full_name: string }[]>([])
+  const [assetList, setAssetList] = useState<{ id: string; name: string; asset_code: string | null; category: string | null }[]>([])
+  const [pickedPeople, setPickedPeople] = useState<Set<string>>(new Set())
+  const [pickedAssets, setPickedAssets] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: pr }, { data: as }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name').eq('status', 'active').order('full_name'),
+        supabase.from('assets').select('id, name, asset_code, category').eq('archived', false).order('name'),
+      ])
+      setPeople((pr as any[]) ?? [])
+      setAssetList((as as any[]) ?? [])
+      if (editing) {
+        const [{ data: up }, { data: aa }] = await Promise.all([
+          supabase.from('user_projects').select('user_id').eq('project_id', editing.id),
+          supabase.from('assets').select('id').eq('project_id', editing.id),
+        ])
+        setPickedPeople(new Set(((up as any[]) ?? []).map(x => x.user_id)))
+        setPickedAssets(new Set(((aa as any[]) ?? []).map(x => x.id)))
+      }
+    })()
+  }, [editing?.id])
+
+  const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
+    const next = new Set(set)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setter(next)
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setErr('Project name is required'); return }
@@ -140,14 +171,46 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
     }
 
     let error
+    let projectId = editing?.id ?? ''
+    const { data: prof } = await supabase.from('profiles').select('org_id').maybeSingle()
     if (editing) {
       ({ error } = await supabase.from('projects').update(payload).eq('id', editing.id))
     } else {
-      const { data: prof } = await supabase.from('profiles').select('org_id').single()
-      ;({ error } = await supabase.from('projects').insert({ ...payload, org_id: prof?.org_id }))
+      const { data: created, error: insErr } = await supabase.from('projects')
+        .insert({ ...payload, org_id: prof?.org_id }).select('id').single()
+      error = insErr
+      projectId = (created as any)?.id ?? ''
     }
+    if (error) { setBusy(false); setErr(error.message); return }
+
+    // --- sync assigned EMPLOYEES (user_projects) ---
+    if (projectId) {
+      const { data: existing } = await supabase.from('user_projects').select('user_id').eq('project_id', projectId)
+      const before = new Set(((existing as any[]) ?? []).map(x => x.user_id))
+      const toAdd = [...pickedPeople].filter(id => !before.has(id))
+      const toRemove = [...before].filter(id => !pickedPeople.has(id))
+      if (toAdd.length) {
+        await supabase.from('user_projects').insert(toAdd.map(uid => ({ org_id: prof?.org_id, user_id: uid, project_id: projectId })))
+      }
+      for (const uid of toRemove) {
+        await supabase.from('user_projects').delete().eq('project_id', projectId).eq('user_id', uid)
+      }
+
+      // --- sync assigned ASSETS (assets.project_id) ---
+      const { data: curAssets } = await supabase.from('assets').select('id').eq('project_id', projectId)
+      const beforeA = new Set(((curAssets as any[]) ?? []).map(x => x.id))
+      const addA = [...pickedAssets].filter(id => !beforeA.has(id))
+      const remA = [...beforeA].filter(id => !pickedAssets.has(id))
+      for (const aid of addA) {
+        await supabase.from('assets').update({ project_id: projectId, status: 'Assigned' }).eq('id', aid)
+        await supabase.from('asset_assignments').insert({ org_id: prof?.org_id, asset_id: aid, project_id: projectId })
+      }
+      for (const aid of remA) {
+        await supabase.from('assets').update({ project_id: null, status: 'Available' }).eq('id', aid)
+      }
+    }
+
     setBusy(false)
-    if (error) { setErr(error.message); return }
     onSaved()
   }
 
@@ -189,6 +252,47 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
             <L label="Start Date"><input className="input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></L>
             <L label="End Date"><input className="input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></L>
           </div>
+
+          {/* ---- Head Office: assign employees & assets ---- */}
+          <div className="pt-2 border-t border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>groups</span>
+              <span className="text-[12px] font-bold text-[#dcc1ae] uppercase tracking-wider">Assign Employees</span>
+              <span className="text-[11px] text-[#dcc1ae]/50 ml-auto">{pickedPeople.size} selected</span>
+            </div>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] divide-y divide-white/[0.04]">
+              {people.map(p => (
+                <label key={p.id} className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.03] cursor-pointer">
+                  <input type="checkbox" className="accent-[#ff8f00]" checked={pickedPeople.has(p.id)}
+                    onChange={() => toggle(pickedPeople, setPickedPeople, p.id)} />
+                  <span className="text-[13px] text-[#e2e2e8]">{p.full_name || 'Unnamed'}</span>
+                </label>
+              ))}
+              {!people.length && <div className="px-3 py-3 text-[12px] text-[#dcc1ae]/50">No active staff logins yet.</div>}
+            </div>
+            <p className="text-[11px] text-[#dcc1ae]/50 mt-1">Selected employees will see this project in their dashboard.</p>
+          </div>
+
+          <div className="pt-2 border-t border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>inventory</span>
+              <span className="text-[12px] font-bold text-[#dcc1ae] uppercase tracking-wider">Assign Assets</span>
+              <span className="text-[11px] text-[#dcc1ae]/50 ml-auto">{pickedAssets.size} selected</span>
+            </div>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] divide-y divide-white/[0.04]">
+              {assetList.map(a => (
+                <label key={a.id} className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.03] cursor-pointer">
+                  <input type="checkbox" className="accent-[#ff8f00]" checked={pickedAssets.has(a.id)}
+                    onChange={() => toggle(pickedAssets, setPickedAssets, a.id)} />
+                  <span className="text-[13px] text-[#e2e2e8]">{a.name}</span>
+                  <span className="text-[11px] text-[#dcc1ae]/50 font-mono ml-auto">{a.asset_code || ''} {a.category ? `· ${a.category}` : ''}</span>
+                </label>
+              ))}
+              {!assetList.length && <div className="px-3 py-3 text-[12px] text-[#dcc1ae]/50">No assets yet — add them in Company Assets.</div>}
+            </div>
+            <p className="text-[11px] text-[#dcc1ae]/50 mt-1">Assigned assets are marked "Assigned" and linked to this project.</p>
+          </div>
+
           {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">{err}</div>}
         </div>
         <div className="px-5 pb-5 flex gap-3">

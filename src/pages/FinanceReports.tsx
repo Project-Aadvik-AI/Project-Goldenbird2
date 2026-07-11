@@ -161,12 +161,17 @@ function LedgerView({ gl, ledgerId, tb }: { gl: GL[]; ledgerId: string; tb: TB[]
           <ExportButtons filename="general-ledger" title={`Ledger — ${info?.ledger_name}`} rows={withRunning}
             columns={[
               { header: 'Date', get: (r: any) => r.voucher_date },
-              { header: 'Voucher', get: (r: any) => r.voucher_no },
-              { header: 'Type', get: (r: any) => r.voucher_type },
-              { header: 'Narration', get: (r: any) => r.narration || r.remarks || '—' },
+              { header: 'Voucher No.', get: (r: any) => r.voucher_no },
+              { header: 'Voucher Type', get: (r: any) => r.voucher_type },
+              { header: 'Party', get: (r: any) => r.party_name || '—' },
+              { header: 'Project', get: (r: any) => r.project_name || '—' },
+              { header: 'Narration', get: (r: any) => r.narration || '—' },
+              { header: 'Remarks', get: (r: any) => r.remarks || '—' },
+              { header: 'Reference', get: (r: any) => r.reference_no || '—' },
               { header: 'Debit', get: (r: any) => Number(r.debit) },
               { header: 'Credit', get: (r: any) => Number(r.credit) },
-              { header: 'Balance', get: (r: any) => Number(r.running) },
+              { header: 'Running Balance', get: (r: any) => Math.abs(Number(r.running)) },
+              { header: 'Dr/Cr', get: (r: any) => (Number(r.running) >= 0 ? 'Dr' : 'Cr') },
             ]} />
         </div>
       </div>
@@ -232,12 +237,16 @@ function DayBook({ gl }: { gl: GL[] }) {
         <ExportButtons filename="day-book" title="Day Book" rows={gl}
           columns={[
             { header: 'Date', get: (r: any) => r.voucher_date },
-            { header: 'Voucher', get: (r: any) => r.voucher_no },
-            { header: 'Type', get: (r: any) => r.voucher_type },
+            { header: 'Voucher No.', get: (r: any) => r.voucher_no },
+            { header: 'Voucher Type', get: (r: any) => r.voucher_type },
             { header: 'Ledger', get: (r: any) => r.ledger_name },
+            { header: 'Group', get: (r: any) => r.group_name },
+            { header: 'Party', get: (r: any) => r.party_name || '—' },
+            { header: 'Project', get: (r: any) => r.project_name || '—' },
             { header: 'Debit', get: (r: any) => Number(r.debit) },
             { header: 'Credit', get: (r: any) => Number(r.credit) },
             { header: 'Narration', get: (r: any) => r.narration || '—' },
+            { header: 'Line Remarks', get: (r: any) => r.remarks || '—' },
           ]} />
       </div>
       <div className="space-y-3">
@@ -301,8 +310,17 @@ function TrialBalance({ tb }: { tb: TB[] }) {
             columns={[
               { header: 'Ledger', get: (r: any) => r.ledger_name },
               { header: 'Group', get: (r: any) => r.group_name },
-              { header: 'Debit', get: (r: any) => Number(r.closing_debit) },
-              { header: 'Credit', get: (r: any) => Number(r.closing_credit) },
+              { header: 'Nature', get: (r: any) => r.nature },
+              { header: 'Type', get: (r: any) => (r.is_direct ? 'Direct' : 'Indirect') },
+              { header: 'Opening Balance', get: (r: any) => Number(r.opening_balance) },
+              { header: 'Opening Dr/Cr', get: (r: any) => (Number(r.opening_balance) >= 0 ? 'Dr' : 'Cr') },
+              { header: 'Period Debit', get: (r: any) => Number(r.period_debit) },
+              { header: 'Period Credit', get: (r: any) => Number(r.period_credit) },
+              { header: 'Net Movement', get: (r: any) => r2(Number(r.period_debit) - Number(r.period_credit)) },
+              { header: 'Closing Debit', get: (r: any) => Number(r.closing_debit) },
+              { header: 'Closing Credit', get: (r: any) => Number(r.closing_credit) },
+              { header: 'Closing Balance', get: (r: any) => Math.abs(Number(r.closing_signed)) },
+              { header: 'Closing Dr/Cr', get: (r: any) => (Number(r.closing_signed) >= 0 ? 'Dr' : 'Cr') },
             ]} />
         </div>
       </div>
@@ -375,8 +393,29 @@ function PnL({ gl, scoped }: { gl: GL[]; scoped: boolean }) {
   const netProfit = r2(grossProfit + indirectInc - indirectExp)
   const margin = directInc ? Math.round(netProfit / directInc * 1000) / 10 : 0
 
+  // export rows: every income & expense ledger + the summary lines
+  const pnlExport = [
+    ...incRows.map(r => ({ Section: 'Income', Type: r.direct ? 'Direct' : 'Indirect', Ledger: r.name, Amount: r.amount })),
+    ...expRows.map(r => ({ Section: 'Expenses', Type: r.direct ? 'Direct' : 'Indirect', Ledger: r.name, Amount: r.amount })),
+    { Section: 'SUMMARY', Type: '', Ledger: 'Direct Income', Amount: directInc },
+    { Section: 'SUMMARY', Type: '', Ledger: 'Direct Expenses', Amount: directExp },
+    { Section: 'SUMMARY', Type: '', Ledger: 'Gross Profit', Amount: grossProfit },
+    { Section: 'SUMMARY', Type: '', Ledger: 'Indirect Income', Amount: indirectInc },
+    { Section: 'SUMMARY', Type: '', Ledger: 'Indirect Expenses', Amount: indirectExp },
+    { Section: 'SUMMARY', Type: '', Ledger: 'NET PROFIT', Amount: netProfit },
+  ]
+
   return (
     <div>
+      <div className="flex justify-end mb-3">
+        <ExportButtons filename="profit-and-loss" title="Profit & Loss" rows={pnlExport}
+          columns={[
+            { header: 'Section', get: (r: any) => r.Section },
+            { header: 'Direct / Indirect', get: (r: any) => r.Type },
+            { header: 'Ledger', get: (r: any) => r.Ledger },
+            { header: 'Amount', get: (r: any) => Number(r.Amount) },
+          ]} />
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <K label="Direct Income" value={inr(directInc)} />
         <K label="Direct Expenses" value={inr(directExp)} tone="red" />
@@ -462,8 +501,35 @@ function BalanceSheet({ tb }: { tb: TB[] }) {
   const rhs = r2(totalLiab + totalEquity + profit)
   const balanced = r2(totalAssets) === rhs
 
+  const bsExport = [
+    ...assets.flatMap(g => [
+      { Section: 'ASSETS', Group: g.group, Ledger: '', Amount: g.total },
+      ...g.ledgers.map(l => ({ Section: 'ASSETS', Group: g.group, Ledger: l.name, Amount: l.amount })),
+    ]),
+    { Section: 'ASSETS', Group: 'TOTAL ASSETS', Ledger: '', Amount: totalAssets },
+    ...liabs.flatMap(g => [
+      { Section: 'LIABILITIES', Group: g.group, Ledger: '', Amount: g.total },
+      ...g.ledgers.map(l => ({ Section: 'LIABILITIES', Group: g.group, Ledger: l.name, Amount: l.amount })),
+    ]),
+    ...equity.flatMap(g => [
+      { Section: 'EQUITY', Group: g.group, Ledger: '', Amount: g.total },
+      ...g.ledgers.map(l => ({ Section: 'EQUITY', Group: g.group, Ledger: l.name, Amount: l.amount })),
+    ]),
+    { Section: 'EQUITY', Group: 'Profit for the period', Ledger: '', Amount: profit },
+    { Section: 'TOTAL', Group: 'LIABILITIES + EQUITY + PROFIT', Ledger: '', Amount: rhs },
+  ]
+
   return (
     <div>
+      <div className="flex justify-end mb-3">
+        <ExportButtons filename="balance-sheet" title="Balance Sheet" rows={bsExport}
+          columns={[
+            { header: 'Section', get: (r: any) => r.Section },
+            { header: 'Group', get: (r: any) => r.Group },
+            { header: 'Ledger', get: (r: any) => r.Ledger },
+            { header: 'Amount', get: (r: any) => Number(r.Amount) },
+          ]} />
+      </div>
       <div className={`card p-4 mb-4 flex items-center gap-2 ${balanced ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-red-500/5 border-red-500/15'}`}>
         <span className={`material-symbols-outlined ${balanced ? 'text-emerald-400' : 'text-red-400'}`} style={{ fontSize: '20px' }}>
           {balanced ? 'check_circle' : 'error'}
@@ -639,8 +705,12 @@ function OutTable({ title, rows, amountKey, buckets, ageOf }: {
         <ExportButtons filename={amountKey} title={title} rows={rows}
           columns={[
             { header: 'Party', get: (r: any) => r.party_name },
-            { header: 'Type', get: (r: any) => r.party_type },
-            { header: 'Amount', get: (r: any) => Number(r[amountKey]) },
+            { header: 'Party Type', get: (r: any) => r.party_type },
+            { header: 'Outstanding', get: (r: any) => Number(r[amountKey]) },
+            { header: '0-30 days', get: (r: any) => Math.abs(ageOf(r.party_name)['0-30'] ?? 0) },
+            { header: '31-60 days', get: (r: any) => Math.abs(ageOf(r.party_name)['31-60'] ?? 0) },
+            { header: '61-90 days', get: (r: any) => Math.abs(ageOf(r.party_name)['61-90'] ?? 0) },
+            { header: '90+ days', get: (r: any) => Math.abs(ageOf(r.party_name)['90+'] ?? 0) },
           ]} />
       </div>
       <table className="w-full text-sm">

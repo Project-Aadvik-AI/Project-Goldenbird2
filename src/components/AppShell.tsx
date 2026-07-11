@@ -69,6 +69,9 @@ const HO_NAV: Entry[] = [
   { to: '/assets', label: 'Assets', icon: 'inventory' },
   { to: '/accounting', label: 'Accounting', icon: 'account_balance' },
   { to: '/finance-reports', label: 'Financial Reports', icon: 'assessment' },
+  { to: '/gst', label: 'GST Reports', icon: 'receipt_long' },
+  { to: '/bank-recon', label: 'Bank Reconciliation', icon: 'account_balance_wallet' },
+  { to: '/accounting-export', label: 'Tally / Zoho Export', icon: 'swap_horiz' },
   { to: '/give-imprest', label: 'Staff Imprest', icon: 'volunteer_activism' },
   { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
   { group: 'Settings', icon: 'settings', items: [
@@ -82,7 +85,7 @@ const HO_NAV: Entry[] = [
 // routes that belong to the Head Office panel
 const HO_ROUTES = new Set<string>([
   '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
-  '/assets', '/accounting', '/finance-reports', '/give-imprest', '/admin/reports',
+  '/assets', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
   '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 

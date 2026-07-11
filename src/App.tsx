@@ -39,6 +39,9 @@ import GiveImprest from './pages/GiveImprest'
 import HeadOffice from './pages/HeadOffice'
 import Accounting from './pages/Accounting'
 import FinanceReports from './pages/FinanceReports'
+import GstReports from './pages/GstReports'
+import BankRecon from './pages/BankRecon'
+import AccountingExport from './pages/AccountingExport'
 import ProjectResources from './pages/ProjectResources'
 import Assets from './pages/Assets'
 import AssetDetail from './pages/AssetDetail'
@@ -113,6 +116,9 @@ export default function App() {
           <Route path="/head-office" element={<HeadOffice />} />
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/finance-reports" element={<FinanceReports />} />
+          <Route path="/gst" element={<GstReports />} />
+          <Route path="/bank-recon" element={<BankRecon />} />
+          <Route path="/accounting-export" element={<AccountingExport />} />
           <Route path="/project-resources" element={<ProjectResources />} />
           <Route path="/assets" element={<ModuleGuard module="machines"><Assets /></ModuleGuard>} />
           <Route path="/assets/:id" element={<AssetDetail />} />

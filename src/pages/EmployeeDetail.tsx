@@ -14,7 +14,7 @@ type Employee = {
   exit_date: string | null; status: string; project_id: string | null; photo: string | null
 }
 type Att = { id: string; date: string; status: string; hours: number | null; remark: string | null }
-type Task = { id: string; title: string; priority: string; status: string; due_date: string | null; created_at: string }
+type Task = { id: string; title: string; priority: string; status: string; due_date: string | null; created_at: string; completed_at?: string | null; assigned_by?: string | null; project_id?: string | null }
 type EmpDoc = { id: string; doc_type: string | null; title: string | null; file: string | null; expiry_date: string | null }
 type Payment = { id: string; date: string; pay_type: string; amount: number; mode: string | null; period: string | null; remark: string | null }
 type Advance = {
@@ -66,12 +66,19 @@ export default function EmployeeDetail() {
         .eq('employee_id', id).order('date', { ascending: false }).limit(400)
       if (alive) setAtt((a as Att[]) ?? [])
       if (e) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name')
-        const name = (e as Employee).full_name.trim().toLowerCase()
-        const ids = (profs ?? []).filter(p => (p.full_name ?? '').trim().toLowerCase() === name).map(p => p.id)
+        const emp = e as Employee & { profile_id?: string | null }
+        const ids: string[] = []
+        // Prefer the reliable profile_id link; fall back to name matching for older records
+        if (emp.profile_id) ids.push(emp.profile_id)
+        if (!ids.length) {
+          const { data: profs } = await supabase.from('profiles').select('id, full_name')
+          const name = emp.full_name.trim().toLowerCase()
+          ids.push(...(profs ?? []).filter(p => (p.full_name ?? '').trim().toLowerCase() === name).map(p => p.id))
+        }
         if (ids.length) {
-          const { data: t } = await supabase.from('tasks').select('id,title,priority,status,due_date,created_at')
-            .in('assigned_to', ids).order('created_at', { ascending: false }).limit(200)
+          const { data: t } = await supabase.from('tasks')
+            .select('id,title,priority,status,due_date,created_at,completed_at,assigned_by,project_id')
+            .in('assigned_to', ids).order('created_at', { ascending: false }).limit(500)
           if (alive) { setTasks((t as Task[]) ?? []); setTaskLinked(true) }
         } else if (alive) { setTasks([]); setTaskLinked(false) }
       }
@@ -244,32 +251,7 @@ export default function EmployeeDetail() {
 
       {/* Tasks */}
       {tab === 'tasks' && (
-        <div className="card overflow-hidden overflow-x-auto">
-          {!taskLinked && (
-            <div className="px-4 py-3 text-[12px] text-amber-400/90 bg-amber-500/5 border-b border-amber-500/10">
-              This employee isn't linked to an app-login account, so no tasks are matched. Tasks are matched by matching the employee's name to a user account.
-            </div>
-          )}
-          <table className="w-full text-sm">
-            <thead className="bg-[#282a2e]"><tr>
-              {['Task', 'Priority', 'Status', 'Due', 'Created'].map(h => <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
-            </tr></thead>
-            <tbody className="divide-y divide-white/[0.05]">
-              {tasks.map(t => (
-                <tr key={t.id} className="hover:bg-white/[0.02]">
-                  <td className="px-4 py-3 text-[#e2e2e8] font-medium">{t.title}</td>
-                  <td className="px-4 py-3 text-[#dcc1ae]">{t.priority}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.status === 'Done' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-[#dcc1ae] border border-white/10'}`}>{t.status}</span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[13px] text-[#dcc1ae]">{t.due_date || '—'}</td>
-                  <td className="px-4 py-3 font-mono text-[12px] text-[#dcc1ae]/70">{t.created_at.slice(0, 10)}</td>
-                </tr>
-              ))}
-              {!tasks.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-[#dcc1ae]/60 text-sm">No tasks.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <TaskPerformance tasks={tasks} taskLinked={taskLinked} />
       )}
 
       {/* Payments */}
@@ -756,5 +738,187 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
       <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">{label}</span>
       {children}
     </label>
+  )
+}
+
+
+// ---------- Task Performance Dashboard (KPIs + rates + history with filters) ----------
+function TaskPerformance({ tasks, taskLinked }: { tasks: Task[]; taskLinked: boolean }) {
+  const [filter, setFilter] = useState<'all' | 'Open' | 'In Progress' | 'Done' | 'Overdue'>('all')
+  const [people, setPeople] = useState<{ id: string; full_name: string }[]>([])
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: p }, { data: pr }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name'),
+        supabase.from('projects').select('id, name'),
+      ])
+      setPeople((p as any[]) ?? []); setProjects((pr as any[]) ?? [])
+    })()
+  }, [])
+  const nameOf = (id?: string | null) => (id ? people.find(p => p.id === id)?.full_name : null) || '—'
+  const projOf = (id?: string | null) => (id ? projects.find(p => p.id === id)?.name : null) || '—'
+
+  const isOverdue = (t: Task) => !!t.due_date && t.status !== 'Done' && new Date(t.due_date) < new Date(new Date().toDateString())
+  const wasLate = (t: Task) => {
+    if (!t.due_date || !t.completed_at) return false
+    const d = new Date(t.completed_at); d.setHours(0, 0, 0, 0)
+    const due = new Date(t.due_date); due.setHours(0, 0, 0, 0)
+    return d.getTime() > due.getTime()
+  }
+
+  const stats = useMemo(() => {
+    const total = tasks.length
+    const done = tasks.filter(t => t.status === 'Done')
+    const open = tasks.filter(t => t.status === 'Open').length
+    const inProg = tasks.filter(t => t.status === 'In Progress').length
+    const overdue = tasks.filter(isOverdue).length
+    const withDue = done.filter(t => t.due_date && t.completed_at)
+    const late = withDue.filter(wasLate).length
+    const onTime = withDue.length - late
+    const completionRate = total ? Math.round(done.length / total * 100) : 0
+    const onTimeRate = withDue.length ? Math.round(onTime / withDue.length * 100) : 0
+    const lateRate = withDue.length ? Math.round(late / withDue.length * 100) : 0
+    // average completion time (days from assigned to completed)
+    const durations = done.filter(t => t.completed_at).map(t =>
+      (new Date(t.completed_at as string).getTime() - new Date(t.created_at).getTime()) / 86400000)
+    const avgDays = durations.length ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10 : 0
+    return { total, done: done.length, open, inProg, overdue, onTime, late, completionRate, onTimeRate, lateRate, avgDays }
+  }, [tasks])
+
+  const insight = stats.completionRate >= 90 ? { label: 'Excellent', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: '🟢' }
+    : stats.completionRate >= 75 ? { label: 'Good', cls: 'text-blue-400 bg-blue-500/10 border-blue-500/20', dot: '🔵' }
+    : stats.completionRate >= 60 ? { label: 'Average', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/20', dot: '🟡' }
+    : { label: 'Needs Improvement', cls: 'text-red-400 bg-red-500/10 border-red-500/20', dot: '🔴' }
+
+  const shown = useMemo(() => {
+    if (filter === 'all') return tasks
+    if (filter === 'Overdue') return tasks.filter(isOverdue)
+    return tasks.filter(t => t.status === filter)
+  }, [tasks, filter])
+
+  const fmtDT = (iso?: string | null) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    return `${d.toLocaleDateString('en-IN')} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  return (
+    <div>
+      {!taskLinked && (
+        <div className="card p-3 mb-4 text-[12px] text-amber-400/90 bg-amber-500/5 border-amber-500/10">
+          This employee isn't linked to a login account, so no tasks are matched. Create a login for them (Employees → Create Login) to enable task tracking.
+        </div>
+      )}
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+        <K label="Total Assigned" value={stats.total} />
+        <K label="Completed" value={stats.done} tone="emerald" />
+        <K label="Open" value={stats.open} tone="red" />
+        <K label="In Progress" value={stats.inProg} tone="amber" />
+        <K label="Overdue" value={stats.overdue} tone={stats.overdue > 0 ? 'red' : undefined} />
+        <K label="Avg. Completion" value={`${stats.avgDays}d`} />
+      </div>
+
+      {/* Rates + progress */}
+      <div className="card p-5 mb-4">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <span className="text-sm font-semibold text-[#e2e2e8]">Performance</span>
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${insight.cls}`}>{insight.dot} {insight.label}</span>
+          <span className="ml-auto text-[11px] text-[#dcc1ae]/60">Based on {stats.total} assigned task(s)</span>
+        </div>
+
+        <Bar label="Work Completion" pct={stats.completionRate} color="bg-emerald-500" />
+        <Bar label="On-Time Completion" pct={stats.onTimeRate} color="bg-blue-500" />
+        <Bar label="Late Completion" pct={stats.lateRate} color="bg-red-500" />
+
+        <div className="grid grid-cols-3 gap-3 mt-4 text-center">
+          <MiniRate label="Completion Rate" value={`${stats.completionRate}%`} tone="emerald" />
+          <MiniRate label="On-Time" value={`${stats.onTimeRate}%`} tone="blue" />
+          <MiniRate label="Late" value={`${stats.lateRate}%`} tone="red" />
+        </div>
+      </div>
+
+      {/* History filters */}
+      <div className="flex gap-1 mb-3 flex-wrap">
+        {(['all', 'Open', 'In Progress', 'Done', 'Overdue'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${filter === f ? 'bg-[#ff8f00]/10 text-[#ffb87b] border-[#ff8f00]/30' : 'text-[#dcc1ae] border-white/[0.08] hover:bg-white/[0.03]'}`}>
+            {f === 'all' ? `All (${tasks.length})` : f === 'Done' ? `Completed (${stats.done})` : f === 'Overdue' ? `Overdue (${stats.overdue})` : `${f} (${f === 'Open' ? stats.open : stats.inProg})`}
+          </button>
+        ))}
+      </div>
+
+      {/* History table */}
+      <div className="card overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-[#282a2e]"><tr>
+            {['Task', 'Project / Site', 'Assigned By', 'Assigned', 'Due', 'Completed', 'Status', 'Timeliness'].map(h => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {shown.map(t => {
+              const od = isOverdue(t)
+              const late = t.status === 'Done' && wasLate(t)
+              const onTimeDone = t.status === 'Done' && t.due_date && t.completed_at && !late
+              return (
+                <tr key={t.id} className={`hover:bg-white/[0.02] ${od ? 'bg-red-500/[0.05]' : t.status === 'Done' ? 'bg-emerald-500/[0.03]' : ''}`}>
+                  <td className="px-4 py-3 text-[#e2e2e8] font-medium">{t.title}</td>
+                  <td className="px-4 py-3 text-[#dcc1ae]">{projOf(t.project_id)}</td>
+                  <td className="px-4 py-3 text-[#dcc1ae]">{nameOf(t.assigned_by)}</td>
+                  <td className="px-4 py-3 font-mono text-[12px] text-[#dcc1ae]">{t.created_at.slice(0, 10)}</td>
+                  <td className={`px-4 py-3 font-mono text-[12px] ${od ? 'text-red-400 font-bold' : 'text-[#dcc1ae]'}`}>{t.due_date || '—'}{od ? ' · OVERDUE' : ''}</td>
+                  <td className="px-4 py-3 font-mono text-[12px] text-emerald-400 whitespace-nowrap">{fmtDT(t.completed_at)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${t.status === 'Done' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : t.status === 'Open' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-white/5 text-[#dcc1ae] border-white/10'}`}>{t.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {late ? <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-red-500/10 text-red-400 border-red-500/20">Late</span>
+                      : onTimeDone ? <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">On Time</span>
+                      : <span className="text-[#dcc1ae]/40 text-[11px]">—</span>}
+                  </td>
+                </tr>
+              )
+            })}
+            {!shown.length && <tr><td colSpan={8} className="px-4 py-8 text-center text-[#dcc1ae]/60 text-sm">No tasks in this view.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function K({ label, value, tone }: { label: string; value: number | string; tone?: 'emerald' | 'red' | 'amber' }) {
+  const c = tone === 'emerald' ? 'text-emerald-400' : tone === 'red' ? 'text-red-400' : tone === 'amber' ? 'text-amber-400' : 'text-[#e2e2e8]'
+  return (
+    <div className="card p-3">
+      <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wider mb-1">{label}</div>
+      <div className={`font-mono text-[20px] font-bold ${c}`}>{value}</div>
+    </div>
+  )
+}
+function Bar({ label, pct, color }: { label: string; pct: number; color: string }) {
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-[11px] mb-1">
+        <span className="text-[#dcc1ae]">{label}</span>
+        <span className="font-mono font-bold text-[#e2e2e8]">{pct}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+      </div>
+    </div>
+  )
+}
+function MiniRate({ label, value, tone }: { label: string; value: string; tone: 'emerald' | 'blue' | 'red' }) {
+  const c = tone === 'emerald' ? 'text-emerald-400' : tone === 'blue' ? 'text-blue-400' : 'text-red-400'
+  return (
+    <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] py-2.5">
+      <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wide">{label}</div>
+      <div className={`font-mono text-[18px] font-bold ${c}`}>{value}</div>
+    </div>
   )
 }

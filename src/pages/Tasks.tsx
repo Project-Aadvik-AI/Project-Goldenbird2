@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -39,8 +39,8 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export default function Tasks() {
-  const { user } = useAuth()
-  const [tab, setTab] = useState<'mine' | 'assigned' | 'perf'>('mine')
+  const { user, isAdmin } = useAuth()
+  const [tab, setTab] = useState<'mine' | 'done' | 'assigned' | 'perf'>('mine')
   const [tasks, setTasks] = useState<Task[]>([])
   const [people, setPeople] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,8 +60,14 @@ export default function Tasks() {
   useEffect(() => { load() }, [])
 
   const uid = user?.id
-  const mine = tasks.filter(t => t.assigned_to === uid)
+  const mineAll = tasks.filter(t => t.assigned_to === uid)
+  const mine = mineAll.filter(t => t.status !== 'Done')          // my open/in-progress
   const byMe = tasks.filter(t => t.assigned_by === uid)
+  // Completed tab: admins see EVERY completed task in the org (central repository);
+  // a regular employee sees the ones they completed themselves.
+  const completed = isAdmin
+    ? tasks.filter(t => t.status === 'Done')
+    : tasks.filter(t => t.status === 'Done' && (t.assigned_to === uid || t.assigned_by === uid))
   const nameOf = (id: string | null) => (id ? people.find(p => p.id === id)?.full_name : null) || '—'
 
   return (
@@ -77,16 +83,17 @@ export default function Tasks() {
       </div>
 
       <div className="flex gap-1 mb-5 border-b border-white/10">
-        {(['mine', 'assigned', 'perf'] as const).map(k => (
+        {(['mine', 'done', 'assigned', 'perf'] as const).map(k => (
           <button key={k} className={`px-4 py-2.5 font-semibold text-sm border-b-2 -mb-px ${tab === k ? 'border-[#ff8f00] text-[#ffb87b]' : 'border-transparent text-[#dcc1ae] hover:text-[#e2e2e8]'}`} onClick={() => setTab(k)}>
-            {k === 'mine' ? `My Tasks (${mine.filter(t => t.status !== 'Done').length})` : k === 'assigned' ? `Assigned by me (${byMe.length})` : 'Team Performance'}
+            {k === 'mine' ? `My Tasks (${mine.length})` : k === 'done' ? `Completed (${completed.length})` : k === 'assigned' ? `Assigned by me (${byMe.length})` : 'Team Performance'}
           </button>
         ))}
       </div>
 
       {tab === 'mine' && <TaskTable rows={mine} nameOf={nameOf} onOpen={setOpenTask} onChanged={load} whoLabel="From" whoOf={t => nameOf(t.assigned_by)} />}
+      {tab === 'done' && <CompletedTable rows={completed} nameOf={nameOf} onOpen={setOpenTask} />}
       {tab === 'assigned' && <TaskTable rows={byMe} nameOf={nameOf} onOpen={setOpenTask} onChanged={load} whoLabel="Assignee" whoOf={t => nameOf(t.assigned_to)} />}
-      {tab === 'perf' && <Performance tasks={byMe} people={people} />}
+      {tab === 'perf' && <Performance tasks={isAdmin ? tasks : byMe} people={people} />}
 
       {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
 
@@ -385,4 +392,145 @@ function L({ label, children }: { label: string; children: React.ReactNode }) {
       {children}
     </label>
   )
+}
+
+
+function CompletedTable({ rows, nameOf, onOpen }: {
+  rows: Task[]; nameOf: (id: string | null) => string; onOpen: (t: Task) => void
+}) {
+  const { projects } = useProject()
+  const projectOf = (id: string | null) => (id ? projects.find(p => p.id === id)?.name : null) || '—'
+
+  // filters
+  const [fEmp, setFEmp] = useState('')
+  const [fProj, setFProj] = useState('')
+  const [fPrio, setFPrio] = useState('')
+  const [fBy, setFBy] = useState('')
+  const [fFrom, setFFrom] = useState('')
+  const [fTo, setFTo] = useState('')
+
+  const fmt = (iso: string | null) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    return `${d.toLocaleDateString('en-IN')} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  // On Time = completed on/before due date. No due date => "—"
+  const timeliness = (t: Task): 'On Time' | 'Late' | '—' => {
+    if (!t.due_date || !t.completed_at) return '—'
+    const done = new Date(t.completed_at); done.setHours(0, 0, 0, 0)
+    const due = new Date(t.due_date); due.setHours(0, 0, 0, 0)
+    return done.getTime() <= due.getTime() ? 'On Time' : 'Late'
+  }
+
+  const assignees = useMemo(() => [...new Set(rows.map(r => r.assigned_to).filter(Boolean))] as string[], [rows])
+  const assigners = useMemo(() => [...new Set(rows.map(r => r.assigned_by).filter(Boolean))] as string[], [rows])
+
+  const filtered = useMemo(() => rows.filter(t => {
+    if (fEmp && t.assigned_to !== fEmp) return false
+    if (fProj && t.project_id !== fProj) return false
+    if (fPrio && t.priority !== fPrio) return false
+    if (fBy && t.assigned_by !== fBy) return false
+    const done = t.completed_at ? t.completed_at.slice(0, 10) : ''
+    if (fFrom && (!done || done < fFrom)) return false
+    if (fTo && (!done || done > fTo)) return false
+    return true
+  }), [rows, fEmp, fProj, fPrio, fBy, fFrom, fTo])
+
+  const onTime = filtered.filter(t => timeliness(t) === 'On Time').length
+  const late = filtered.filter(t => timeliness(t) === 'Late').length
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="card p-3 mb-4 flex flex-wrap gap-2 items-end">
+        <FL label="Employee">
+          <select className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fEmp} onChange={e => setFEmp(e.target.value)}>
+            <option value="">All</option>
+            {assignees.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
+          </select>
+        </FL>
+        <FL label="Assigned By">
+          <select className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fBy} onChange={e => setFBy(e.target.value)}>
+            <option value="">All</option>
+            {assigners.map(id => <option key={id} value={id}>{nameOf(id)}</option>)}
+          </select>
+        </FL>
+        <FL label="Project / Site">
+          <select className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fProj} onChange={e => setFProj(e.target.value)}>
+            <option value="">All</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </FL>
+        <FL label="Priority">
+          <select className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fPrio} onChange={e => setFPrio(e.target.value)}>
+            <option value="">All</option>
+            {['Low', 'Medium', 'High', 'Critical'].map(p => <option key={p}>{p}</option>)}
+          </select>
+        </FL>
+        <FL label="Completed From">
+          <input type="date" className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fFrom} onChange={e => setFFrom(e.target.value)} />
+        </FL>
+        <FL label="To">
+          <input type="date" className="input" style={{ padding: '5px 8px', fontSize: '12px' }} value={fTo} onChange={e => setFTo(e.target.value)} />
+        </FL>
+        {(fEmp || fProj || fPrio || fBy || fFrom || fTo) && (
+          <button className="btn btn-ghost" style={{ padding: '5px 10px', fontSize: '12px' }}
+            onClick={() => { setFEmp(''); setFProj(''); setFPrio(''); setFBy(''); setFFrom(''); setFTo('') }}>Clear</button>
+        )}
+        <div className="ml-auto text-[11px] text-[#dcc1ae]/70">
+          <b className="text-[#e2e2e8]">{filtered.length}</b> completed · <span className="text-emerald-400">{onTime} on time</span> · <span className="text-red-400">{late} late</span>
+        </div>
+      </div>
+
+      {!filtered.length ? (
+        <div className="card p-8 text-center text-[#dcc1ae]/60 text-sm">
+          No completed tasks{rows.length ? ' match these filters' : ' yet'}. Finished tasks appear here as a permanent record.
+        </div>
+      ) : (
+        <div className="card overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#282a2e]"><tr>
+              {['Priority', 'Task', 'Assigned To', 'Assigned By', 'Project / Site', 'Assigned On', 'Due', 'Completed On', 'Timeliness', 'Status', ''].map(h => (
+                <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {filtered.map(t => {
+                const tl = timeliness(t)
+                return (
+                  <tr key={t.id} className="hover:bg-white/[0.02] bg-emerald-500/[0.03]">
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${PRIORITY_STYLES[t.priority] || ''}`}>{t.priority}</span>
+                    </td>
+                    <td className="px-4 py-3 text-[#e2e2e8] font-semibold cursor-pointer hover:text-[#ffb87b]" onClick={() => onOpen(t)}>{t.title}</td>
+                    <td className="px-4 py-3 text-[#e2e2e8]">{nameOf(t.assigned_to)}</td>
+                    <td className="px-4 py-3 text-[#dcc1ae]">{nameOf(t.assigned_by)}</td>
+                    <td className="px-4 py-3 text-[#dcc1ae]">{projectOf(t.project_id)}</td>
+                    <td className="px-4 py-3 font-mono text-[12px] text-[#dcc1ae] whitespace-nowrap">{t.created_at ? t.created_at.slice(0, 10) : '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[12px] text-[#dcc1ae] whitespace-nowrap">{t.due_date || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[12px] text-emerald-400 whitespace-nowrap">{fmt(t.completed_at)}</td>
+                    <td className="px-4 py-3">
+                      {tl === '—' ? <span className="text-[#dcc1ae]/50 text-[11px]">—</span> : (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${tl === 'On Time' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{tl}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Completed</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <button className="text-[#ffb87b] text-xs font-semibold uppercase tracking-wider hover:underline" onClick={() => onOpen(t)}>View</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FL({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block"><span className="text-[10px] font-bold text-[#dcc1ae]/60 uppercase tracking-wider block mb-1">{label}</span>{children}</label>
 }

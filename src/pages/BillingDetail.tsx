@@ -9,6 +9,18 @@ type RaBill = {
   id: string; boq_id: string; bill_no: string | null; bill_seq: number; from_date: string | null; to_date: string
   retention_pct: number; gst_pct: number; gross: number; gst_amount: number; retention_amount: number
   net_payable: number; status: string; remark: string | null
+  // Phase 2 (finance)
+  party_id?: string | null; tax_rate_id?: string | null
+  cgst_amount?: number; sgst_amount?: number; igst_amount?: number
+  deductions_total?: number; voucher_id?: string | null
+}
+type Party = { id: string; name: string; party_type: string }
+type TaxRate = { id: string; name: string; total_rate: number; cgst_rate: number; sgst_rate: number; igst_rate: number }
+type DedType = { id: string; name: string; calc_mode: string; default_rate: number; rate_editable: boolean; ledger_id: string | null }
+type BillDed = {
+  id: string; bill_id: string; deduction_id: string | null; name: string
+  calc_mode: string; rate: number; base_amount: number; amount: number
+  ledger_id: string | null; remarks: string | null; line_no: number
 }
 type Line = {
   id: string; description: string | null; unit: string | null; rate: number
@@ -23,6 +35,13 @@ export default function BillingDetail() {
   const [lines, setLines] = useState<Line[]>([])
   const [adjustments, setAdjustments] = useState<{ schedule: string; adj_type: string; pct: number }[]>([])
   const [loading, setLoading] = useState(true)
+  // finance
+  const [parties, setParties] = useState<Party[]>([])
+  const [taxes, setTaxes] = useState<TaxRate[]>([])
+  const [dedTypes, setDedTypes] = useState<DedType[]>([])
+  const [billDeds, setBillDeds] = useState<BillDed[]>([])
+  const [posting, setPosting] = useState(false)
+  const [accReady, setAccReady] = useState(true)
 
   async function load() {
     if (!id) return
@@ -35,6 +54,18 @@ export default function BillingDetail() {
       const { data: adj } = await supabase.from('boq_bid_adjustments').select('schedule, adj_type, pct').eq('boq_id', (b as RaBill).boq_id)
       setAdjustments(((adj ?? []) as any[]).filter(a => Number(a.pct) > 0))
     }
+    // finance masters + this bill's deduction lines
+    const [{ data: pty }, { data: tx }, { data: dt }, { data: bd }] = await Promise.all([
+      supabase.from('acc_parties').select('id, name, party_type').eq('active', true).order('name'),
+      supabase.from('acc_tax_rates').select('*').eq('active', true).order('total_rate', { ascending: false }),
+      supabase.from('acc_deduction_types').select('*').eq('active', true).order('sort_order'),
+      supabase.from('ra_bill_deductions').select('*').eq('bill_id', id).order('line_no'),
+    ])
+    setParties((pty as Party[]) ?? [])
+    setTaxes((tx as TaxRate[]) ?? [])
+    setDedTypes((dt as DedType[]) ?? [])
+    setBillDeds((bd as BillDed[]) ?? [])
+    setAccReady(((dt as any[]) ?? []).length > 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
@@ -48,6 +79,93 @@ export default function BillingDetail() {
     await supabase.from('ra_bills').update({ retention_pct: retPct, gst_pct: gstPct, gross, gst_amount: gst, retention_amount: retention, net_payable: net }).eq('id', bill.id)
     load()
   }
+
+  // ---------- FINANCE: gross → tax → unlimited deductions → net ----------
+  const gross = round2(lines.reduce((n, l) => n + Number(l.this_amount || 0), 0))
+  const tax = taxes.find(t => t.id === bill?.tax_rate_id) ?? null
+  const cgstAmt = tax ? round2(gross * tax.cgst_rate / 100) : 0
+  const sgstAmt = tax ? round2(gross * tax.sgst_rate / 100) : 0
+  const igstAmt = tax ? round2(gross * tax.igst_rate / 100) : 0
+  const taxTotal = round2(cgstAmt + sgstAmt + igstAmt)
+  const invoiceTotal = round2(gross + taxTotal)
+  const dedTotal = round2(billDeds.reduce((n, d) => n + Number(d.amount || 0), 0))
+  const netPayable = round2(invoiceTotal - dedTotal)
+
+  async function saveTotals(patch: Record<string, unknown> = {}) {
+    if (!bill) return
+    await supabase.from('ra_bills').update({
+      gross, cgst_amount: cgstAmt, sgst_amount: sgstAmt, igst_amount: igstAmt,
+      gst_amount: taxTotal, deductions_total: dedTotal, net_payable: netPayable,
+      ...patch,
+    }).eq('id', bill.id)
+    load()
+  }
+
+  async function setParty(pid: string) { await saveTotals({ party_id: pid || null }) }
+  async function setTax(tid: string) {
+    if (!bill) return
+    const t = taxes.find(x => x.id === tid) ?? null
+    const c = t ? round2(gross * t.cgst_rate / 100) : 0
+    const sg = t ? round2(gross * t.sgst_rate / 100) : 0
+    const ig = t ? round2(gross * t.igst_rate / 100) : 0
+    const tt = round2(c + sg + ig)
+    await supabase.from('ra_bills').update({
+      tax_rate_id: tid || null, gross,
+      cgst_amount: c, sgst_amount: sg, igst_amount: ig, gst_amount: tt,
+      gst_pct: t?.total_rate ?? 0,
+      deductions_total: dedTotal, net_payable: round2(gross + tt - dedTotal),
+    }).eq('id', bill.id)
+    load()
+  }
+
+  // add a deduction line from the master
+  async function addDeduction(typeId: string) {
+    if (!bill || !typeId) return
+    const t = dedTypes.find(d => d.id === typeId)
+    if (!t) return
+    const amount = t.calc_mode === 'percent'
+      ? round2(gross * Number(t.default_rate) / 100)
+      : round2(Number(t.default_rate))
+    await supabase.from('ra_bill_deductions').insert({
+      bill_id: bill.id, deduction_id: t.id, name: t.name,
+      calc_mode: t.calc_mode, rate: t.default_rate,
+      base_amount: t.calc_mode === 'percent' ? gross : 0,
+      amount, ledger_id: t.ledger_id, line_no: billDeds.length + 1,
+    })
+    load()
+  }
+
+  async function updateDeduction(d: BillDed, patch: Partial<BillDed>) {
+    const next = { ...d, ...patch }
+    const amount = next.calc_mode === 'percent'
+      ? round2(gross * Number(next.rate || 0) / 100)
+      : round2(Number(next.rate || 0))
+    await supabase.from('ra_bill_deductions').update({
+      rate: Number(next.rate || 0), calc_mode: next.calc_mode,
+      base_amount: next.calc_mode === 'percent' ? gross : 0,
+      amount, remarks: next.remarks ?? null,
+    }).eq('id', d.id)
+    load()
+  }
+
+  async function removeDeduction(dId: string) {
+    await supabase.from('ra_bill_deductions').delete().eq('id', dId)
+    load()
+  }
+
+  // POST TO ACCOUNTS — creates a balanced Draft voucher
+  async function postToAccounts() {
+    if (!bill) return
+    if (!bill.party_id) { alert('Select the client (party) first — the voucher needs a ledger to debit.'); return }
+    await saveTotals()   // make sure stored figures match what is on screen
+    setPosting(true)
+    const { data, error } = await supabase.rpc('acc_post_ra_bill', { p_bill: bill.id })
+    setPosting(false)
+    if (error) { alert('Could not post to accounts:\n\n' + error.message); return }
+    alert('Posted to accounts as a DRAFT voucher.\n\nReview and post it in Accounting → Vouchers.')
+    load()
+  }
+
   async function setStatus(status: string) {
     if (!bill) return
     const patch: Record<string, unknown> = { status }
@@ -156,26 +274,146 @@ export default function BillingDetail() {
         </table>
       </div>
 
-      {/* Bill totals */}
-      <div className="card p-5 max-w-md ml-auto">
-        <Row label={`Gross (this bill)`} value={inr(bill.gross)} />
-        <div className="flex items-center justify-between py-2 border-b border-white/5">
-          <span className="text-[13px] text-[#dcc1ae] flex items-center gap-2">GST
-            {isDraft ? <input className="input mono" style={{ padding: '2px 6px', fontSize: '12px', width: 56 }} value={bill.gst_pct} onChange={e => setBill({ ...bill, gst_pct: Number(e.target.value.replace(/[^\d.]/g, '')) || 0 })} onBlur={() => recalcWith(bill.retention_pct, bill.gst_pct)} /> : <span className="font-mono">{bill.gst_pct}</span>}%
-          </span>
-          <span className="font-mono text-[13px] text-[#e2e2e8]">+ {inr(bill.gst_amount)}</span>
+      {/* ---------- FINANCE: party, tax, deductions, net ---------- */}
+      {!accReady && (
+        <div className="card p-4 mb-4 bg-amber-500/5 border-amber-500/15 text-[13px] text-amber-400">
+          Accounting is not set up yet. Go to <b>Head Office → Accounting</b> and create the Chart of Accounts
+          to enable configurable deductions and posting to the books.
         </div>
-        <div className="flex items-center justify-between py-2 border-b border-white/5">
-          <span className="text-[13px] text-[#dcc1ae] flex items-center gap-2">Retention
-            {isDraft ? <input className="input mono" style={{ padding: '2px 6px', fontSize: '12px', width: 56 }} value={bill.retention_pct} onChange={e => setBill({ ...bill, retention_pct: Number(e.target.value.replace(/[^\d.]/g, '')) || 0 })} onBlur={() => recalcWith(bill.retention_pct, bill.gst_pct)} /> : <span className="font-mono">{bill.retention_pct}</span>}%
-          </span>
-          <span className="font-mono text-[13px] text-red-400">− {inr(bill.retention_amount)}</span>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Deductions */}
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#e2e2e8]">Deductions</span>
+            <span className="text-[11px] text-[#dcc1ae]/60">{billDeds.length} line(s) · − {inr(dedTotal)}</span>
+          </div>
+
+          {isDraft && accReady && (
+            <div className="px-4 py-3 border-b border-white/5">
+              <select className="input" style={{ fontSize: '13px' }} value=""
+                onChange={e => { addDeduction(e.target.value); e.currentTarget.value = '' }}>
+                <option value="">+ Add a deduction…</option>
+                {dedTypes.filter(t => !billDeds.some(b => b.deduction_id === t.id)).map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.calc_mode === 'percent' ? `${t.default_rate}%` : inr(t.default_rate)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <table className="w-full text-sm">
+            <thead className="bg-[#282a2e]"><tr>
+              {['Deduction', 'Mode', 'Rate', 'Amount', ''].map(h => (
+                <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {billDeds.map(d => (
+                <tr key={d.id} className="hover:bg-white/[0.02]">
+                  <td className="px-3 py-2 text-[#e2e2e8]">{d.name}</td>
+                  <td className="px-3 py-2">
+                    {isDraft ? (
+                      <select className="input" style={{ padding: '3px 6px', fontSize: '11px', width: 84 }}
+                        value={d.calc_mode} onChange={e => updateDeduction(d, { calc_mode: e.target.value })}>
+                        <option value="percent">%</option>
+                        <option value="fixed">Flat ₹</option>
+                      </select>
+                    ) : <span className="text-[#dcc1ae] text-[12px]">{d.calc_mode === 'percent' ? '%' : 'Flat'}</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isDraft ? (
+                      <input className="input mono text-right" style={{ padding: '3px 6px', fontSize: '12px', width: 80 }}
+                        defaultValue={d.rate}
+                        onBlur={e => updateDeduction(d, { rate: Number(e.target.value.replace(/[^\d.]/g, '')) || 0 })} />
+                    ) : <span className="font-mono text-[#dcc1ae]">{d.rate}{d.calc_mode === 'percent' ? '%' : ''}</span>}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-red-400 text-right whitespace-nowrap">− {inr(d.amount)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {isDraft && (
+                      <button className="text-red-400 hover:text-red-300" onClick={() => removeDeduction(d.id)}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>close</span>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!billDeds.length && (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-[#dcc1ae]/50 text-[12px]">
+                  No deductions. {isDraft && accReady ? 'Add them from the dropdown above (TDS, retention, security deposit…).' : ''}
+                </td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        <div className="flex items-center justify-between pt-3">
-          <span className="text-[14px] font-bold text-[#e2e2e8] uppercase tracking-wide">Net Payable</span>
-          <span className="font-mono text-[22px] font-bold text-emerald-400">{inr(bill.net_payable)}</span>
+
+        {/* Totals */}
+        <div className="card p-5">
+          {accReady && (
+            <div className="grid grid-cols-1 gap-3 mb-4 pb-4 border-b border-white/[0.06]">
+              <label className="block">
+                <span className="text-[10px] font-bold text-[#dcc1ae]/70 uppercase tracking-wider block mb-1">Client (Party)</span>
+                <select className="input" disabled={!isDraft} value={bill.party_id ?? ''} onChange={e => setParty(e.target.value)}>
+                  <option value="">— Select client —</option>
+                  {parties.filter(p => p.party_type !== 'Vendor').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-bold text-[#dcc1ae]/70 uppercase tracking-wider block mb-1">GST Rate</span>
+                <select className="input" disabled={!isDraft} value={bill.tax_rate_id ?? ''} onChange={e => setTax(e.target.value)}>
+                  <option value="">— No GST —</option>
+                  {taxes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
+
+          <Row label="Gross (this bill)" value={inr(gross)} />
+          {cgstAmt > 0 && <Row label={`CGST (${tax?.cgst_rate}%)`} value={'+ ' + inr(cgstAmt)} />}
+          {sgstAmt > 0 && <Row label={`SGST (${tax?.sgst_rate}%)`} value={'+ ' + inr(sgstAmt)} />}
+          {igstAmt > 0 && <Row label={`IGST (${tax?.igst_rate}%)`} value={'+ ' + inr(igstAmt)} />}
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-[13px] font-semibold text-[#dcc1ae]">Invoice Total</span>
+            <span className="font-mono text-[13px] font-bold text-[#e2e2e8]">{inr(invoiceTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-[13px] text-[#dcc1ae]">Total Deductions</span>
+            <span className="font-mono text-[13px] text-red-400">− {inr(dedTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between pt-3">
+            <span className="text-[14px] font-bold text-[#e2e2e8] uppercase tracking-wide">Net Payable</span>
+            <span className="font-mono text-[22px] font-bold text-emerald-400">{inr(netPayable)}</span>
+          </div>
+
+          {/* post to accounts */}
+          {accReady && isAdmin && bill.status === 'Approved' && (
+            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+              {bill.voucher_id ? (
+                <div className="text-[12px] text-emerald-400 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+                  Posted to accounts. Review it in Accounting → Vouchers.
+                </div>
+              ) : (
+                <>
+                  <button className="btn btn-primary w-full" disabled={posting || !bill.party_id} onClick={postToAccounts}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>account_balance</span>
+                    {posting ? 'Posting…' : 'Post to Accounts'}
+                  </button>
+                  <p className="text-[11px] text-[#dcc1ae]/50 mt-2">
+                    Creates a balanced <b>Draft</b> Sales voucher: Dr client + Dr each deduction ledger,
+                    Cr Contract Revenue + Cr output GST. Your accountant reviews and posts it.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {isDraft && <p className="text-[11px] text-[#dcc1ae]/50 mt-3">
+            Gross → GST → deductions → net. Approve to lock this bill; its quantities then count as "previously billed".
+          </p>}
         </div>
-        {isDraft && <p className="text-[11px] text-[#dcc1ae]/50 mt-3">Editing GST/Retention % recalculates instantly. Approve to lock this bill; its quantities then count as "previously billed" for the next RA bill.</p>}
       </div>
     </div>
   )

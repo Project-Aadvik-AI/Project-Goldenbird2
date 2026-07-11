@@ -24,6 +24,13 @@ export default function Expenses() {
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
+  async function postToAccounts(expenseId: string) {
+    const { error } = await supabase.rpc('acc_post_expense', { p_expense: expenseId, p_pay_ledger: null })
+    if (error) { alert('Could not post:\n\n' + error.message); return }
+    alert('Posted to accounts as a DRAFT voucher (Dr expense / Cr cash).\nReview it in Accounting → Vouchers.')
+    load()
+  }
+
   async function load() {
     if (!activeProject) { setRows([]); setLoading(false); return }
     setLoading(true)

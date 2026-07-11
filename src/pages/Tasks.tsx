@@ -122,8 +122,9 @@ function TaskTable({ rows, onOpen, onChanged, whoLabel, whoOf }: {
         <tbody className="divide-y divide-white/[0.05]">
           {rows.map(t => {
             const overdue = t.due_date && t.status !== 'Done' && isOverdue(t.due_date)
+            const isOpen = t.status === 'Open'
             return (
-              <tr key={t.id} className="hover:bg-white/[0.02]">
+              <tr key={t.id} className={`hover:bg-white/[0.02] ${isOpen ? 'bg-red-500/[0.06] border-l-2 border-l-red-500' : ''}`}>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${PRIORITY_STYLES[t.priority] || ''}`}>{t.priority}</span>
                 </td>
@@ -216,6 +217,15 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
   const [assignedTo, setAssignedTo] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [meName, setMeName] = useState<string>('')
+  useEffect(() => {
+    (async () => {
+      const { data: u } = await supabase.auth.getUser()
+      if (!u?.user) return
+      const { data: p } = await supabase.from('profiles').select('full_name').eq('id', u.user.id).maybeSingle()
+      setMeName((p as any)?.full_name || u.user.email || 'You')
+    })()
+  }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -223,10 +233,15 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
     setBusy(true); setErr(null)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     const orgId = prof?.org_id
+    const { data: uinfo } = await supabase.auth.getUser()
+    const assignerId = uinfo?.user?.id ?? null
     const { data: inserted, error } = await supabase.from('tasks').insert({
       org_id: orgId, project_id: projectId || null,
       title, description: description || null,
-      assigned_to: assignedTo, priority, due_date: dueDate || null,
+      assigned_to: assignedTo,
+      assigned_by: assignerId,          // ← record WHO assigned it
+      priority, due_date: dueDate || null,
+      status: 'Open',
     }).select('id').single()
     if (error) { setErr(error.message); setBusy(false); return }
     await supabase.from('notifications').insert({
@@ -251,7 +266,13 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
           <L label="Title *"><input className="input" value={title} onChange={e => setTitle(e.target.value)} /></L>
           <L label="Description"><textarea className="input" rows={3} value={description} onChange={e => setDescription(e.target.value)} /></L>
           <div className="grid grid-cols-2 gap-3">
-            <L label="Assignee *">
+            <L label="Assigned By">
+              <div className="input flex items-center gap-2 opacity-80" style={{ cursor: 'default' }}>
+                <span className="material-symbols-outlined text-emerald-400" style={{ fontSize: '16px' }}>person</span>
+                <span className="text-[#e2e2e8]">{meName || 'You'}</span>
+              </div>
+            </L>
+            <L label="Assign To *">
               <select className="input" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
                 <option value="">— pick —</option>
                 {people.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}

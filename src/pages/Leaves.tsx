@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
 
 type Employee = { id: string; full_name: string }
@@ -36,6 +37,7 @@ export default function Leaves() {
 
 function LeavesTab() {
   const { can } = useAuth()
+  const { activeProject } = useProject()
   const [rows, setRows] = useState<Leave[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,15 +46,23 @@ function LeavesTab() {
 
   async function load() {
     setLoading(true)
+    // Only employees assigned to the ACTIVE project
+    const profileIds: string[] = []
+    if (activeProject) {
+      const { data: up } = await supabase.from('user_projects').select('user_id').eq('project_id', activeProject.id)
+      profileIds.push(...((up as { user_id: string }[]) ?? []).map(x => x.user_id))
+    }
     const [{ data: lv }, { data: emp }] = await Promise.all([
       supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('employees').select('id, full_name').eq('status', 'Active').order('full_name'),
+      profileIds.length
+        ? supabase.from('employees').select('id, full_name').in('profile_id', profileIds).eq('status', 'Active').order('full_name')
+        : Promise.resolve({ data: [] as any[] }),
     ])
     setRows((lv as Leave[]) ?? [])
     setEmployees((emp as Employee[]) ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   async function act(id: string, status: 'Approved' | 'Rejected') {
     await supabase.from('leave_requests').update({ status }).eq('id', id)

@@ -14,88 +14,74 @@ const isGroup = (e: Entry): e is Group => 'group' in e
 const NAV: Entry[] = [
   { to: '/', label: 'Overview', icon: 'dashboard' },
   { to: '/project', label: 'Project Home', icon: 'space_dashboard' },
+  { to: '/project-resources', label: 'Project Resources', icon: 'diversity_3' },
   { group: 'Site Operations', icon: 'engineering', items: [
-    { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
-    { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
-    { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
-    { to: '/assets', label: 'Company Assets', icon: 'inventory', module: 'machines' },
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
+    { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
+    { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
+    { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
   ] },
   { group: 'BOQ & Billing', icon: 'request_quote', items: [
     { to: '/boq', label: 'BOQ', icon: 'request_quote', module: 'boq' },
-    { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard', module: 'boq_dashboard' },
-    { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet', module: 'boq_budget' },
-    { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt', adminOnly: true },
     { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten', module: 'measurement_book' },
     { to: '/billing', label: 'RA Billing', icon: 'receipt_long', module: 'billing' },
+    { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard', module: 'boq_dashboard' },
+    { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet', module: 'boq_budget' },
   ] },
   { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
   ] },
-  { group: 'HR Management', icon: 'badge', items: [
-    { to: '/employees', label: 'Employees', icon: 'badge', module: 'employees' },
-    { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
-    { to: '/give-imprest', label: 'Give Imprest', icon: 'volunteer_activism', adminOnly: true },
-    { to: '/designations', label: 'Designations', icon: 'badge', adminOnly: true },
-    { to: '/permissions', label: 'Permissions', icon: 'lock', adminOnly: true },
+  { group: 'People', icon: 'badge', items: [
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },
     { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'leaves' },
+    { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
   ] },
+  { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
   { group: 'Documents', icon: 'folder_open', items: [
     { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },
     { to: '/correspondence', label: 'Correspondence', icon: 'mail', module: 'correspondence' },
     { to: '/contracts', label: 'Contracts', icon: 'gavel', module: 'contracts' },
     { to: '/documents', label: 'Documents', icon: 'folder_open', module: 'documents' },
   ] },
-  { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
-  { to: '/bugs', label: 'Bug Reports', icon: 'bug_report' },
-  { group: 'Reports & AI', icon: 'analytics', items: [
+  { group: 'Reports', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
     { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed', module: 'monthly_performance' },
     { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
   ] },
-  { to: '/masters', label: 'Master Data', icon: 'database', module: 'masters' },
 ]
 
-const ADMIN_NAV: Leaf[] = [
-  { to: '/admin/staff', label: 'Staff & Permissions', icon: 'admin_panel_settings' },
-  { to: '/projects', label: 'Projects', icon: 'domain' },
-  { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
-  { to: '/admin/invite', label: 'Invite Code', icon: 'qr_code_2' },
-  { to: '/team', label: 'Team', icon: 'group_add' },
-]
+const ADMIN_NAV: Leaf[] = []
 
 // ---- HEAD OFFICE panel: its own sidebar (admin only) ----
 const HO_NAV: Entry[] = [
   { to: '/head-office', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/employees', label: 'Employees', icon: 'badge' },
-  { to: '/assets', label: 'Assets', icon: 'inventory' },
   { to: '/projects', label: 'Projects', icon: 'domain' },
-  { group: 'Accounting', icon: 'account_balance', items: [
-    { to: '/expenses', label: 'Expenses', icon: 'payments' },
-    { to: '/vendor-bills', label: 'Vendor Bills', icon: 'receipt_long' },
-    { to: '/give-imprest', label: 'Staff Imprest', icon: 'volunteer_activism' },
-    { to: '/billing', label: 'RA Billing', icon: 'request_quote' },
-  ] },
-  { to: '/admin/reports', label: 'Reports', icon: 'download' },
-  { group: 'Settings', icon: 'settings', items: [
+  { group: 'People', icon: 'badge', items: [
+    { to: '/employees', label: 'Employees', icon: 'badge' },
     { to: '/designations', label: 'Designations', icon: 'work' },
     { to: '/permissions', label: 'Permissions', icon: 'lock' },
-    { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt' },
-    { to: '/masters', label: 'Masters', icon: 'tune' },
-    { to: '/admin/invite', label: 'Invite Code', icon: 'qr_code_2' },
     { to: '/admin/staff', label: 'Staff & Access', icon: 'admin_panel_settings' },
+    { to: '/team', label: 'Team', icon: 'group_add' },
+  ] },
+  { to: '/assets', label: 'Assets', icon: 'inventory' },
+  { to: '/give-imprest', label: 'Accounting · Imprest', icon: 'account_balance' },
+  { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
+  { group: 'Settings', icon: 'settings', items: [
+    { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt' },
+    { to: '/masters', label: 'Master Data', icon: 'database' },
+    { to: '/admin/invite', label: 'Invite Code', icon: 'qr_code_2' },
+    { to: '/bugs', label: 'Bug Reports', icon: 'bug_report' },
   ] },
 ]
 
 // routes that belong to the Head Office panel
 const HO_ROUTES = new Set<string>([
-  '/head-office', '/employees', '/assets', '/projects', '/admin/reports',
-  '/designations', '/permissions', '/boq-schedules', '/masters', '/admin/invite', '/admin/staff',
-  '/vendor-bills', '/give-imprest',
+  '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
+  '/assets', '/give-imprest', '/admin/reports',
+  '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 
 const BOTTOM_NAV = [

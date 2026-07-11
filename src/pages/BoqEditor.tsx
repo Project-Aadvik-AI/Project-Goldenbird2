@@ -252,7 +252,7 @@ export default function BoqEditor() {
       )}
       {showImport && boq && <BoqImport boqId={boq.id} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); if (id) loadItems(id) }} />}
       {showOpening && boq && <OpeningProgress boqId={boq.id} projectId={boq.project_id} items={items} onClose={() => setShowOpening(false)} onDone={() => { setShowOpening(false); if (id) loadItems(id) }} />}
-      {showRevisions && boq && <RevisionHistory boqId={boq.id} onClose={() => setShowRevisions(false)} />}
+      {showRevisions && boq && <RevisionHistory boqId={boq.id} onClose={() => setShowRevisions(false)} onRestored={() => { if (id) loadItems(id) }} />}
       {showReviseForm && boq && <ReviseForm currentVersion={boq.version} onClose={() => setShowReviseForm(false)} onConfirm={createRevision} />}
       {measuring && (
         <MeasurementSheet
@@ -295,10 +295,51 @@ function ReviseForm({ currentVersion, onClose, onConfirm }: { currentVersion: nu
 }
 
 type Rev = { id: string; version: number; change_reason: string | null; total_amount: number; created_by_name: string | null; created_at: string; items_snapshot: Item[] }
-function RevisionHistory({ boqId, onClose }: { boqId: string; onClose: () => void }) {
+function RevisionHistory({ boqId, onClose, onRestored }: { boqId: string; onClose: () => void; onRestored: () => void }) {
   const [revs, setRevs] = useState<Rev[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState<string | null>(null)
+
+  async function restore(r: Rev) {
+    const snap = r.items_snapshot ?? []
+    if (!snap.length) { alert('This snapshot has no items to restore.'); return }
+    if (!confirm(
+      `Restore this snapshot?\n\n"${r.change_reason || 'No reason'}"\nTaken: ${new Date(r.created_at).toLocaleString('en-IN')}\nItems: ${snap.length}\n\n` +
+      `This resets every item's rate and amount back to how they were at that moment. ` +
+      `Executed quantities and bills are NOT affected. This cannot be undone.`
+    )) return
+
+    setRestoring(r.id)
+    // write each snapshot item's rate/amount back onto the live item (match by id)
+    let failed = 0
+    for (const it of snap) {
+      if (!(it as any).id) { failed++; continue }
+      const { error } = await supabase.from('boq_items').update({
+        final_rate: (it as any).final_rate,
+        amount: (it as any).amount,
+        material_rate: (it as any).material_rate,
+        labour_rate: (it as any).labour_rate,
+        equipment_rate: (it as any).equipment_rate,
+        overhead_pct: (it as any).overhead_pct,
+        profit_pct: (it as any).profit_pct,
+        tax_pct: (it as any).tax_pct,
+        quantity: (it as any).quantity,
+      }).eq('id', (it as any).id)
+      if (error) failed++
+    }
+    // clear the applied-adjustment records — the rates are back to this snapshot's state
+    await supabase.from('boq_bid_adjustments')
+      .update({ pct: 0, adj_type: 'less', applied_pct: 0, applied_type: 'less' })
+      .eq('boq_id', boqId)
+
+    setRestoring(null)
+    alert(failed
+      ? `Restored with ${failed} item(s) skipped (they may have been deleted since the snapshot).`
+      : `Restored ${snap.length} items successfully. Bid adjustments reset to 0.`)
+    onRestored()
+    onClose()
+  }
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from('boq_revisions').select('*').eq('boq_id', boqId).order('version', { ascending: false })
@@ -326,6 +367,17 @@ function RevisionHistory({ boqId, onClose }: { boqId: string; onClose: () => voi
                   </div>
                   <span className="material-symbols-outlined text-[#dcc1ae]/50" style={{ fontSize: '18px' }}>{open === r.id ? 'expand_less' : 'expand_more'}</span>
                 </button>
+                <div className="px-3 pb-3 -mt-1">
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: '4px 12px', fontSize: '11px' }}
+                    disabled={restoring === r.id}
+                    onClick={() => restore(r)}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>restore</span>
+                    {restoring === r.id ? 'Restoring…' : 'Restore this version'}
+                  </button>
+                </div>
                 {open === r.id && (
                   <div className="px-3 pb-3 overflow-x-auto">
                     <table className="w-full text-[12px]">
@@ -694,7 +746,15 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
         updated_at: new Date().toISOString(),
       }
     })
-    await supabase.from('boq_bid_adjustments').upsert(savedRows, { onConflict: 'boq_id,schedule' })
+    const { error: upErr } = await supabase.from('boq_bid_adjustments').upsert(savedRows, { onConflict: 'boq_id,schedule' })
+    if (upErr) {
+      setApplying(false)
+      setApplyMsg(null)
+      alert('Rates were updated, but the applied percentage could not be recorded:\n\n' + upErr.message +
+            '\n\nIf this mentions "applied_pct", run this SQL:\n\nalter table boq_bid_adjustments add column if not exists applied_pct numeric not null default 0;\nalter table boq_bid_adjustments add column if not exists applied_type text;')
+      onApplied()
+      return
+    }
     setAdj(prev => {
       const next = { ...prev }
       for (const { g, a } of toApply) {
@@ -718,9 +778,22 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
     const p = trimmed === '' ? 0 : Number(trimmed)
     const invalid = trimmed !== '' && (!isFinite(p) || p < 0)
     if (invalid) anyInvalid = true
-    const q = invalid ? null : quotedRate(g.amount, a.type, p)
+    // Quoted = what the amount WOULD be at the entered %, measured from the ORIGINAL
+    // (not from the already-discounted current amount — that would double-discount).
+    const signed = (t: BidType, x: number) => t === 'less' ? -x : x
+    const appliedFactor0 = a.appliedPct > 0
+      ? (a.appliedType === 'less' ? (100 - a.appliedPct) / 100 : (100 + a.appliedPct) / 100)
+      : 1
+    const baseAmount = appliedFactor0 !== 0 ? round2(g.amount / appliedFactor0) : g.amount  // the original
+    const desiredFactor = (100 + signed(a.type, p)) / 100
+    const q = invalid ? null : round2(baseAmount * desiredFactor)
     if (q != null) quotedTotal = round2(quotedTotal + q)
-    return { ...g, type: a.type, pct: p, pctStr: a.pct, invalid, quoted: q, atPar: !invalid && p === 0, appliedPct: a.appliedPct, appliedType: a.appliedType }
+    // reverse-calculate the pre-adjustment amount from what was applied
+      const appliedFactor = a.appliedPct > 0
+        ? (a.appliedType === 'less' ? (100 - a.appliedPct) / 100 : (100 + a.appliedPct) / 100)
+        : 1
+      const originalAmount = appliedFactor !== 0 ? round2(g.amount / appliedFactor) : g.amount
+      return { ...g, type: a.type, pct: p, pctStr: a.pct, invalid, quoted: q, atPar: !invalid && p === 0, appliedPct: a.appliedPct, appliedType: a.appliedType, originalAmount }
   })
   const overallDiff = round2(quotedTotal - total)
   const effectivePct = total ? round2(overallDiff / total * 100) : 0
@@ -757,7 +830,7 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
         <div className="overflow-x-auto rounded-lg border border-white/[0.05]">
           <table className="w-full text-sm">
             <thead className="bg-[#282a2e]"><tr>
-              {['Schedule', 'BOQ Amount', 'Adjustment', '%', 'Quoted Amount'].map(h => (
+              {['Schedule', 'Original (pre-adj)', 'Current BOQ Amount', 'Adjustment', '%', 'Quoted Amount'].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
@@ -773,7 +846,12 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right whitespace-nowrap">{inr(r.amount)}</td>
+                  <td className="px-3 py-2 font-mono text-right whitespace-nowrap">
+                    {r.appliedPct > 0 ? (
+                      <span className="text-[#dcc1ae]/70" title="Amount before the applied adjustment">{inr(r.originalAmount)}</span>
+                    ) : <span className="text-[#dcc1ae]/30">—</span>}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[#e2e2e8] text-right whitespace-nowrap font-semibold">{inr(r.amount)}</td>
                   <td className="px-3 py-2">
                     <select className="input" value={r.type} onChange={e => setTypeTracked(r.schedule, e.target.value as BidType)} style={{ padding: '4px 8px', fontSize: '12px', width: 110 }}>
                       <option value="less">Less (−)</option>

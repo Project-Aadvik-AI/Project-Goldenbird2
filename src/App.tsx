@@ -37,6 +37,7 @@ import BoqSchedules from './pages/BoqSchedules'
 import MyImprest from './pages/MyImprest'
 import GiveImprest from './pages/GiveImprest'
 import HeadOffice from './pages/HeadOffice'
+import ProjectResources from './pages/ProjectResources'
 import Assets from './pages/Assets'
 import AssetDetail from './pages/AssetDetail'
 import BugReports from './pages/BugReports'
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="/my-imprest" element={<MyImprest />} />
           <Route path="/give-imprest" element={<GiveImprest />} />
           <Route path="/head-office" element={<HeadOffice />} />
+          <Route path="/project-resources" element={<ProjectResources />} />
           <Route path="/assets" element={<ModuleGuard module="machines"><Assets /></ModuleGuard>} />
           <Route path="/assets/:id" element={<AssetDetail />} />
           <Route path="/bugs" element={<BugReports />} />

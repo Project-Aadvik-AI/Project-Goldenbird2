@@ -13,17 +13,34 @@ export default function HeadOffice() {
   const [staffByProject, setStaffByProject] = useState<Record<string, number>>({})
   const [assetsByProject, setAssetsByProject] = useState<Record<string, number>>({})
   const [totals, setTotals] = useState({ employees: 0, assets: 0 })
+  const [boqByProject, setBoqByProject] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
       setLoading(true)
-      const [{ data: up }, { data: as }, { count: empCount }, { count: assetCount }] = await Promise.all([
+      const [{ data: up }, { data: as }, { count: empCount }, { count: assetCount }, { data: boqs }] = await Promise.all([
         supabase.from('user_projects').select('project_id'),
         supabase.from('assets').select('project_id').eq('archived', false),
         supabase.from('employees').select('id', { count: 'exact', head: true }),
         supabase.from('assets').select('id', { count: 'exact', head: true }).eq('archived', false),
+        supabase.from('boqs').select('id, project_id'),
       ])
+
+      // BOQ value per project = sum of that project's BOQ item amounts
+      const boqList = ((boqs as any[]) ?? []).filter(b => b.project_id)
+      const bp: Record<string, number> = {}
+      if (boqList.length) {
+        const { data: items } = await supabase.from('boq_items').select('boq_id, amount')
+        const boqToProject: Record<string, string> = {}
+        for (const b of boqList) boqToProject[b.id] = b.project_id
+        for (const it of ((items as any[]) ?? [])) {
+          const pid = boqToProject[it.boq_id]
+          if (!pid) continue
+          bp[pid] = Math.round(((bp[pid] ?? 0) + Number(it.amount || 0)) * 100) / 100
+        }
+      }
+      setBoqByProject(bp)
       const sp: Record<string, number> = {}
       for (const r of ((up as any[]) ?? [])) if (r.project_id) sp[r.project_id] = (sp[r.project_id] ?? 0) + 1
       const ap: Record<string, number> = {}
@@ -44,10 +61,11 @@ export default function HeadOffice() {
       return new Date(p.end_date) < today
     }).length
     const value = projects.reduce((n, p) => n + Number(p.contract_value || 0), 0)
+    const boqValue = Object.values(boqByProject).reduce((a, b) => a + b, 0)
     const assignedStaff = Object.values(staffByProject).reduce((a, b) => a + b, 0)
     const assignedAssets = Object.values(assetsByProject).reduce((a, b) => a + b, 0)
-    return { total: projects.length, active, completed, delayed, value, assignedStaff, assignedAssets }
-  }, [projects, staffByProject, assetsByProject])
+    return { total: projects.length, active, completed, delayed, value, boqValue, assignedStaff, assignedAssets }
+  }, [projects, staffByProject, assetsByProject, boqByProject])
 
   function openProject(p: Project) {
     setActiveProject(p)     // makes every module (BOQ, DPR, Billing…) scope to this project
@@ -87,12 +105,16 @@ export default function HeadOffice() {
       <div className="card overflow-hidden overflow-x-auto">
         <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
           <span className="text-sm font-semibold text-[#e2e2e8]">All Projects</span>
-          <span className="text-[11px] text-[#dcc1ae]/60">Total contract value: <b className="text-[#e2e2e8] font-mono">{inr(stats.value)}</b></span>
+          <span className="text-[11px] text-[#dcc1ae]/60">
+            Contract: <b className="text-[#e2e2e8] font-mono">{inr(stats.value)}</b>
+            <span className="mx-2 text-[#dcc1ae]/30">·</span>
+            BOQ: <b className="text-[#e2e2e8] font-mono">{inr(stats.boqValue)}</b>
+          </span>
         </div>
         {loading ? <div className="p-6 text-[#dcc1ae] text-sm">Loading…</div> : (
           <table className="w-full text-sm">
             <thead className="bg-[#282a2e]"><tr>
-              {['Code', 'Project', 'Client', 'Status', 'Employees', 'Assets', 'Contract Value', 'End Date', ''].map(h => (
+              {['Code', 'Project', 'Client', 'Status', 'Employees', 'Assets', 'Contract Value', 'BOQ Value', 'Variance', 'End Date', ''].map(h => (
                 <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
@@ -114,7 +136,18 @@ export default function HeadOffice() {
                     </td>
                     <td className="px-4 py-3 font-mono text-[#e2e2e8]">{staffByProject[p.id] ?? 0}</td>
                     <td className="px-4 py-3 font-mono text-[#e2e2e8]">{assetsByProject[p.id] ?? 0}</td>
-                    <td className="px-4 py-3 font-mono text-[#e2e2e8] whitespace-nowrap">{p.contract_value ? inr(p.contract_value) : '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[#e2e2e8] whitespace-nowrap">{p.contract_value ? inr(p.contract_value) : <span className="text-[#dcc1ae]/40">not set</span>}</td>
+                    <td className="px-4 py-3 font-mono text-[#e2e2e8] whitespace-nowrap">{boqByProject[p.id] ? inr(boqByProject[p.id]) : '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[12px] whitespace-nowrap">
+                      {(() => {
+                        const c = Number(p.contract_value || 0), b = boqByProject[p.id] ?? 0
+                        if (!c || !b) return <span className="text-[#dcc1ae]/40">—</span>
+                        const diff = Math.round((b - c) * 100) / 100
+                        if (Math.abs(diff) < 1) return <span className="text-emerald-400">Matches</span>
+                        const pct = Math.round((diff / c) * 1000) / 10
+                        return <span className={diff > 0 ? 'text-amber-400' : 'text-blue-400'}>{diff > 0 ? '+' : ''}{inr(diff)} ({pct > 0 ? '+' : ''}{pct}%)</span>
+                      })()}
+                    </td>
                     <td className={`px-4 py-3 font-mono text-[12px] whitespace-nowrap ${delayed ? 'text-red-400 font-bold' : 'text-[#dcc1ae]'}`}>{p.end_date || '—'}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: '12px' }} onClick={() => openProject(p)}>Open</button>
@@ -122,7 +155,7 @@ export default function HeadOffice() {
                   </tr>
                 )
               })}
-              {!projects.length && <tr><td colSpan={9} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No projects yet. Click "Create Project" above.</td></tr>}
+              {!projects.length && <tr><td colSpan={11} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No projects yet. Click "Create Project" above.</td></tr>}
             </tbody>
           </table>
         )}

@@ -40,6 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function Tasks() {
   const { user, isAdmin } = useAuth()
+  const { activeProject } = useProject()
   const [tab, setTab] = useState<'mine' | 'done' | 'assigned' | 'perf'>('mine')
   const [tasks, setTasks] = useState<Task[]>([])
   const [people, setPeople] = useState<Person[]>([])
@@ -51,7 +52,7 @@ export default function Tasks() {
     setLoading(true)
     const [{ data: t }, { data: p }] = await Promise.all([
       supabase.from('tasks').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, full_name').order('full_name'),
+      supabase.from('profiles').select('id, full_name').order('full_name'),   // all (needed to resolve names on old tasks)
     ])
     setTasks((t as Task[]) ?? [])
     setPeople((p as Person[]) ?? [])
@@ -69,6 +70,17 @@ export default function Tasks() {
     ? tasks.filter(t => t.status === 'Done')
     : tasks.filter(t => t.status === 'Done' && (t.assigned_to === uid || t.assigned_by === uid))
   const nameOf = (id: string | null) => (id ? people.find(p => p.id === id)?.full_name : null) || '—'
+
+  // Only people assigned to the ACTIVE project can be given new tasks
+  const [assignable, setAssignable] = useState<Person[]>([])
+  useEffect(() => {
+    (async () => {
+      if (!activeProject) { setAssignable([]); return }
+      const { data: up } = await supabase.from('user_projects').select('user_id').eq('project_id', activeProject.id)
+      const ids = new Set(((up as { user_id: string }[]) ?? []).map(x => x.user_id))
+      setAssignable(people.filter(p => ids.has(p.id)))
+    })()
+  }, [activeProject?.id, people])
 
   return (
     <div>
@@ -97,7 +109,7 @@ export default function Tasks() {
 
       {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
 
-      {showForm && <AssignForm people={people} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showForm && <AssignForm people={assignable} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
       {openTask && <TaskDetail task={openTask} nameOf={nameOf} onClose={() => setOpenTask(null)} onChanged={load} />}
     </div>
   )
@@ -284,6 +296,11 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
                 <option value="">— pick —</option>
                 {people.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
               </select>
+              {!people.length && (
+                <p className="text-[11px] text-amber-400/80 mt-1">
+                  No one is assigned to this project. Assign employees in Head Office → Projects → Edit.
+                </p>
+              )}
             </L>
             <L label="Priority">
               <select className="input" value={priority} onChange={e => setPriority(e.target.value)}>

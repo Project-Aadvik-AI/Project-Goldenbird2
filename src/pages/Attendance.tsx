@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 
 type Employee = { id: string; full_name: string; emp_code: string | null; department: string | null; status: string }
 type Att = { id: string; employee_id: string; date: string; status: string; hours: number | null; remark: string | null }
@@ -22,12 +23,25 @@ export default function Attendance() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [employees, setEmployees] = useState<Employee[]>([])
   const [dayRows, setDayRows] = useState<Att[]>([])
+  const { activeProject } = useProject()
   const [monthRows, setMonthRows] = useState<Att[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
 
   async function loadEmployees() {
-    const { data } = await supabase.from('employees').select('id, full_name, emp_code, department, status')
+    // Only employees assigned to the ACTIVE project should appear here.
+    // Link: user_projects (profile_id ↔ project) → employees.profile_id
+    if (!activeProject) { setEmployees([]); return }
+
+    const { data: up } = await supabase.from('user_projects')
+      .select('user_id').eq('project_id', activeProject.id)
+    const profileIds = ((up as { user_id: string }[]) ?? []).map(x => x.user_id)
+
+    if (!profileIds.length) { setEmployees([]); return }
+
+    const { data } = await supabase.from('employees')
+      .select('id, full_name, emp_code, department, status')
+      .in('profile_id', profileIds)
       .eq('status', 'Active').order('full_name')
     setEmployees((data as Employee[]) ?? [])
   }
@@ -50,7 +64,7 @@ export default function Attendance() {
     setLoading(false)
   }
 
-  useEffect(() => { loadEmployees() }, [])
+  useEffect(() => { loadEmployees() }, [activeProject?.id])
   useEffect(() => { if (tab === 'day') loadDay() }, [date, tab])
   useEffect(() => { if (tab === 'month') loadMonth() }, [month, tab])
 
@@ -162,7 +176,12 @@ export default function Attendance() {
                   )
                 })}
                 {!employees.length && !loading && (
-                  <tr><td colSpan={3} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">Add employees first from the Employees page.</td></tr>
+                  <tr><td colSpan={3} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
+                    {!activeProject
+                      ? 'Select a project first (use the project switcher at the top).'
+                      : <>No employees are assigned to <b className="text-[#e2e2e8]">{activeProject.name}</b>.<br />
+                          <span className="text-[12px]">Assign them in Head Office → Projects → Edit → Assign Employees.</span></>}
+                  </td></tr>
                 )}
               </tbody>
             </table>

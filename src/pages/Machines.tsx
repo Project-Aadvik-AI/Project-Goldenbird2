@@ -167,11 +167,28 @@ function MachineForm({
   const [runUnit, setRunUnit] = useState('Hrs')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Assets assigned to THIS project (vehicles / machinery / equipment)
+  const [projAssets, setProjAssets] = useState<{ id: string; name: string; asset_code: string | null; category: string | null }[]>([])
 
   useEffect(() => {
+    if (!projectId) return
+    (async () => {
+      const { data } = await supabase.from('assets')
+        .select('id, name, asset_code, category')
+        .eq('project_id', projectId).eq('archived', false)
+        .in('category', ['Vehicle', 'Machinery', 'Equipment', 'Tool'])
+        .order('name')
+      setProjAssets((data as any[]) ?? [])
+    })()
+  }, [projectId])
+
+  useEffect(() => {
+    // auto-fill type from the assigned asset, else from the masters list
+    const a = projAssets.find(a => a.name.toLowerCase() === machine.toLowerCase())
+    if (a?.category) { setType(a.category); return }
     const m = masters.find(m => m.name.toLowerCase() === machine.toLowerCase())
     if (m?.type) setType(m.type)
-  }, [machine, masters])
+  }, [machine, masters, projAssets])
 
   const lastReading = allRows
     .filter(r => r.machine.toLowerCase() === machine.toLowerCase() && r.meter_reading != null)
@@ -224,8 +241,19 @@ function MachineForm({
           <div className="grid grid-cols-2 gap-3">
             <L label="Date"><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></L>
             <L label="Machine">
-              <input className="input" value={machine} onChange={e => setMachine(e.target.value)} list="machine-list" placeholder="e.g. JCB-01" />
-              <datalist id="machine-list">{masters.map(m => <option key={m.name} value={m.name} />)}</datalist>
+              <select className="input" value={machine} onChange={e => setMachine(e.target.value)}>
+                <option value="">— Select machine —</option>
+                {projAssets.map(a => (
+                  <option key={a.id} value={a.name}>
+                    {a.name}{a.asset_code ? ` (${a.asset_code})` : ''}{a.category ? ` · ${a.category}` : ''}
+                  </option>
+                ))}
+              </select>
+              {!projAssets.length && (
+                <p className="text-[11px] text-amber-400/80 mt-1">
+                  No machines assigned to this project. Assign them in Head Office → Projects → Edit → Assign Assets.
+                </p>
+              )}
             </L>
             <L label="Type"><input className="input" value={type} onChange={e => setType(e.target.value)} placeholder="Excavator, Tipper…" /></L>
             <L label="Operator"><input className="input" value={operator} onChange={e => setOperator(e.target.value)} /></L>

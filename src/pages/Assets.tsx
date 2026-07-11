@@ -11,6 +11,10 @@ export type Asset = {
   company_branch: string | null; project_id: string | null; assigned_employee_id: string | null
   purchase_date: string | null; purchase_cost: number | null; vendor: string | null
   status: string; location: string | null; remarks: string | null; archived: boolean
+  // vehicle details (Phase 3)
+  vehicle_number?: string | null; make_model?: string | null; vehicle_type?: string | null
+  chassis_number?: string | null; engine_number?: string | null
+  odometer?: number | null; odometer_updated?: string | null
 }
 
 export const CATEGORIES = ['Vehicle', 'Machinery', 'Equipment', 'Tool', 'IT / Laptop', 'Furniture', 'Other']
@@ -278,6 +282,13 @@ function AssetForm({ editing, emps, onClose, onSaved }: {
   const [status, setStatus] = useState(editing?.status ?? 'Available')
   const [location, setLocation] = useState(editing?.location ?? '')
   const [remarks, setRemarks] = useState(editing?.remarks ?? '')
+  // vehicle fields
+  const [vehNo, setVehNo] = useState(editing?.vehicle_number ?? '')
+  const [makeModel, setMakeModel] = useState(editing?.make_model ?? '')
+  const [vehType, setVehType] = useState(editing?.vehicle_type ?? '')
+  const [chassis, setChassis] = useState(editing?.chassis_number ?? '')
+  const [engineNo, setEngineNo] = useState(editing?.engine_number ?? '')
+  const [odo, setOdo] = useState(editing?.odometer != null ? String(editing.odometer) : '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -290,6 +301,10 @@ function AssetForm({ editing, emps, onClose, onSaved }: {
       project_id: projectId || null, assigned_employee_id: empId || null,
       purchase_date: purchaseDate || null, purchase_cost: cost ? Number(cost) : 0,
       vendor: vendor || null, status, location: location || null, remarks: remarks || null,
+      vehicle_number: vehNo || null, make_model: makeModel || null, vehicle_type: vehType || null,
+      chassis_number: chassis || null, engine_number: engineNo || null,
+      odometer: odo ? Number(odo) : null,
+      odometer_updated: odo ? new Date().toISOString().slice(0, 10) : null,
     }
     // auto-assign status if an employee is picked and status is still Available
     if (empId && status === 'Available') payload.status = 'Assigned'
@@ -351,6 +366,23 @@ function AssetForm({ editing, emps, onClose, onSaved }: {
           <div className="sm:col-span-2">
             <L label="Remarks"><textarea className="input" rows={2} value={remarks} onChange={e => setRemarks(e.target.value)} /></L>
           </div>
+
+          {(category === 'Vehicle' || category === 'Machinery') && (
+            <div className="sm:col-span-2 pt-3 border-t border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>local_shipping</span>
+                <span className="text-[12px] font-bold text-[#dcc1ae] uppercase tracking-wider">Vehicle / Machine Details</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <L label="Vehicle / Registration Number"><input className="input mono" value={vehNo} onChange={e => setVehNo(e.target.value.toUpperCase())} placeholder="MH12AB1234" /></L>
+                <L label="Make & Model"><input className="input" value={makeModel} onChange={e => setMakeModel(e.target.value)} placeholder="Tata / JCB 3DX" /></L>
+                <L label="Vehicle / Machine Type"><input className="input" value={vehType} onChange={e => setVehType(e.target.value)} placeholder="Tipper, Excavator, Crane…" /></L>
+                <L label="Odometer / Hour Meter"><input className="input mono" inputMode="decimal" value={odo} onChange={e => setOdo(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" /></L>
+                <L label="Chassis Number"><input className="input mono" value={chassis} onChange={e => setChassis(e.target.value.toUpperCase())} /></L>
+                <L label="Engine Number"><input className="input mono" value={engineNo} onChange={e => setEngineNo(e.target.value.toUpperCase())} /></L>
+              </div>
+            </div>
+          )}
         </div>
         {err && <div className="px-5 text-sm text-red-400">{err}</div>}
         <div className="px-5 py-4 border-t border-white/[0.06] flex gap-2 sticky bottom-0 bg-[#1B1F2A]">

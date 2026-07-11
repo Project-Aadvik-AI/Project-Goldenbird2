@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 
 type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary' | 'imprest'
+  | 'asset_register' | 'asset_docs' | 'asset_maint' | 'asset_loans'
 
 const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'expenses', label: 'Expenses by head', help: 'Sum of amounts by expense type, filtered by project + date range.' },
@@ -16,6 +17,10 @@ const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'attendance', label: 'Attendance summary', help: 'Per employee: Present / Absent / Half-day / Leave / Holiday / Week-off counts in the date range.' },
   { key: 'salary', label: 'Salary (payroll)', help: 'Earned salary for the range: pays only for Present (+ half of Half-day) days at per-day rate (monthly salary / days in month). Unmarked/Absent days are not paid.' },
   { key: 'imprest', label: 'Staff Imprest / Advances', help: 'Employee-wise advances: total given, spent (bills), balance outstanding, settlement status, and aging of unsettled advances.' },
+  { key: 'asset_register', label: 'Asset Register', help: 'All company assets: code, category, status, assignment, purchase cost, vehicle details.' },
+  { key: 'asset_docs', label: 'Asset Document Expiry', help: 'Every asset document with its expiry date and status (Expired / Expiring in 30 days / Valid). Covers insurance, RC, PUC, fitness, permit, warranty.' },
+  { key: 'asset_maint', label: 'Asset Maintenance', help: 'Service and repair history across all assets, with cost totals and next service due dates.' },
+  { key: 'asset_loans', label: 'Asset Loans / EMI Due', help: 'Financed assets: loan amount, EMI, total paid, outstanding balance, and loan status.' },
 ]
 
 export default function AdminReports() {
@@ -384,6 +389,96 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
     }).filter(r => r['Advance Given'] > 0 || r['Spent (bills)'] > 0)
       .sort((a, b) => b['Balance'] - a['Balance'])
     return rows
+  }
+
+  if (report === 'asset_register') {
+    const [{ data: assets }, { data: emps }, { data: projs }] = await Promise.all([
+      supabase.from('assets').select('*').eq('archived', false).order('asset_code'),
+      supabase.from('employees').select('id, full_name'),
+      supabase.from('projects').select('id, name'),
+    ])
+    const empName = (id: string | null) => (id ? (emps as any[])?.find(e => e.id === id)?.full_name : null) || '—'
+    const projName = (id: string | null) => (id ? (projs as any[])?.find(p => p.id === id)?.name : null) || '—'
+    return ((assets as any[]) ?? []).map(a => ({
+      Code: a.asset_code || '—', Asset: a.name, Category: a.category || '—', Status: a.status,
+      'Assigned To': empName(a.assigned_employee_id), 'Project / Site': projName(a.project_id),
+      Location: a.location || '—', Vendor: a.vendor || '—',
+      'Purchase Date': a.purchase_date || '—', 'Purchase Cost': Number(a.purchase_cost || 0),
+      'Vehicle No.': a.vehicle_number || '—', 'Make & Model': a.make_model || '—',
+      Chassis: a.chassis_number || '—', Engine: a.engine_number || '—',
+      Odometer: a.odometer != null ? Number(a.odometer) : '—',
+    }))
+  }
+
+  if (report === 'asset_docs') {
+    const [{ data: docs }, { data: assets }] = await Promise.all([
+      supabase.from('asset_documents').select('*').order('expiry_date', { ascending: true, nullsFirst: false }),
+      supabase.from('assets').select('id, name, asset_code, category').eq('archived', false),
+    ])
+    const aMap = new Map(((assets as any[]) ?? []).map(a => [a.id, a]))
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    return ((docs as any[]) ?? [])
+      .filter(d => aMap.has(d.asset_id))
+      .map(d => {
+        const a = aMap.get(d.asset_id)
+        let status = 'No expiry', days: number | string = '—'
+        if (d.expiry_date) {
+          const exp = new Date(d.expiry_date); exp.setHours(0, 0, 0, 0)
+          const n = Math.round((exp.getTime() - today.getTime()) / 86400000)
+          days = n
+          status = n < 0 ? 'EXPIRED' : n <= 30 ? 'Expiring in 30 days' : 'Valid'
+        }
+        return {
+          'Asset Code': a.asset_code || '—', Asset: a.name, Category: a.category || '—',
+          'Document': d.doc_type, 'Title / No.': d.title || '—',
+          'Issue Date': d.issue_date || '—', 'Expiry Date': d.expiry_date || '—',
+          'Days Left': days, Status: status,
+        }
+      })
+      .sort((x, y) => (x.Status === 'EXPIRED' ? -1 : y.Status === 'EXPIRED' ? 1 : 0))
+  }
+
+  if (report === 'asset_maint') {
+    const [{ data: m }, { data: assets }] = await Promise.all([
+      supabase.from('asset_maintenance').select('*').gte('date', from).lte('date', to).order('date', { ascending: false }),
+      supabase.from('assets').select('id, name, asset_code'),
+    ])
+    const aMap = new Map(((assets as any[]) ?? []).map(a => [a.id, a]))
+    return ((m as any[]) ?? []).map(r => {
+      const a = aMap.get(r.asset_id)
+      return {
+        Date: r.date, 'Asset Code': a?.asset_code || '—', Asset: a?.name || '—',
+        'Service Type': r.service_type || '—', Description: r.description || '—',
+        Vendor: r.vendor || '—', Odometer: r.odometer != null ? Number(r.odometer) : '—',
+        Cost: Number(r.cost || 0), 'Next Service': r.next_service_date || '—',
+      }
+    })
+  }
+
+  if (report === 'asset_loans') {
+    const [{ data: loans }, { data: pays }, { data: assets }] = await Promise.all([
+      supabase.from('asset_loans').select('*'),
+      supabase.from('asset_loan_payments').select('loan_id, amount'),
+      supabase.from('assets').select('id, name, asset_code'),
+    ])
+    const aMap = new Map(((assets as any[]) ?? []).map(a => [a.id, a]))
+    const paidByLoan: Record<string, number> = {}
+    for (const p of ((pays as any[]) ?? [])) {
+      paidByLoan[p.loan_id] = Math.round(((paidByLoan[p.loan_id] ?? 0) + Number(p.amount || 0)) * 100) / 100
+    }
+    return ((loans as any[]) ?? []).map(l => {
+      const a = aMap.get(l.asset_id)
+      const paid = paidByLoan[l.id] ?? 0
+      const outstanding = Math.max(0, Math.round((Number(l.loan_amount || 0) - paid) * 100) / 100)
+      return {
+        'Asset Code': a?.asset_code || '—', Asset: a?.name || '—',
+        'Finance Company': l.finance_company || '—',
+        'Loan Amount': Number(l.loan_amount || 0), 'EMI': Number(l.emi_amount || 0),
+        Frequency: l.emi_frequency || '—',
+        'Total Paid': paid, 'Outstanding': outstanding,
+        'Start': l.start_date || '—', 'End': l.end_date || '—', Status: l.status,
+      }
+    }).sort((x, y) => y['Outstanding'] - x['Outstanding'])
   }
 
   return []

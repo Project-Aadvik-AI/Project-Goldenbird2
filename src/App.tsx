@@ -69,6 +69,7 @@ import AdminReports from './pages/AdminReports'
 import WorkOrders from './pages/WorkOrders'
 import Drawings from './pages/Drawings'
 import Tasks from './pages/Tasks'
+import Notices from './pages/Notices'
 import VendorBills from './pages/VendorBills'
 
 export default function App() {
@@ -156,6 +157,7 @@ export default function App() {
           <Route path="/work-orders" element={<ModuleGuard module="work_orders"><WorkOrders /></ModuleGuard>} />
           <Route path="/drawings" element={<ModuleGuard module="drawings"><Drawings /></ModuleGuard>} />
           <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
+          <Route path="/notices" element={<Notices />} />
           <Route path="/vendor-bills" element={<ModuleGuard module="vendor_bills"><VendorBills /></ModuleGuard>} />
           <Route path="/ai-brief" element={<AIBrief />} />
           <Route path="/change-password" element={<ChangePassword />} />

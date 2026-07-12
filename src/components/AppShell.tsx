@@ -50,6 +50,7 @@ const NAV: Entry[] = [
     { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
   ] },
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
+  { to: '/notices', label: 'Notice Board', icon: 'campaign' },
   { group: 'Documents', icon: 'folder_open', items: [
     { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },
     { to: '/correspondence', label: 'Correspondence', icon: 'mail', module: 'correspondence' },
@@ -69,6 +70,7 @@ const ADMIN_NAV: Leaf[] = []
 const HO_NAV: Entry[] = [
   { to: '/head-office', label: 'Dashboard', icon: 'dashboard' },
   { to: '/projects', label: 'Projects', icon: 'domain' },
+  { to: '/notices', label: 'Notice Board', icon: 'campaign' },
 
   { group: 'People', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge' },

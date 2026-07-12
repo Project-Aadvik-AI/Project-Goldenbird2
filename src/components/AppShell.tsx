@@ -16,21 +16,27 @@ const NAV: Entry[] = [
   { to: '/', label: 'Overview', icon: 'dashboard' },
   { to: '/project', label: 'Project Home', icon: 'space_dashboard' },
   { to: '/project-resources', label: 'Project Resources', icon: 'diversity_3' },
+
+  // ---- what happens on site, day to day ----
   { group: 'Site Operations', icon: 'engineering', items: [
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
-    { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
-    { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
-    { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
-    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping', module: 'store' },
-    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
-    { to: '/availability', label: 'Stock Availability', icon: 'inventory_2', module: 'store' },
-    { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
-    { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
-    { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
-    { to: '/store', label: 'Store IN / OUT (old)', icon: 'inventory_2', module: 'store' },
     { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
   ] },
+
+  // ---- the whole store / inventory function, in one place ----
+  { group: 'Store & Inventory', icon: 'inventory_2', items: [
+    { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
+    { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
+    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
+    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping', module: 'store' },
+    { to: '/availability', label: 'Stock Availability', icon: 'travel_explore', module: 'store' },
+    { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
+    { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
+    { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
+    { to: '/store', label: 'Store IN / OUT (old)', icon: 'history', module: 'store' },
+  ] },
+
   { group: 'BOQ & Billing', icon: 'request_quote', items: [
     { to: '/boq', label: 'BOQ', icon: 'request_quote', module: 'boq' },
     { to: '/measurement-book', label: 'Measurement Book', icon: 'straighten', module: 'measurement_book' },
@@ -38,25 +44,33 @@ const NAV: Entry[] = [
     { to: '/boq-dashboard', label: 'BOQ Dashboard', icon: 'dashboard', module: 'boq_dashboard' },
     { to: '/boq-budget', label: 'BOQ Budget', icon: 'account_balance_wallet', module: 'boq_budget' },
   ] },
+
   { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
-    { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
+    { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
   ] },
-  { group: 'People', icon: 'badge', items: [
+
+  // ---- everything an HR / site-admin person does ----
+  { group: 'HR', icon: 'badge', items: [
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },
     { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'leaves' },
-    { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
+    { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
   ] },
+
+  // personal — everyone has these, so they sit at the top level
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
+  { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
   { to: '/notices', label: 'Notice Board', icon: 'campaign' },
+
   { group: 'Documents', icon: 'folder_open', items: [
     { to: '/drawings', label: 'Drawings', icon: 'design_services', module: 'drawings' },
     { to: '/correspondence', label: 'Correspondence', icon: 'mail', module: 'correspondence' },
     { to: '/contracts', label: 'Contracts', icon: 'gavel', module: 'contracts' },
     { to: '/documents', label: 'Documents', icon: 'folder_open', module: 'documents' },
   ] },
+
   { group: 'Reports', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
     { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed', module: 'monthly_performance' },

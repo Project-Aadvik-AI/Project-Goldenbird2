@@ -19,7 +19,10 @@ const NAV: Entry[] = [
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
-    { to: '/store', label: 'Store IN / OUT', icon: 'inventory_2', module: 'store' },
+    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
+    { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
+    { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
+    { to: '/store', label: 'Store IN / OUT (old)', icon: 'inventory_2', module: 'store' },
     { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
   ] },
   { group: 'BOQ & Billing', icon: 'request_quote', items: [
@@ -31,6 +34,7 @@ const NAV: Entry[] = [
   ] },
   { group: 'Procurement', icon: 'shopping_cart', items: [
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
+    { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'receipt_long', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
   ] },
@@ -67,6 +71,7 @@ const HO_NAV: Entry[] = [
     { to: '/team', label: 'Team', icon: 'group_add' },
   ] },
   { to: '/assets', label: 'Assets', icon: 'inventory' },
+  { to: '/inventory', label: 'Inventory Masters', icon: 'inventory_2' },
   { to: '/accounting', label: 'Accounting', icon: 'account_balance' },
   { to: '/finance-reports', label: 'Financial Reports', icon: 'assessment' },
   { to: '/gst', label: 'GST Reports', icon: 'receipt_long' },
@@ -85,7 +90,7 @@ const HO_NAV: Entry[] = [
 // routes that belong to the Head Office panel
 const HO_ROUTES = new Set<string>([
   '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
-  '/assets', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
+  '/assets', '/inventory', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
   '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 

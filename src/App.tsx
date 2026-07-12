@@ -38,6 +38,11 @@ import MyImprest from './pages/MyImprest'
 import GiveImprest from './pages/GiveImprest'
 import HeadOffice from './pages/HeadOffice'
 import Accounting from './pages/Accounting'
+import Inventory from './pages/Inventory'
+import StockMovements from './pages/StockMovements'
+import StockReports from './pages/StockReports'
+import PurchaseOrders from './pages/PurchaseOrders'
+import MaterialNorms from './pages/MaterialNorms'
 import FinanceReports from './pages/FinanceReports'
 import GstReports from './pages/GstReports'
 import BankRecon from './pages/BankRecon'
@@ -115,6 +120,11 @@ export default function App() {
           <Route path="/give-imprest" element={<GiveImprest />} />
           <Route path="/head-office" element={<HeadOffice />} />
           <Route path="/accounting" element={<Accounting />} />
+          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/stock-movements" element={<ModuleGuard module="store"><StockMovements /></ModuleGuard>} />
+          <Route path="/stock-reports" element={<ModuleGuard module="store"><StockReports /></ModuleGuard>} />
+          <Route path="/purchase-orders" element={<ModuleGuard module="purchase_requests"><PurchaseOrders /></ModuleGuard>} />
+          <Route path="/material-norms" element={<ModuleGuard module="store"><MaterialNorms /></ModuleGuard>} />
           <Route path="/finance-reports" element={<FinanceReports />} />
           <Route path="/gst" element={<GstReports />} />
           <Route path="/bank-recon" element={<BankRecon />} />

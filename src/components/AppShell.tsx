@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import ChangePassword from '../pages/ChangePassword'
+import NotificationBell from './NotificationBell'
 import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
 import { ThemeToggle } from '../lib/theme'
@@ -19,9 +20,14 @@ const NAV: Entry[] = [
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
+    { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
+    { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
+    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping', module: 'store' },
     { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
+    { to: '/availability', label: 'Stock Availability', icon: 'inventory_2', module: 'store' },
     { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
     { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
+    { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
     { to: '/store', label: 'Store IN / OUT (old)', icon: 'inventory_2', module: 'store' },
     { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
   ] },
@@ -269,6 +275,7 @@ export default function AppShell() {
           </button>
           <ProjectSwitcher />
           <div className="flex-1" />
+          <NotificationBell />
           <LanguageToggle />
           <ThemeToggle />
           <div className="hidden sm:flex items-center gap-2 ml-1">

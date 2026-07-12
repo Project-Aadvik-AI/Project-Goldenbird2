@@ -76,6 +76,11 @@ export default function StockReports() {
   useEffect(() => {
     (async () => {
       setLoading(true)
+      // scan for low-stock and expiry conditions and notify.
+      // the DB deduplicates, so this is safe to call on every load.
+      supabase.rpc('inv_scan_stock_alerts').then(() => {})
+      supabase.rpc('inv_scan_expiry_alerts').then(() => {})
+
       const [{ data: v }, { data: c }, { data: a }, { data: ab }, { data: ig }, { data: w }, { data: i }] = await Promise.all([
         supabase.from('inv_valuation').select('*').order('item_name'),
         supabase.from('inv_consumption').select('*').gte('entry_date', from).lte('entry_date', to).order('entry_date', { ascending: false }),

@@ -9,7 +9,7 @@ const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { maxi
 const qty = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
 export type Unit = { id: string; code: string; name: string | null; decimals: number; active: boolean }
-export type Category = { id: string; name: string; parent_id: string | null; active: boolean }
+export type Category = { id: string; name: string; parent_id: string | null; active: boolean; issue_strategy?: string | null }
 export type Item = {
   id: string; item_code: string | null; name: string; category_id: string | null; unit_id: string | null
   item_type: string; hsn_code: string | null; gst_rate: number
@@ -17,6 +17,8 @@ export type Item = {
   costing_method: string; standard_rate: number
   allow_negative: boolean; track_batch: boolean; track_serial: boolean
   barcode: string | null; notes: string | null; active: boolean
+  is_expiry_controlled?: boolean; default_shelf_life_days?: number | null
+  issue_strategy?: string | null; critical_stock?: number
 }
 export type Warehouse = {
   id: string; project_id: string | null; code: string | null; name: string
@@ -276,6 +278,10 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
   const [rate, setRate] = useState(editing ? String(editing.standard_rate) : '')
   const [allowNeg, setAllowNeg] = useState(editing?.allow_negative ?? false)
   const [batch, setBatch] = useState(editing?.track_batch ?? false)
+  const [expiryCtl, setExpiryCtl] = useState(editing?.is_expiry_controlled ?? false)
+  const [shelfLife, setShelfLife] = useState(editing?.default_shelf_life_days != null ? String(editing.default_shelf_life_days) : '')
+  const [strategy, setStrategy] = useState(editing?.issue_strategy ?? '')
+  const [critical, setCritical] = useState(editing?.critical_stock != null ? String(editing.critical_stock) : '')
   const [active, setActive] = useState(editing?.active ?? true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -293,6 +299,10 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
       max_stock: maxS ? Number(maxS) : null,
       costing_method: costing, standard_rate: Number(rate) || 0,
       allow_negative: allowNeg, track_batch: batch, active,
+      is_expiry_controlled: expiryCtl,
+      default_shelf_life_days: shelfLife ? Number(shelfLife) : null,
+      issue_strategy: strategy || null,
+      critical_stock: Number(critical) || 0,
     }
 
     let error
@@ -351,7 +361,40 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
               <F label="Min Stock"><input className="input mono" inputMode="decimal" value={minS} onChange={e => setMinS(e.target.value.replace(/[^\d.]/g, ''))} /></F>
               <F label="Max Stock"><input className="input mono" inputMode="decimal" value={maxS} onChange={e => setMaxS(e.target.value.replace(/[^\d.]/g, ''))} /></F>
             </div>
-            <p className="text-[11px] text-[#dcc1ae]/50 mt-1">An alert shows when stock falls to or below the reorder level.</p>
+            <div className="grid grid-cols-3 gap-4 mt-3">
+              <F label="Critical Stock"><input className="input mono" inputMode="decimal" value={critical} onChange={e => setCritical(e.target.value.replace(/[^\d.]/g, ''))} /></F>
+            </div>
+            <p className="text-[11px] text-[#dcc1ae]/50 mt-1">
+              Alert tiers: Zero → Critical → Reorder → Low → Overstock (at max stock).
+            </p>
+          </div>
+
+          <div className="sm:col-span-2 pt-3 border-t border-white/[0.06]">
+            <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-3">Batch &amp; Expiry</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label className="flex items-center gap-2 text-[12px] text-[#dcc1ae] cursor-pointer pt-5">
+                <input type="checkbox" className="accent-[#ff8f00]" checked={expiryCtl}
+                  onChange={e => { setExpiryCtl(e.target.checked); if (e.target.checked) { setBatch(true); setStrategy('FEFO') } }} />
+                Expiry controlled
+              </label>
+              <F label="Default Shelf Life (days)">
+                <input className="input mono" inputMode="numeric" value={shelfLife}
+                  onChange={e => setShelfLife(e.target.value.replace(/\D/g, ''))} placeholder="180" disabled={!expiryCtl} />
+              </F>
+              <F label="Issue Strategy">
+                <select className="input" value={strategy} onChange={e => setStrategy(e.target.value)} disabled={expiryCtl}>
+                  <option value="">Weighted Average (default)</option>
+                  <option value="FIFO">FIFO — oldest received first</option>
+                  <option value="FEFO">FEFO — soonest expiry first</option>
+                </select>
+              </F>
+            </div>
+            {expiryCtl && (
+              <p className="text-[11px] text-amber-400/80 mt-2">
+                Expiry-controlled: every goods receipt must carry a batch number and expiry date,
+                and issues are forced to FEFO (soonest expiry first).
+              </p>
+            )}
           </div>
 
           <F label="Costing Method">
@@ -564,6 +607,11 @@ function Categories() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  async function setStrategy(id: string, strategy: string) {
+    await supabase.from('inv_categories').update({ issue_strategy: strategy || null }).eq('id', id)
+    load()
+  }
+
   async function load() {
     const { data } = await supabase.from('inv_categories').select('*').order('name')
     setRows((data as Category[]) ?? [])
@@ -589,18 +637,31 @@ function Categories() {
         </label>
         <button className="btn btn-primary" disabled={busy || !name.trim()}>Add Category</button>
       </form>
+      <p className="text-[11px] text-[#dcc1ae]/60 mb-3">
+        The issue strategy set here applies to every item in the category, unless the item overrides it.
+        Expiry-controlled items are always FEFO regardless.
+      </p>
       {err && <div className="text-sm text-red-400 mb-3">{err}</div>}
 
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-[#282a2e]"><tr>
-            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">Category</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">Status</th>
+            {['Category', 'Default Issue Strategy', 'Status'].map(h => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>
+            ))}
           </tr></thead>
           <tbody className="divide-y divide-white/[0.05]">
             {rows.map(c => (
               <tr key={c.id} className="hover:bg-white/[0.02]">
                 <td className="px-4 py-2.5 text-[#e2e2e8]">{c.name}</td>
+                <td className="px-4 py-2.5">
+                  <select className="input" style={{ padding: '4px 8px', fontSize: '12px', maxWidth: 200 }}
+                    value={c.issue_strategy ?? ''} onChange={e => setStrategy(c.id, e.target.value)}>
+                    <option value="">Weighted Average</option>
+                    <option value="FIFO">FIFO — oldest first</option>
+                    <option value="FEFO">FEFO — soonest expiry first</option>
+                  </select>
+                </td>
                 <td className="px-4 py-2.5">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${c.active
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'

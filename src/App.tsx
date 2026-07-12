@@ -41,8 +41,13 @@ import Accounting from './pages/Accounting'
 import Inventory from './pages/Inventory'
 import StockMovements from './pages/StockMovements'
 import StockReports from './pages/StockReports'
+import StockDashboard from './pages/StockDashboard'
 import PurchaseOrders from './pages/PurchaseOrders'
 import MaterialNorms from './pages/MaterialNorms'
+import BatchExpiry from './pages/BatchExpiry'
+import MaterialRequests from './pages/MaterialRequests'
+import StockTransfers from './pages/StockTransfers'
+import StockAvailability from './pages/StockAvailability'
 import FinanceReports from './pages/FinanceReports'
 import GstReports from './pages/GstReports'
 import BankRecon from './pages/BankRecon'
@@ -122,9 +127,14 @@ export default function App() {
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/stock-movements" element={<ModuleGuard module="store"><StockMovements /></ModuleGuard>} />
+          <Route path="/stock-dashboard" element={<ModuleGuard module="store"><StockDashboard /></ModuleGuard>} />
           <Route path="/stock-reports" element={<ModuleGuard module="store"><StockReports /></ModuleGuard>} />
           <Route path="/purchase-orders" element={<ModuleGuard module="purchase_requests"><PurchaseOrders /></ModuleGuard>} />
           <Route path="/material-norms" element={<ModuleGuard module="store"><MaterialNorms /></ModuleGuard>} />
+          <Route path="/batches" element={<ModuleGuard module="store"><BatchExpiry /></ModuleGuard>} />
+          <Route path="/material-requests" element={<ModuleGuard module="store"><MaterialRequests /></ModuleGuard>} />
+          <Route path="/transfers" element={<ModuleGuard module="store"><StockTransfers /></ModuleGuard>} />
+          <Route path="/availability" element={<ModuleGuard module="store"><StockAvailability /></ModuleGuard>} />
           <Route path="/finance-reports" element={<FinanceReports />} />
           <Route path="/gst" element={<GstReports />} />
           <Route path="/bank-recon" element={<BankRecon />} />

@@ -37,7 +37,7 @@ type Movement = {
   reason: string | null; remarks: string | null; status: string
   total_qty: number; total_value: number
 }
-type Item = { id: string; item_code: string | null; name: string; unit_id: string | null; allow_negative: boolean }
+type Item = { id: string; item_code: string | null; name: string; unit_id: string | null; allow_negative: boolean; is_expiry_controlled?: boolean; track_batch?: boolean }
 type Warehouse = { id: string; name: string; project_id: string | null; is_main: boolean }
 type Unit = { id: string; code: string }
 type Balance = { item_id: string; warehouse_id: string; balance_qty: number; avg_rate: number }
@@ -209,7 +209,7 @@ export default function StockMovements() {
 // =====================================================================
 //  MOVEMENT FORM
 // =====================================================================
-type Line = { item_id: string; qty: string; rate: string; batch_no: string; remarks: string }
+type Line = { item_id: string; qty: string; rate: string; batch_no: string; batch_id: string; override_reason: string; mfg_date: string; expiry_date: string; remarks: string }
 
 function MovementForm({ type, warehouses, onClose, onSaved }: {
   type: MType; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void
@@ -223,6 +223,11 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
   const [bal, setBal] = useState<Balance[]>([])
   const [boqItems, setBoqItems] = useState<{ id: string; description: string; unit: string | null; completed_qty: number }[]>([])
   const [boqItemId, setBoqItemId] = useState('')
+  const [issuable, setIssuable] = useState<{
+    item_id: string; warehouse_id: string; batch_id: string; batch_no: string
+    expiry_date: string | null; received_date: string; balance_qty: number
+    avg_rate: number; days_to_expiry: number | null; strategy: string; pick_order: number
+  }[]>([])
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [fromWh, setFromWh] = useState('')
@@ -232,7 +237,7 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
   const [refNo, setRefNo] = useState('')
   const [reason, setReason] = useState('')
   const [remarks, setRemarks] = useState('')
-  const [lines, setLines] = useState<Line[]>([{ item_id: '', qty: '', rate: '', batch_no: '', remarks: '' }])
+  const [lines, setLines] = useState<Line[]>([{ item_id: '', qty: '', rate: '', batch_no: '', batch_id: '', override_reason: '', mfg_date: '', expiry_date: '', remarks: '' }])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -243,7 +248,7 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
   useEffect(() => {
     (async () => {
       const [{ data: i }, { data: u }, { data: v }, { data: b }] = await Promise.all([
-        supabase.from('inv_items').select('id, item_code, name, unit_id, allow_negative').eq('active', true).order('name'),
+        supabase.from('inv_items').select('id, item_code, name, unit_id, allow_negative, is_expiry_controlled, track_batch').eq('active', true).order('name'),
         supabase.from('inv_units').select('id, code'),
         supabase.from('acc_parties').select('id, name').in('party_type', ['Vendor', 'Both']).order('name'),
         supabase.from('inv_balance').select('item_id, warehouse_id, balance_qty, avg_rate'),
@@ -252,6 +257,10 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
       setUnits((u as Unit[]) ?? [])
       setVendors((v as any[]) ?? [])
       setBal((b as Balance[]) ?? [])
+
+      // batches that can be issued, ranked by the item's FIFO/FEFO rule
+      const { data: ib } = await supabase.from('inv_issuable_batches').select('*')
+      setIssuable((ib as any[]) ?? [])
 
       // BOQ items on this project — an Issue can be tagged to one,
       // which is what makes wastage analysis possible.
@@ -286,7 +295,7 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
   function setLine(i: number, patch: Partial<Line>) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l))
   }
-  const addLine = () => setLines(p => [...p, { item_id: '', qty: '', rate: '', batch_no: '', remarks: '' }])
+  const addLine = () => setLines(p => [...p, { item_id: '', qty: '', rate: '', batch_no: '', batch_id: '', override_reason: '', mfg_date: '', expiry_date: '', remarks: '' }])
   const delLine = (i: number) => setLines(p => p.length > 1 ? p.filter((_, idx) => idx !== i) : p)
 
   const totalQty = r3(lines.reduce((n, l) => n + (Number(l.qty) || 0), 0))
@@ -312,6 +321,14 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
     if (!valid.length) { setErr('Add at least one item with a quantity.'); return }
     if (shortages.length) { setErr('Not enough stock — see the warning above.'); return }
     if (type === 'Adjustment' && !reason.trim()) { setErr('An adjustment needs a reason.'); return }
+    if (batchErrors.length) { setErr(batchErrors[0]); return }
+    // an override needs a reason — it will be audit-logged
+    for (const w of batchWarnings) {
+      if (!lines[w.lineIdx]?.override_reason?.trim()) {
+        setErr(`${w.item}: you are not taking the batch ${w.strategy} suggests. Give a reason to proceed.`)
+        return
+      }
+    }
 
     setBusy(true); setErr(null)
     const { data: prof } = await supabase.from('profiles').select('org_id').maybeSingle()
@@ -336,13 +353,67 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
         org_id: prof?.org_id, movement_id: mid, item_id: l.item_id,
         qty: Number(l.qty), rate: Number(l.rate) || 0,
         value: r2((Number(l.qty) || 0) * (Number(l.rate) || 0)),
-        batch_no: l.batch_no || null, remarks: l.remarks || null, line_no: i + 1,
+        batch_no: l.batch_no || null,
+        batch_id: l.batch_id || null,
+        batch_override_reason: l.override_reason || null,
+        mfg_date: l.mfg_date || null, expiry_date: l.expiry_date || null,
+        remarks: l.remarks || null, line_no: i + 1,
       }))
     )
     setBusy(false)
     if (lErr) { setErr(lErr.message); return }
     onSaved()
   }
+
+  const isInward = type === 'GRN' || type === 'Opening' || type === 'Return'
+  // does any selected item need a batch?
+  const needsBatch = lines.some(l => {
+    const it = items.find(i => i.id === l.item_id)
+    return it?.is_expiry_controlled || it?.track_batch
+  })
+  // an expiry-controlled item on an inward line MUST have batch + expiry
+  const batchErrors = isInward ? lines
+    .filter(l => l.item_id && Number(l.qty) > 0)
+    .map(l => {
+      const it = items.find(i => i.id === l.item_id)
+      if (!it?.is_expiry_controlled) return null
+      if (!l.batch_no.trim()) return `${it.name}: batch number required (expiry-controlled)`
+      if (!l.expiry_date && !l.mfg_date) return `${it.name}: expiry date required (or a mfg date, to derive it)`
+      return null
+    })
+    .filter(Boolean) as string[] : []
+
+  // batches available for a line, in the order the rule says to take them
+  const batchesFor = (itemId: string) =>
+    !fromWh || !itemId ? [] :
+    issuable
+      .filter(b => b.item_id === itemId && b.warehouse_id === fromWh)
+      .sort((a, b) => a.pick_order - b.pick_order)
+
+  // is the chosen batch the one the rule suggests?
+  const batchWarnings = useMemo(() => {
+    if (!(type === 'Issue' || type === 'Transfer')) return []
+    return lines
+      .filter(l => l.item_id && l.batch_id)
+      .map(l => {
+        const opts = batchesFor(l.item_id)
+        if (!opts.length) return null
+        const best = opts[0]
+        if (best.strategy === 'WeightedAvg') return null
+        if (best.batch_id === l.batch_id) return null
+        const it = items.find(i => i.id === l.item_id)
+        return {
+          lineIdx: lines.indexOf(l),
+          item: it?.name ?? '',
+          strategy: best.strategy,
+          bestBatch: best.batch_no,
+          bestExpiry: best.expiry_date,
+          bestRecd: best.received_date,
+          bestQty: best.balance_qty,
+        }
+      })
+      .filter(Boolean) as any[]
+  }, [lines, issuable, fromWh, type, items])
 
   const needFrom = type === 'Issue' || type === 'Transfer' || type === 'Adjustment'
   const needTo = type === 'Opening' || type === 'GRN' || type === 'Return' || type === 'Transfer' || type === 'Adjustment'
@@ -435,6 +506,45 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
           )}
         </div>
 
+        {batchErrors.length > 0 && (
+          <div className="mx-5 mb-3 card p-3 bg-amber-500/5 border-amber-500/15">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-amber-400" style={{ fontSize: '18px' }}>event_busy</span>
+              <div className="text-[12px]">
+                <b className="text-amber-400">Expiry information required:</b>
+                {batchErrors.map((e, i) => <div key={i} className="text-[#dcc1ae]">{e}</div>)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {batchWarnings.length > 0 && (
+          <div className="mx-5 mb-3 card p-3 bg-amber-500/5 border-amber-500/20">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-amber-400" style={{ fontSize: '18px' }}>warning</span>
+              <div className="text-[12px] flex-1">
+                <b className="text-amber-400">You are not taking the batch the rule suggests:</b>
+                {batchWarnings.map((w, i) => (
+                  <div key={i} className="mt-2 pb-2 border-b border-white/[0.05] last:border-0">
+                    <div className="text-[#dcc1ae]">
+                      <b className="text-[#e2e2e8]">{w.item}</b> — {w.strategy} says take batch{' '}
+                      <b className="text-amber-400">{w.bestBatch}</b> first
+                      {w.strategy === 'FEFO' && w.bestExpiry
+                        ? ` (expires ${w.bestExpiry}, ${q(w.bestQty)} available)`
+                        : ` (received ${w.bestRecd}, ${q(w.bestQty)} available)`}.
+                      {w.strategy === 'FEFO' && ' Skipping it will leave it to expire.'}
+                    </div>
+                    <input className="input mt-1.5" style={{ padding: '4px 8px', fontSize: '11px' }}
+                      value={lines[w.lineIdx]?.override_reason ?? ''}
+                      onChange={e => setLine(w.lineIdx, { override_reason: e.target.value })}
+                      placeholder="Reason for taking a different batch (required — this is audit-logged)" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* shortage warning */}
         {shortages.length > 0 && (
           <div className="mx-5 mb-3 card p-3 bg-red-500/5 border-red-500/15">
@@ -457,7 +567,9 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
           <div className="rounded-lg border border-white/[0.08] overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[#282a2e]"><tr>
-                {['Item', 'Available', 'Qty', 'Rate', 'Value', 'Batch', ''].map(h => (
+                {(isInward
+                  ? ['Item', 'Qty', 'Rate', 'Value', 'Batch', 'Mfg Date', 'Expiry Date', '']
+                  : ['Item', 'Available', 'Qty', 'Rate', 'Value', 'Batch', '']).map(h => (
                   <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr></thead>
@@ -479,11 +591,13 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
                           {items.map(it => <option key={it.id} value={it.id}>{it.name}{it.item_code ? ` (${it.item_code})` : ''}</option>)}
                         </select>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[12px] text-right whitespace-nowrap">
-                        {avail !== null
-                          ? <span className={avail <= 0 ? 'text-red-400' : 'text-[#dcc1ae]'}>{q(avail)} {unitOf(l.item_id)}</span>
-                          : <span className="text-[#dcc1ae]/30">—</span>}
-                      </td>
+                      {!isInward && (
+                        <td className="px-3 py-2 font-mono text-[12px] text-right whitespace-nowrap">
+                          {avail !== null
+                            ? <span className={avail <= 0 ? 'text-red-400' : 'text-[#dcc1ae]'}>{q(avail)} {unitOf(l.item_id)}</span>
+                            : <span className="text-[#dcc1ae]/30">—</span>}
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         <input className="input mono text-right" style={{ padding: '5px 8px', fontSize: '12px', width: 90 }}
                           inputMode="decimal" value={l.qty}
@@ -496,9 +610,52 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
                       </td>
                       <td className="px-3 py-2 font-mono text-[#e2e2e8] text-right whitespace-nowrap">{val ? inr(val) : '—'}</td>
                       <td className="px-3 py-2">
-                        <input className="input" style={{ padding: '5px 8px', fontSize: '12px', width: 90 }}
-                          value={l.batch_no} onChange={e => setLine(i, { batch_no: e.target.value })} />
+                        {isInward ? (
+                          <input className="input" style={{ padding: '5px 8px', fontSize: '12px', width: 100 }}
+                            value={l.batch_no} onChange={e => setLine(i, { batch_no: e.target.value })}
+                            placeholder={items.find(x => x.id === l.item_id)?.is_expiry_controlled ? 'required' : ''} />
+                        ) : (
+                          (() => {
+                            const opts = batchesFor(l.item_id)
+                            if (!opts.length) {
+                              return <span className="text-[11px] text-[#dcc1ae]/40">no batches</span>
+                            }
+                            return (
+                              <select className="input" style={{ padding: '5px 8px', fontSize: '11px', minWidth: 150 }}
+                                value={l.batch_id}
+                                onChange={e => {
+                                  const b = opts.find(x => x.batch_id === e.target.value)
+                                  setLine(i, {
+                                    batch_id: e.target.value,
+                                    batch_no: b?.batch_no ?? '',
+                                    rate: b?.avg_rate ? String(b.avg_rate) : l.rate,
+                                    override_reason: '',
+                                  })
+                                }}>
+                                <option value="">— pick batch —</option>
+                                {opts.map(b => (
+                                  <option key={b.batch_id} value={b.batch_id}>
+                                    {b.pick_order === 1 ? '★ ' : ''}{b.batch_no} · {q(b.balance_qty)}
+                                    {b.expiry_date ? ` · exp ${b.expiry_date}` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            )
+                          })()
+                        )}
                       </td>
+                      {isInward && (
+                        <>
+                          <td className="px-3 py-2">
+                            <input type="date" className="input" style={{ padding: '5px 8px', fontSize: '11px', width: 130 }}
+                              value={l.mfg_date} onChange={e => setLine(i, { mfg_date: e.target.value })} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="date" className="input" style={{ padding: '5px 8px', fontSize: '11px', width: 130 }}
+                              value={l.expiry_date} onChange={e => setLine(i, { expiry_date: e.target.value })} />
+                          </td>
+                        </>
+                      )}
                       <td className="px-3 py-2 text-right">
                         {lines.length > 1 && (
                           <button type="button" className="text-red-400 hover:text-red-300" onClick={() => delLine(i)}>
@@ -512,11 +669,11 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
               </tbody>
               <tfoot className="bg-[#282a2e]">
                 <tr>
-                  <td className="px-3 py-2 text-[11px] font-bold text-[#dcc1ae] uppercase" colSpan={2}>Total</td>
+                  <td className="px-3 py-2 text-[11px] font-bold text-[#dcc1ae] uppercase" colSpan={isInward ? 1 : 2}>Total</td>
                   <td className="px-3 py-2 font-mono font-bold text-[#e2e2e8] text-right">{q(totalQty)}</td>
                   <td />
                   <td className="px-3 py-2 font-mono font-bold text-[#e2e2e8] text-right whitespace-nowrap">{inr(totalVal)}</td>
-                  <td colSpan={2} />
+                  <td colSpan={isInward ? 4 : 2} />
                 </tr>
               </tfoot>
             </table>
@@ -533,7 +690,7 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
         {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
         <div className="px-5 py-4 border-t border-white/[0.06] flex gap-2">
           <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary flex-[2]" disabled={busy || shortages.length > 0}>
+          <button className="btn btn-primary flex-[2]" disabled={busy || shortages.length > 0 || batchErrors.length > 0}>
             {busy ? 'Saving…' : 'Save as Draft'}
           </button>
         </div>

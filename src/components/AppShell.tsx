@@ -69,22 +69,33 @@ const ADMIN_NAV: Leaf[] = []
 const HO_NAV: Entry[] = [
   { to: '/head-office', label: 'Dashboard', icon: 'dashboard' },
   { to: '/projects', label: 'Projects', icon: 'domain' },
+
   { group: 'People', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge' },
+    { to: '/team', label: 'Team', icon: 'group_add' },
     { to: '/designations', label: 'Designations', icon: 'work' },
     { to: '/permissions', label: 'Permissions', icon: 'lock' },
     { to: '/admin/staff', label: 'Staff & Access', icon: 'admin_panel_settings' },
-    { to: '/team', label: 'Team', icon: 'group_add' },
   ] },
-  { to: '/assets', label: 'Assets', icon: 'inventory' },
-  { to: '/inventory', label: 'Inventory Masters', icon: 'inventory_2' },
-  { to: '/accounting', label: 'Accounting', icon: 'account_balance' },
-  { to: '/finance-reports', label: 'Financial Reports', icon: 'assessment' },
-  { to: '/gst', label: 'GST Reports', icon: 'receipt_long' },
-  { to: '/bank-recon', label: 'Bank Reconciliation', icon: 'account_balance_wallet' },
-  { to: '/accounting-export', label: 'Tally / Zoho Export', icon: 'swap_horiz' },
-  { to: '/give-imprest', label: 'Staff Imprest', icon: 'volunteer_activism' },
-  { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
+
+  { group: 'Assets & Inventory', icon: 'inventory_2', items: [
+    { to: '/assets', label: 'Company Assets', icon: 'inventory' },
+    { to: '/inventory', label: 'Inventory Masters', icon: 'inventory_2' },
+  ] },
+
+  { group: 'Accounting', icon: 'account_balance', items: [
+    { to: '/accounting', label: 'Chart of Accounts', icon: 'account_balance' },
+    { to: '/give-imprest', label: 'Staff Imprest', icon: 'volunteer_activism' },
+    { to: '/bank-recon', label: 'Bank Reconciliation', icon: 'account_balance_wallet' },
+  ] },
+
+  { group: 'Financial Reports', icon: 'assessment', items: [
+    { to: '/finance-reports', label: 'Financial Reports', icon: 'assessment' },
+    { to: '/gst', label: 'GST Reports', icon: 'receipt_long' },
+    { to: '/admin/reports', label: 'Reports & Export', icon: 'download' },
+    { to: '/accounting-export', label: 'Tally / Zoho Export', icon: 'swap_horiz' },
+  ] },
+
   { group: 'Settings', icon: 'settings', items: [
     { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt' },
     { to: '/masters', label: 'Master Data', icon: 'database' },

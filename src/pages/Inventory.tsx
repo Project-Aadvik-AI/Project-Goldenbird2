@@ -455,6 +455,29 @@ function Warehouses() {
   const empOf = (id: string | null) => (id ? emps.find(e => e.id === id)?.full_name : null) || '—'
   const parentOf = (id: string | null) => (id ? rows.find(r => r.id === id)?.name : null) || '—'
 
+  // flatten the warehouse tree so children appear under their parent, indented
+  const tree = useMemo(() => {
+    const out: (Warehouse & { depth: number })[] = []
+    const byParent = new Map<string | null, Warehouse[]>()
+    for (const w of rows) {
+      const k = w.parent_id ?? null
+      byParent.set(k, [...(byParent.get(k) ?? []), w])
+    }
+    const walk = (parent: string | null, depth: number) => {
+      const kids = (byParent.get(parent) ?? [])
+        .sort((a, b) => (b.is_main ? 1 : 0) - (a.is_main ? 1 : 0) || a.name.localeCompare(b.name))
+      for (const k of kids) {
+        if (depth > 6) continue           // guard against a bad loop
+        out.push({ ...k, depth })
+        walk(k.id, depth + 1)
+      }
+    }
+    walk(null, 0)
+    // anything orphaned (parent was deleted) still shows
+    for (const w of rows) if (!out.find(o => o.id === w.id)) out.push({ ...w, depth: 0 })
+    return out
+  }, [rows])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -473,12 +496,16 @@ function Warehouses() {
               ))}
             </tr></thead>
             <tbody className="divide-y divide-white/[0.05]">
-              {rows.map(w => (
+              {tree.map(w => (
                 <tr key={w.id} className={`hover:bg-white/[0.02] ${!w.active ? 'opacity-40' : ''}`}>
                   <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{w.code || '—'}</td>
                   <td className="px-4 py-2.5 text-[#e2e2e8] font-semibold">
-                    {w.name}
-                    {w.is_main && <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-[#ff8f00]/10 text-[#ffb87b] uppercase">main</span>}
+                    <span style={{ paddingLeft: w.depth * 18 }}>
+                      {w.depth > 0 && <span className="text-[#dcc1ae]/30 mr-1">└</span>}
+                      {w.name}
+                    </span>
+                    {w.project_id === null && <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 uppercase">central</span>}
+                    {w.is_main && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-[#ff8f00]/10 text-[#ffb87b] uppercase">main</span>}
                   </td>
                   <td className="px-4 py-2.5 text-[#dcc1ae]">{projOf(w.project_id)}</td>
                   <td className="px-4 py-2.5 text-[#dcc1ae]">{parentOf(w.parent_id)}</td>
@@ -490,7 +517,7 @@ function Warehouses() {
                   </td>
                 </tr>
               ))}
-              {!rows.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No warehouses yet.</td></tr>}
+              {!tree.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No warehouses yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -518,9 +545,16 @@ function WarehouseForm({ editing, all, emps, onClose, onSaved }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  // possible parents: main stores in the same project
+  // Possible parents:
+  //  · other MAIN stores on the same project (a sub-store under the site's main store), AND
+  //  · any COMPANY-WIDE store (so a project's main store can sit under the central warehouse)
   const parents = all.filter(w =>
-    w.id !== editing?.id && w.project_id === (projectId || null) && w.is_main)
+    w.id !== editing?.id
+    && w.active
+    && (
+      (w.project_id === (projectId || null) && w.is_main)   // same-project main store
+      || w.project_id === null                              // central / company-wide store
+    ))
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -560,11 +594,22 @@ function WarehouseForm({ editing, all, emps, onClose, onSaved }: {
             </select>
           </F>
           <F label="Under (parent store)">
-            <select className="input" value={parentId} onChange={e => setParentId(e.target.value)} disabled={isMain}>
+            <select className="input" value={parentId} onChange={e => setParentId(e.target.value)}>
               <option value="">— None (top level) —</option>
-              {parents.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {parents.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.project_id === null ? ' (Central Store)' : ''}
+                </option>
+              ))}
             </select>
           </F>
+          <div className="sm:col-span-2 -mt-2">
+            <p className="text-[11px] text-[#dcc1ae]/60">
+              Leave the project blank to create a <b>central company-wide store</b>.
+              A project's main store can then sit under it, giving you:
+              Central Store → Site Main Store → Sub-store.
+            </p>
+          </div>
           <F label="Store Keeper">
             <select className="input" value={keeper} onChange={e => setKeeper(e.target.value)}>
               <option value="">— None —</option>
@@ -579,7 +624,7 @@ function WarehouseForm({ editing, all, emps, onClose, onSaved }: {
         <div className="flex gap-4 mt-4">
           <label className="flex items-center gap-2 text-[13px] text-[#dcc1ae] cursor-pointer">
             <input type="checkbox" className="accent-[#ff8f00]" checked={isMain}
-              onChange={e => { setIsMain(e.target.checked); if (e.target.checked) setParentId('') }} />
+              onChange={e => setIsMain(e.target.checked)} />
             Main store for this project
           </label>
           <label className="flex items-center gap-2 text-[13px] text-[#dcc1ae] cursor-pointer">

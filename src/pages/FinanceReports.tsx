@@ -15,6 +15,7 @@ type GL = {
   ledger_id: string; ledger_name: string; group_name: string; nature: string; is_direct: boolean
   debit: number; credit: number; project_id: string | null; project_name: string | null
   remarks: string | null
+  contra_ledgers?: string | null      // the OTHER side of the entry
 }
 type TB = {
   ledger_id: string; ledger_name: string; group_name: string; nature: string; is_direct: boolean
@@ -165,6 +166,7 @@ function LedgerView({ gl, ledgerId, tb }: { gl: GL[]; ledgerId: string; tb: TB[]
               { header: 'Voucher Type', get: (r: any) => r.voucher_type },
               { header: 'Party', get: (r: any) => r.party_name || '—' },
               { header: 'Project', get: (r: any) => r.project_name || '—' },
+              { header: 'Contra Ledger', get: (r: any) => r.contra_ledgers || '—' },
               { header: 'Narration', get: (r: any) => r.narration || '—' },
               { header: 'Remarks', get: (r: any) => r.remarks || '—' },
               { header: 'Reference', get: (r: any) => r.reference_no || '—' },
@@ -177,7 +179,7 @@ function LedgerView({ gl, ledgerId, tb }: { gl: GL[]; ledgerId: string; tb: TB[]
       </div>
       <table className="w-full text-sm">
         <thead className="bg-[#282a2e]"><tr>
-          {['Date', 'Voucher', 'Type', 'Particulars', 'Debit', 'Credit', 'Balance'].map(h => (
+          {['Date', 'Voucher', 'Type', 'Particulars (contra ledger)', 'Debit', 'Credit', 'Balance'].map(h => (
             <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
           ))}
         </tr></thead>
@@ -192,7 +194,21 @@ function LedgerView({ gl, ledgerId, tb }: { gl: GL[]; ledgerId: string; tb: TB[]
               <td className="px-4 py-2 font-mono text-[12px] text-[#dcc1ae]">{r.voucher_date}</td>
               <td className="px-4 py-2 font-mono text-[12px] text-[#e2e2e8]">{r.voucher_no}</td>
               <td className="px-4 py-2 text-[#dcc1ae]">{r.voucher_type}</td>
-              <td className="px-4 py-2 text-[#dcc1ae] max-w-[240px] truncate">{r.narration || r.remarks || '—'}</td>
+              <td className="px-4 py-2 max-w-[260px]">
+                {r.contra_ledgers ? (
+                  <div className="text-[#e2e2e8] truncate" title={r.contra_ledgers}>
+                    <span className="text-[#dcc1ae]/50 text-[11px] mr-1">
+                      {Number(r.debit) > 0 ? 'To' : 'By'}
+                    </span>
+                    {r.contra_ledgers}
+                  </div>
+                ) : <span className="text-[#dcc1ae]/40">—</span>}
+                {(r.narration || r.remarks) && (
+                  <div className="text-[10px] text-[#dcc1ae]/50 italic truncate">
+                    {r.narration || r.remarks}
+                  </div>
+                )}
+              </td>
               <td className="px-4 py-2 font-mono text-[#e2e2e8] text-right">{Number(r.debit) ? inr(r.debit) : '—'}</td>
               <td className="px-4 py-2 font-mono text-[#e2e2e8] text-right">{Number(r.credit) ? inr(r.credit) : '—'}</td>
               <td className="px-4 py-2 font-mono text-[#ffb87b] text-right whitespace-nowrap">{drcr(r.running)}</td>
@@ -240,6 +256,7 @@ function DayBook({ gl }: { gl: GL[] }) {
             { header: 'Voucher No.', get: (r: any) => r.voucher_no },
             { header: 'Voucher Type', get: (r: any) => r.voucher_type },
             { header: 'Ledger', get: (r: any) => r.ledger_name },
+            { header: 'Contra Ledger', get: (r: any) => r.contra_ledgers || '—' },
             { header: 'Group', get: (r: any) => r.group_name },
             { header: 'Party', get: (r: any) => r.party_name || '—' },
             { header: 'Project', get: (r: any) => r.project_name || '—' },

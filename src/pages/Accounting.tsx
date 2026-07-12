@@ -710,6 +710,10 @@ type Voucher = {
   narration: string | null; reference_no: string | null; status: string
   total_debit: number; total_credit: number; project_id: string | null
   reverses_id: string | null; reversed_by_id: string | null
+  // which ledgers this voucher touched
+  debit_ledgers?: string | null
+  credit_ledgers?: string | null
+  party_name?: string | null
 }
 
 function Vouchers() {
@@ -721,9 +725,10 @@ function Vouchers() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('acc_vouchers').select('*')
-      .order('voucher_date', { ascending: false }).order('created_at', { ascending: false }).limit(300)
-    setRows((data as Voucher[]) ?? [])
+    const { data } = await supabase.from('acc_voucher_summary').select('*')
+      .order('voucher_date', { ascending: false }).limit(300)
+    // the view calls the pk `voucher_id`; the rest of this page expects `id`
+    setRows(((data as any[]) ?? []).map(v => ({ ...v, id: v.voucher_id })) as Voucher[])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -768,7 +773,7 @@ function Vouchers() {
         {loading ? <div className="p-6 text-[#dcc1ae] text-sm">Loading…</div> : (
           <table className="w-full text-sm">
             <thead className="bg-[#282a2e]"><tr>
-              {['Date', 'Voucher No.', 'Type', 'Narration', 'Debit', 'Credit', 'Status', ''].map(h => (
+              {['Date', 'Voucher No.', 'Type', 'Particulars (Dr → Cr)', 'Debit', 'Credit', 'Status', ''].map(h => (
                 <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
@@ -780,7 +785,25 @@ function Vouchers() {
                     <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{v.voucher_date}</td>
                     <td className="px-4 py-2.5 font-mono text-[#e2e2e8] font-semibold">{v.voucher_no}</td>
                     <td className="px-4 py-2.5 text-[#dcc1ae]">{v.voucher_type}</td>
-                    <td className="px-4 py-2.5 text-[#dcc1ae] max-w-[220px] truncate" title={v.narration || ''}>{v.narration || '—'}</td>
+                    <td className="px-4 py-2.5 max-w-[300px]">
+                      {v.debit_ledgers || v.credit_ledgers ? (
+                        <>
+                          <div className="text-[12px] text-[#e2e2e8] truncate" title={v.debit_ledgers ?? ''}>
+                            <span className="text-[#dcc1ae]/50 font-mono text-[10px] mr-1">Dr</span>
+                            {v.debit_ledgers || '—'}
+                          </div>
+                          <div className="text-[12px] text-[#dcc1ae] truncate" title={v.credit_ledgers ?? ''}>
+                            <span className="text-[#dcc1ae]/50 font-mono text-[10px] mr-1">Cr</span>
+                            {v.credit_ledgers || '—'}
+                          </div>
+                        </>
+                      ) : <span className="text-[#dcc1ae]/40 text-[12px]">no lines</span>}
+                      {v.narration && (
+                        <div className="text-[10px] text-[#dcc1ae]/40 italic truncate mt-0.5" title={v.narration}>
+                          {v.narration}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 font-mono text-[#e2e2e8] text-right">{inr(v.total_debit)}</td>
                     <td className={`px-4 py-2.5 font-mono text-right ${balanced ? 'text-[#e2e2e8]' : 'text-red-400 font-bold'}`}>{inr(v.total_credit)}</td>
                     <td className="px-4 py-2.5">

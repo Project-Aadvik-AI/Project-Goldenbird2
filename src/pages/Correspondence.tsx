@@ -24,6 +24,7 @@ type Letter = {
 const MODES = ['Post', 'Email', 'Hand', 'Courier']
 
 export default function Correspondence() {
+  const { activeProject } = useProject()
   const { projects } = useProject()
   const { can } = useAuth()
   const [rows, setRows] = useState<Letter[]>([])
@@ -37,7 +38,7 @@ export default function Correspondence() {
   async function load() {
     setLoading(true)
     const { data } = await supabase.from('correspondence').select('*')
-      .order('letter_date', { ascending: false })
+      .order('letter_date', { ascending: false }).eq('project_id', activeProject?.id ?? '')
     setRows((data as Letter[]) ?? []); setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -181,7 +182,7 @@ function LetterForm({ editing, onClose, onSaved }: { editing: Letter | null; onC
       const { error } = await supabase.from('correspondence').update(payload).eq('id', editing.id)
       setBusy(false); if (error) { setErr(error.message); return }
     } else {
-      const { error } = await supabase.from('correspondence').insert({ ...payload, org_id: orgId })
+      const { error } = await supabase.from('correspondence').insert({ ...payload, org_id: orgId, project_id: activeProject?.id ?? null })
       setBusy(false); if (error) { setErr(error.message); return }
     }
     onSaved()

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 
 type StockItem = { item: string; unit: string; balance: number; in_qty: number; out_qty: number }
 type Creditor = { vendor: string; total: number; count: number }
@@ -7,6 +8,7 @@ type PersonBalance = { person: string; advances: number; expenses: number; net: 
 type OpenPR = { id: string; date: string; pr_no: string | null; material: string; vendor: string | null; needed_by: string | null }
 
 export default function Reports() {
+  const { activeProject } = useProject()
   const [stock, setStock] = useState<StockItem[]>([])
   const [creditors, setCreditors] = useState<Creditor[]>([])
   const [balances, setBalances] = useState<PersonBalance[]>([])
@@ -16,10 +18,10 @@ export default function Reports() {
   useEffect(() => {
     async function load() {
       const [{ data: ledger }, { data: expenses }, { data: advances }, { data: prs }] = await Promise.all([
-        supabase.from('store_ledger').select('item, unit, direction, qty'),
-        supabase.from('expenses').select('vendor, amount, payment_status, paid_by'),
-        supabase.from('advances').select('person, amount'),
-        supabase.from('purchase_requests').select('id, date, pr_no, material, vendor, needed_by').eq('status', 'Open'),
+        supabase.from('store_ledger').select('item, unit, direction, qty').eq('project_id', activeProject?.id ?? ''),
+        supabase.from('expenses').select('vendor, amount, payment_status, paid_by').eq('project_id', activeProject?.id ?? ''),
+        supabase.from('advances').select('person, amount').eq('project_id', activeProject?.id ?? ''),
+        supabase.from('purchase_requests').select('id, date, pr_no, material, vendor, needed_by').eq('project_id', activeProject?.id ?? '').eq('status', 'Open'),
       ])
 
       const stockMap: Record<string, StockItem> = {}
@@ -60,7 +62,7 @@ export default function Reports() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [activeProject?.id])
 
   if (loading) return <div className="p-4 text-[#dcc1ae] text-sm">Loading reports…</div>
 
@@ -73,6 +75,7 @@ export default function Reports() {
         <p className="text-sm text-[#dcc1ae] mt-0.5">Stock, creditors, cash balances, and open PRs</p>
       </div>
 
+      {/* Stock on Hand */}
       <section>
         <div className="text-sm font-semibold text-[#e2e2e8] mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '18px' }}>inventory_2</span>
@@ -105,6 +108,7 @@ export default function Reports() {
         </div>
       </section>
 
+      {/* Creditors */}
       <section>
         <div className="text-sm font-semibold text-[#e2e2e8] mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-red-400" style={{ fontSize: '18px' }}>credit_score</span>
@@ -133,6 +137,7 @@ export default function Reports() {
         </div>
       </section>
 
+      {/* Per-person balances */}
       <section>
         <div className="text-sm font-semibold text-[#e2e2e8] mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-sky-400" style={{ fontSize: '18px' }}>account_balance_wallet</span>
@@ -164,6 +169,7 @@ export default function Reports() {
         </div>
       </section>
 
+      {/* Open PRs */}
       <section>
         <div className="text-sm font-semibold text-[#e2e2e8] mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined text-amber-400" style={{ fontSize: '18px' }}>shopping_cart</span>

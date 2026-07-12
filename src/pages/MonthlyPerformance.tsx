@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { round2, inr } from '../lib/boq'
 
 type Boq = { id: string; name: string; boq_number: string | null; monthly_target: number | null }
@@ -12,6 +13,7 @@ function monthRange(ym: string) {
 }
 
 export default function MonthlyPerformance() {
+  const { activeProject } = useProject()
   const [boqs, setBoqs] = useState<Boq[]>([])
   const [boqId, setBoqId] = useState('')
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -24,7 +26,7 @@ export default function MonthlyPerformance() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('boqs').select('id,name,boq_number,monthly_target').order('created_at', { ascending: false })
+      const { data } = await supabase.from('boqs').select('id,name,boq_number,monthly_target').eq('project_id', activeProject?.id ?? '').order('created_at', { ascending: false })
       const list = (data as Boq[]) ?? []
       setBoqs(list); if (list.length && !boqId) setBoqId(list[0].id)
     })()
@@ -55,10 +57,10 @@ export default function MonthlyPerformance() {
 
     // COSTS by month (date range)
     const [exp, lab, sto, mac] = await Promise.all([
-      supabase.from('expenses').select('amount').gte('date', from).lte('date', to),
-      supabase.from('labour_attendance').select('wage').gte('date', from).lte('date', to),
-      supabase.from('store_ledger').select('value, direction').gte('date', from).lte('date', to),
-      supabase.from('machine_status').select('status').gte('date', from).lte('date', to),
+      supabase.from('expenses').select('amount').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
+      supabase.from('labour_attendance').select('wage').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
+      supabase.from('store_ledger').select('value, direction').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
+      supabase.from('machine_status').select('status').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
     ])
     setExpenses(round2((exp.data ?? []).reduce((n, r: { amount: number }) => n + Number(r.amount || 0), 0)))
     setLabour(round2((lab.data ?? []).reduce((n, r: { wage: number }) => n + Number(r.wage || 0), 0)))
@@ -80,7 +82,7 @@ export default function MonthlyPerformance() {
   const monthLabel = useMemo(() => {
     const [y, m] = month.split('-').map(Number)
     return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
-  }, [month])
+  }, [month, activeProject?.id])
 
   return (
     <div>

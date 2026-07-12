@@ -15,6 +15,7 @@ type Holiday = { id: string; date: string; name: string | null }
 const LEAVE_TYPES = ['Casual', 'Sick', 'Earned', 'Unpaid']
 
 export default function Leaves() {
+  const { activeProject } = useProject()
   const [tab, setTab] = useState<'leaves' | 'holidays'>('leaves')
 
   return (
@@ -53,7 +54,7 @@ function LeavesTab() {
       profileIds.push(...((up as { user_id: string }[]) ?? []).map(x => x.user_id))
     }
     const [{ data: lv }, { data: emp }] = await Promise.all([
-      supabase.from('leave_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('leave_requests').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? ''),
       profileIds.length
         ? supabase.from('employees').select('id, full_name').in('profile_id', profileIds).eq('status', 'Active').order('full_name')
         : Promise.resolve({ data: [] as any[] }),
@@ -136,6 +137,7 @@ function LeavesTab() {
 }
 
 function LeaveForm({ employees, onClose, onSaved }: { employees: Employee[]; onClose: () => void; onSaved: () => void }) {
+  const { activeProject } = useProject()
   const [empId, setEmpId] = useState(employees[0]?.id ?? '')
   const [type, setType] = useState('Casual')
   const [from, setFrom] = useState(new Date().toISOString().slice(0, 10))
@@ -159,6 +161,7 @@ function LeaveForm({ employees, onClose, onSaved }: { employees: Employee[]; onC
     const { error } = await supabase.from('leave_requests').insert({
       org_id: prof?.org_id, employee_id: empId, leave_type: type,
       from_date: from, to_date: to, days, reason: reason || null, status: 'Pending',
+      project_id: activeProject?.id ?? null,
     })
     setBusy(false)
     if (error) { setErr(error.message); return }

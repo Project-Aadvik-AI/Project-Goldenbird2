@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { round2, inr } from '../lib/boq'
 import ExportButtons from '../components/ExportButtons'
@@ -28,6 +29,7 @@ type Line = {
 }
 
 export default function BillingDetail() {
+  const { activeProject } = useProject()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isAdmin, user } = useAuth()

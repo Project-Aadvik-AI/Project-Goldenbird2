@@ -67,13 +67,17 @@ export default function VendorBills() {
 
   async function load() {
     setLoading(true)
-    const q = supabase.from('vendor_bills').select('*').order('created_at', { ascending: false })
+    // ALWAYS filter by project. The old code fell back to an unfiltered
+    // query when no project was active, which showed every project's bills.
+    const q = supabase.from('vendor_bills').select('*')
+      .eq('project_id', activeProject?.id ?? '')
+      .order('created_at', { ascending: false })
     const [{ data: b }, { data: v }, { data: w }, { data: p }] = await Promise.all([
-      activeProject ? q.eq('project_id', activeProject.id) : q,
+      q,
       supabase.from('m_vendors').select('id, name, gstin').order('name'),
-      activeProject
-        ? supabase.from('work_orders').select('id, wo_no, title, vendor').eq('project_id', activeProject.id).order('created_at', { ascending: false })
-        : supabase.from('work_orders').select('id, wo_no, title, vendor').order('created_at', { ascending: false }),
+      supabase.from('work_orders').select('id, wo_no, title, vendor')
+        .eq('project_id', activeProject?.id ?? '')
+        .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, full_name'),
     ])
     setRows((b as Bill[]) ?? [])

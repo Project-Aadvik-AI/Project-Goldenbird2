@@ -60,7 +60,7 @@ export default function StockMovements() {
 
     const [{ data: m }, { data: w }] = await Promise.all([
       supabase.from('inv_movements').select('*')
-        .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(300),
+        .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(300).eq('project_id', activeProject?.id ?? ''),
       supabase.from('inv_warehouses').select('id, name, project_id, is_main').eq('active', true).order('name'),
     ])
     setRows((m as Movement[]) ?? [])

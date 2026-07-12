@@ -24,6 +24,7 @@ type Contract = {
 const TYPES = ['Contract', 'License', 'Insurance', 'GST', 'PF', 'ESI', 'Bank Guarantee', 'Other']
 
 export default function Contracts() {
+  const { activeProject } = useProject()
   const { projects } = useProject()
   const { can } = useAuth()
   const [rows, setRows] = useState<Contract[]>([])
@@ -35,7 +36,7 @@ export default function Contracts() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('contracts').select('*').order('expiry_date', { ascending: true, nullsFirst: false })
+    const { data } = await supabase.from('contracts').select('*').order('expiry_date', { ascending: true, nullsFirst: false }).eq('project_id', activeProject?.id ?? '')
     setRows((data as Contract[]) ?? []); setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -194,7 +195,7 @@ function ContractForm({ editing, onClose, onSaved }: { editing: Contract | null;
       const { error } = await supabase.from('contracts').update(payload).eq('id', editing.id)
       setBusy(false); if (error) { setErr(error.message); return }
     } else {
-      const { error } = await supabase.from('contracts').insert({ ...payload, org_id: orgId })
+      const { error } = await supabase.from('contracts').insert({ ...payload, org_id: orgId, project_id: activeProject?.id ?? null })
       setBusy(false); if (error) { setErr(error.message); return }
     }
     onSaved()

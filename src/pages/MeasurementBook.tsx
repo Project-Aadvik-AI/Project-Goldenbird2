@@ -33,10 +33,11 @@ export default function MeasurementBook() {
   const [entries, setEntries] = useState<MB[]>([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('boqs').select('id,name,boq_number,status').order('created_at', { ascending: false })
+      const { data } = await supabase.from('boqs').select('id,name,boq_number,status').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? '')
       const list = (data as Boq[]) ?? []
       setBoqs(list)
       if (list.length && !boqId) setBoqId(list[0].id)
@@ -86,6 +87,11 @@ export default function MeasurementBook() {
             {!boqs.length && <option value="">No BOQs yet</option>}
             {boqs.map(b => <option key={b.id} value={b.id}>{b.boq_number ? `${b.boq_number} · ` : ''}{b.name}</option>)}
           </select>
+          {boqId && items.length > 0 && (
+            <button className="btn btn-ghost" onClick={() => setShowBulk(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>playlist_add</span> Bulk Opening Entry
+            </button>
+          )}
           {boqId && items.length > 0 && (
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> New Measurement
@@ -187,6 +193,9 @@ export default function MeasurementBook() {
       {showForm && (
         <MBForm items={items} projectId={activeProject?.id ?? null} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadForBoq(boqId) }} />
       )}
+      {showBulk && (
+        <BulkOpeningForm items={items} projectId={activeProject?.id ?? null} onClose={() => setShowBulk(false)} onSaved={() => { setShowBulk(false); loadForBoq(boqId) }} />
+      )}
     </div>
   )
 }
@@ -209,6 +218,101 @@ function WorkflowActions({ mb, isAdmin, onSet, onDelete }: { mb: MB; isAdmin: bo
       )}
     </div>
   )
+}
+
+function BulkOpeningForm({ items, projectId, onClose, onSaved }: { items: BoqItem[]; projectId: string | null; onClose: () => void; onSaved: () => void }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [remark, setRemark] = useState('Opening progress — work done before system start')
+  const [qty, setQty] = useState<Record<string, string>>({})
+  const [rowRemark, setRowRemark] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [done, setDone] = useState<number | null>(null)
+
+  const num = (v: string) => { const n = parseFloat(v); return isFinite(n) ? n : 0 }
+  const filled = items.filter(i => num(qty[i.id]) > 0)
+
+  async function save() {
+    if (!filled.length) { setErr('Enter a completed quantity for at least one item.'); return }
+    setBusy(true); setErr(null)
+    const { data: prof } = await supabase.from('profiles').select('org_id').single()
+    const payload = filled.map(i => ({
+      org_id: prof?.org_id, project_id: projectId, boq_item_id: i.id,
+      measurement_date: date, location: null, activity: 'Opening balance',
+      nos: 1, length: num(qty[i.id]), width: 0, height: 0,
+      measured_qty: round2(num(qty[i.id])), unit: i.unit,
+      remarks: rowRemark[i.id]?.trim() || remark, status: 'Draft',
+    }))
+    // insert in chunks
+    for (let k = 0; k < payload.length; k += 100) {
+      const chunk = payload.slice(k, k + 100)
+      const { error } = await supabase.from('measurement_book').insert(chunk)
+      if (error) { setErr('Failed: ' + error.message); setBusy(false); return }
+    }
+    setBusy(false); setDone(filled.length)
+  }
+
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-3xl my-auto shadow-[0px_10px_30px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Bulk Opening Progress</h3>
+            <p className="text-[11px] text-[#dcc1ae]/70 mt-0.5">Enter already-completed quantity per item. Creates Draft measurements — Submit → Verify → Approve to count.</p>
+          </div>
+          <button className="text-[#dcc1ae] hover:text-white" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+
+        {done != null ? (
+          <div className="p-8 text-center">
+            <span className="material-symbols-outlined text-emerald-400" style={{ fontSize: '40px' }}>check_circle</span>
+            <p className="text-[#e2e2e8] font-semibold mt-2">{done} draft measurement{done === 1 ? '' : 's'} created.</p>
+            <p className="text-[13px] text-[#dcc1ae] mt-1">They're in the list below as <span className="text-[#dcc1ae]">Draft</span>. Submit → Verify → Approve each (or in bulk) to update BOQ progress.</p>
+            <button className="btn btn-primary mt-4" onClick={onSaved}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="p-5 border-b border-white/5 flex flex-wrap items-end gap-3 flex-shrink-0">
+              <label className="block"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Date</span>
+                <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} /></label>
+              <label className="block flex-1 min-w-[200px]"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">Default remark</span>
+                <input className="input w-full" value={remark} onChange={e => setRemark(e.target.value)} /></label>
+              <div className="text-[12px] text-[#dcc1ae]"><span className="font-semibold text-[#e2e2e8]">{filled.length}</span> item(s) filled</div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full text-sm">
+                <thead className="bg-[#282a2e] sticky top-0"><tr>
+                  {['Item', 'Unit', 'Planned', 'Already Done', 'Remark (optional)'].map(h => <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider">{h}</th>)}
+                </tr></thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {items.map(it => (
+                    <tr key={it.id} className="hover:bg-white/[0.02]">
+                      <td className="px-3 py-2 text-[#e2e2e8] max-w-[220px] truncate" title={it.description}>{it.description}</td>
+                      <td className="px-3 py-2 text-[#dcc1ae]">{it.unit || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-[#dcc1ae] text-right">{it.quantity}</td>
+                      <td className="px-3 py-2">
+                        <input className="input mono text-right" style={{ padding: '4px 8px', fontSize: '13px', width: 90 }} inputMode="decimal"
+                          value={qty[it.id] ?? ''} onChange={e => setQty({ ...qty, [it.id]: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input className="input" style={{ padding: '4px 8px', fontSize: '13px' }}
+                          value={rowRemark[it.id] ?? ''} onChange={e => setRowRemark({ ...rowRemark, [it.id]: e.target.value })} placeholder="(uses default)" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {err && <div className="px-5 py-2 text-sm text-red-400 flex-shrink-0">{err}</div>}
+            <div className="p-5 pt-3 flex gap-3 border-t border-white/5 flex-shrink-0">
+              <button className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary flex-[2]" disabled={busy} onClick={save}>{busy ? 'Creating…' : `Create ${filled.length} Draft Measurement(s)`}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  ), document.body)
 }
 
 function MBForm({ items, projectId, onClose, onSaved }: { items: BoqItem[]; projectId: string | null; onClose: () => void; onSaved: () => void }) {

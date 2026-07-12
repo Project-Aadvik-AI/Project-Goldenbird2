@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { computeFinalRate, computeAmount, breakdown, inr, round2, quotedRate, amountInWords, type BidType } from '../lib/boq'
 import ExportButtons from '../components/ExportButtons'
 import MeasurementSheet from '../components/MeasurementSheet'
@@ -26,6 +27,7 @@ type Item = {
 const STATUSES = ['Draft', 'Approved', 'Locked']
 
 export default function BoqEditor() {
+  const { activeProject } = useProject()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user, profile } = useAuth()

@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 
 type Row = { amount: number; date: string; payment_status: string }
 
 export default function Dashboard() {
+  const { activeProject } = useProject()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('expenses').select('amount, date, payment_status').then(({ data }) => {
+    setLoading(true)
+    // Scope the dashboard to the ACTIVE project.
+    // Previously this summed every expense in the organisation, so a
+    // brand-new project showed another project's spend.
+    let qy = supabase.from('expenses').select('amount, date, payment_status').eq('project_id', activeProject?.id ?? '')
+    if (activeProject) qy = qy.eq('project_id', activeProject.id)
+
+    qy.then(({ data }) => {
       setRows((data as Row[]) ?? []); setLoading(false)
     })
-  }, [])
+  }, [activeProject?.id])
 
   const today = new Date().toISOString().slice(0, 10)
   const total = rows.reduce((a, r) => a + Number(r.amount || 0), 0)
@@ -20,18 +29,55 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Page header */}
       <div className="mb-6">
         <h1 className="font-headline text-2xl font-semibold text-[#e2e2e8]">Construction Command Center</h1>
-        <p className="text-sm text-[#dcc1ae] mt-0.5">Real-time operational overview · {today}</p>
+        <p className="text-sm text-[#dcc1ae] mt-0.5">
+          {activeProject ? activeProject.name : 'All projects'} · {today}
+        </p>
       </div>
 
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Total Spend" value={inr(total)} sub="All time" accent="kpi-emerald" valueClass="text-emerald-400" icon="account_balance_wallet" iconClass="text-emerald-400" />
-        <KpiCard label="Spent Today" value={inr(spendToday)} sub={`${rows.filter(r => r.date === today).length} transactions`} accent="kpi-sky" valueClass="text-sky-400" icon="today" iconClass="text-sky-400" />
-        <KpiCard label="On Credit / Payable" value={inr(credit)} sub="Pending payment" accent="kpi-purple" valueClass="text-purple-400" icon="credit_score" iconClass="text-purple-400" />
-        <KpiCard label="Total Entries" value={String(rows.length)} sub="Expense records" accent="kpi-amber" valueClass="text-[#ffb87b]" icon="receipt_long" iconClass="text-[#ffb87b]" />
+        <KpiCard
+          label="Total Spend"
+          value={inr(total)}
+          sub="All time"
+          accent="kpi-emerald"
+          valueClass="text-emerald-400"
+          icon="account_balance_wallet"
+          iconClass="text-emerald-400"
+        />
+        <KpiCard
+          label="Spent Today"
+          value={inr(spendToday)}
+          sub={`${rows.filter(r => r.date === today).length} transactions`}
+          accent="kpi-sky"
+          valueClass="text-sky-400"
+          icon="today"
+          iconClass="text-sky-400"
+        />
+        <KpiCard
+          label="On Credit / Payable"
+          value={inr(credit)}
+          sub="Pending payment"
+          accent="kpi-purple"
+          valueClass="text-purple-400"
+          icon="credit_score"
+          iconClass="text-purple-400"
+        />
+        <KpiCard
+          label="Total Entries"
+          value={String(rows.length)}
+          sub="Expense records"
+          accent="kpi-amber"
+          valueClass="text-[#ffb87b]"
+          icon="receipt_long"
+          iconClass="text-[#ffb87b]"
+        />
       </div>
 
+      {/* AI Brief teaser */}
       <div className="card p-5 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-[#ff8f00]/10 blur-3xl pointer-events-none" />
         <div className="flex items-center gap-3 mb-3">

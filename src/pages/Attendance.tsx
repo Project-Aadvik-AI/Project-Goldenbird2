@@ -47,26 +47,32 @@ export default function Attendance() {
   }
 
   async function loadDay() {
+    if (!activeProject) { setDayRows([]); setLoading(false); return }
     setLoading(true)
-    const { data } = await supabase.from('attendance').select('*').eq('date', date)
+    const { data } = await supabase.from('attendance').select('*')
+      .eq('date', date)
+      .eq('project_id', activeProject.id)
     setDayRows((data as Att[]) ?? [])
     setLoading(false)
   }
 
   async function loadMonth() {
+    if (!activeProject) { setMonthRows([]); setLoading(false); return }
     setLoading(true)
     const from = `${month}-01`
     const y = Number(month.slice(0, 4)); const m = Number(month.slice(5, 7))
     const lastDay = new Date(y, m, 0).getDate()
     const to = `${month}-${String(lastDay).padStart(2, '0')}`
-    const { data } = await supabase.from('attendance').select('*').gte('date', from).lte('date', to)
+    const { data } = await supabase.from('attendance').select('*')
+      .gte('date', from).lte('date', to)
+      .eq('project_id', activeProject.id)
     setMonthRows((data as Att[]) ?? [])
     setLoading(false)
   }
 
   useEffect(() => { loadEmployees() }, [activeProject?.id])
-  useEffect(() => { if (tab === 'day') loadDay() }, [date, tab])
-  useEffect(() => { if (tab === 'month') loadMonth() }, [month, tab])
+  useEffect(() => { if (tab === 'day') loadDay() }, [date, tab, activeProject?.id])
+  useEffect(() => { if (tab === 'month') loadMonth() }, [month, tab, activeProject?.id])
 
   async function mark(empId: string, status: Status) {
     setSaving(empId)
@@ -75,8 +81,11 @@ export default function Attendance() {
       await supabase.from('attendance').update({ status }).eq('id', existing.id)
     } else {
       const { data: prof } = await supabase.from('profiles').select('org_id').single()
+      // the record MUST carry the project, or the list (which filters by
+      // project) will never find it again
       await supabase.from('attendance').insert({
         org_id: prof?.org_id, employee_id: empId, date, status,
+        project_id: activeProject?.id ?? null,
       })
     }
     await loadDay()
@@ -91,7 +100,10 @@ export default function Attendance() {
       if (existing) {
         await supabase.from('attendance').update({ status }).eq('id', existing.id)
       } else {
-        await supabase.from('attendance').insert({ org_id: prof?.org_id, employee_id: emp.id, date, status })
+        await supabase.from('attendance').insert({
+          org_id: prof?.org_id, employee_id: emp.id, date, status,
+          project_id: activeProject?.id ?? null,
+        })
       }
     }
     await loadDay()
@@ -141,12 +153,43 @@ export default function Attendance() {
               <button key={s} className={`px-3 py-1 rounded border text-[11px] font-bold uppercase tracking-wider ${STATUS_STYLES[s]}`} onClick={() => markAll(s)}>{s}</button>
             ))}
           </div>
+          {employees.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(() => {
+                const marked = employees.filter(e => dayMap.get(e.id)).length
+                const counts: Record<string, number> = {}
+                for (const e of employees) {
+                  const st = dayMap.get(e.id)?.status
+                  if (st) counts[st] = (counts[st] ?? 0) + 1
+                }
+                return (
+                  <>
+                    <span className="px-2.5 py-1 rounded border border-white/10 bg-white/[0.03] text-[12px] text-[#dcc1ae]">
+                      Marked <b className="text-[#e2e2e8]">{marked}</b> of {employees.length}
+                    </span>
+                    {Object.entries(counts).map(([st, n]) => (
+                      <span key={st} className={`px-2.5 py-1 rounded border text-[12px] font-semibold ${STATUS_STYLES[st as Status]}`}>
+                        {st}: {n}
+                      </span>
+                    ))}
+                    {marked < employees.length && (
+                      <span className="px-2.5 py-1 rounded border border-amber-500/20 bg-amber-500/5 text-[12px] text-amber-400">
+                        {employees.length - marked} not marked
+                      </span>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
           <div className="card overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[#282a2e]">
                 <tr>
                   <th className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">Employee</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">Dept</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">Mark</th>
                 </tr>
               </thead>
@@ -160,6 +203,18 @@ export default function Attendance() {
                         {emp.emp_code && <div className="text-[10px] font-mono uppercase text-[#dcc1ae]/60">{emp.emp_code}</div>}
                       </td>
                       <td className="px-4 py-3 text-[#dcc1ae]">{emp.department || '—'}</td>
+
+                      {/* what this person is CURRENTLY marked as */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {cur ? (
+                          <span className={`px-2.5 py-1 rounded border text-[11px] font-bold uppercase tracking-wider ${STATUS_STYLES[cur as Status]}`}>
+                            {cur}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-[#dcc1ae]/40 italic">not marked</span>
+                        )}
+                      </td>
+
                       <td className="px-4 py-3">
                         <div className="flex gap-1 flex-wrap">
                           {STATUSES.map(s => (
@@ -176,7 +231,7 @@ export default function Attendance() {
                   )
                 })}
                 {!employees.length && !loading && (
-                  <tr><td colSpan={3} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
+                  <tr><td colSpan={4} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
                     {!activeProject
                       ? 'Select a project first (use the project switcher at the top).'
                       : <>No employees are assigned to <b className="text-[#e2e2e8]">{activeProject.name}</b>.<br />

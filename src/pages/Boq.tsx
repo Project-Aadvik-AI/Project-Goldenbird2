@@ -26,7 +26,12 @@ export default function Boq() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('boqs').select('*').order('created_at', { ascending: false })
+    // Only BOQs belonging to the ACTIVE project.
+    // Previously this fetched every BOQ in the org, so a BOQ with no
+    // project (or another project's BOQ) appeared under every project.
+    let qy = supabase.from('boqs').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? '')
+    if (activeProject) qy = qy.eq('project_id', activeProject.id)
+    const { data } = await qy
     const list = (data as Boq[]) ?? []
     setRows(list)
     if (list.length) {
@@ -41,7 +46,7 @@ export default function Boq() {
     }
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   return (
     <div>
@@ -132,7 +137,7 @@ function NewBoqForm({ projects, defaultProject, onClose, onCreated }: {
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     const { data, error } = await supabase.from('boqs').insert({
       org_id: prof?.org_id, name, boq_number: number || null,
-      project_id: projectId || null, version: Number(version) || 1, status: 'Draft',
+      project_id: projectId || defaultProject || null, version: Number(version) || 1, status: 'Draft',
     }).select('id').single()
     if (error) { setBusy(false); setErr(error.message); return }
     const newBoqId = (data as { id: string }).id

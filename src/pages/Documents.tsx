@@ -19,6 +19,7 @@ type Doc = {
 const CATEGORIES = ['Drawings', 'Bills', 'Photos', 'Reports', 'Approvals', 'Tender', 'Other']
 
 export default function Documents() {
+  const { activeProject } = useProject()
   const { projects } = useProject()
   const { can } = useAuth()
   const [rows, setRows] = useState<Doc[]>([])
@@ -29,7 +30,7 @@ export default function Documents() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? '')
     setRows((data as Doc[]) ?? []); setLoading(false)
   }
   useEffect(() => { load() }, [])

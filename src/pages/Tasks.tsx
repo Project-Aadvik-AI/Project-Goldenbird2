@@ -51,7 +51,7 @@ export default function Tasks() {
   async function load() {
     setLoading(true)
     const [{ data: t }, { data: p }] = await Promise.all([
-      supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? ''),
       supabase.from('profiles').select('id, full_name').order('full_name'),   // all (needed to resolve names on old tasks)
     ])
     setTasks((t as Task[]) ?? [])

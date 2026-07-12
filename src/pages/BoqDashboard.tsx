@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { round2, inr } from '../lib/boq'
 
 type Boq = { id: string; name: string; boq_number: string | null; status: string; version: number; monthly_target: number | null }
@@ -8,6 +9,7 @@ type Item = { id: string; description: string; unit: string | null; quantity: nu
 type Bill = { id: string; gross: number; net_payable: number; status: string; bill_no: string | null }
 
 export default function BoqDashboard() {
+  const { activeProject } = useProject()
   const navigate = useNavigate()
   const [boqs, setBoqs] = useState<Boq[]>([])
   const [boqId, setBoqId] = useState('')
@@ -17,7 +19,7 @@ export default function BoqDashboard() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('boqs').select('id,name,boq_number,status,version,monthly_target').order('created_at', { ascending: false })
+      const { data } = await supabase.from('boqs').select('id,name,boq_number,status,version,monthly_target').eq('project_id', activeProject?.id ?? '').order('created_at', { ascending: false })
       const list = (data as Boq[]) ?? []
       setBoqs(list); if (list.length && !boqId) setBoqId(list[0].id)
     })()
@@ -28,7 +30,7 @@ export default function BoqDashboard() {
     setLoading(true)
     const { data: its } = await supabase.from('boq_items').select('id,description,unit,quantity,completed_qty,final_rate,amount').eq('boq_id', id).order('sort_order')
     setItems((its as Item[]) ?? [])
-    const { data: bl } = await supabase.from('ra_bills').select('id,gross,net_payable,status,bill_no').eq('boq_id', id)
+    const { data: bl } = await supabase.from('ra_bills').select('id,gross,net_payable,status,bill_no').eq('project_id', activeProject?.id ?? '').eq('boq_id', id)
     setBills((bl as Bill[]) ?? [])
     setLoading(false)
   }

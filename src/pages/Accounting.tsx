@@ -717,6 +717,7 @@ type Voucher = {
 }
 
 function Vouchers() {
+  const { activeProject } = useProject()
   const [rows, setRows] = useState<Voucher[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -725,13 +726,16 @@ function Vouchers() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('acc_voucher_summary').select('*')
+    // vouchers belong to a project; show only the active one
+    let qy = supabase.from('acc_voucher_summary').select('*')
       .order('voucher_date', { ascending: false }).limit(300)
+    if (activeProject) qy = qy.eq('project_id', activeProject.id)
+    const { data } = await qy
     // the view calls the pk `voucher_id`; the rest of this page expects `id`
     setRows(((data as any[]) ?? []).map(v => ({ ...v, id: v.voucher_id })) as Voucher[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   const filtered = useMemo(() => rows.filter(r =>
     (!fType || r.voucher_type === fType) && (!fStatus || r.status === fStatus)

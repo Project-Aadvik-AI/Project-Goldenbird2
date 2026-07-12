@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useProject } from '../lib/project'
 import { round2, inr } from '../lib/boq'
 
 type Boq = { id: string; name: string; boq_number: string | null; retention_pct: number | null; gst_pct: number | null }
@@ -17,6 +18,7 @@ const STATUS_CLS: Record<string, string> = {
 }
 
 export default function Billing() {
+  const { activeProject } = useProject()
   const navigate = useNavigate()
   const [boqs, setBoqs] = useState<Boq[]>([])
   const [boqId, setBoqId] = useState('')
@@ -27,16 +29,16 @@ export default function Billing() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('boqs').select('id,name,boq_number,retention_pct,gst_pct').order('created_at', { ascending: false })
+      const { data } = await supabase.from('boqs').select('id,name,boq_number,retention_pct,gst_pct').eq('project_id', activeProject?.id ?? '').order('created_at', { ascending: false })
       const list = (data as Boq[]) ?? []
       setBoqs(list); if (list.length && !boqId) setBoqId(list[0].id)
     })()
-  }, [])
+  }, [activeProject?.id])
 
   async function loadBills(id: string) {
     if (!id) return
     setLoading(true)
-    const { data } = await supabase.from('ra_bills').select('*').eq('boq_id', id).order('bill_seq', { ascending: false })
+    const { data } = await supabase.from('ra_bills').select('*').eq('project_id', activeProject?.id ?? '').eq('boq_id', id).order('bill_seq', { ascending: false })
     setBills((data as RaBill[]) ?? []); setLoading(false)
   }
   useEffect(() => { loadBills(boqId) }, [boqId])
@@ -65,7 +67,7 @@ export default function Billing() {
       }
 
       // 3) previously billed qty per item (from earlier NON-cancelled RA bills of this BOQ)
-      const { data: prevBills } = await supabase.from('ra_bills').select('id, status').eq('boq_id', boq.id).neq('status', 'Cancelled')
+      const { data: prevBills } = await supabase.from('ra_bills').select('id, status').eq('project_id', activeProject?.id ?? '').eq('boq_id', boq.id).neq('status', 'Cancelled')
       const prevBillIds = (prevBills ?? []).map((b: { id: string }) => b.id)
       const prevById: Record<string, number> = {}
       if (prevBillIds.length) {

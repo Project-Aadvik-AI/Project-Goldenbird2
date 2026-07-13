@@ -5,6 +5,7 @@ import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 import ExportButtons from '../components/ExportButtons'
+import PrintButton from '../components/PrintButton'
 
 const q = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -54,6 +55,9 @@ export default function VendorIssues() {
 
   async function load() {
     setLoading(true)
+    // scan for overdue returns and expiring documents.
+    // the DB deduplicates, so this is safe to call on every load.
+    supabase.rpc('vendor_scan_alerts').then(() => {})
     const { data } = await supabase.from('vendor_pending_returns').select('*')
       .eq('project_id', activeProject?.id ?? '')
       .order('days_overdue', { ascending: false, nullsFirst: false })
@@ -164,6 +168,7 @@ export default function VendorIssues() {
               { header: 'Received By', get: (r: any) => r.received_by || '—' },
               { header: 'Status', get: (r: any) => r.status },
             ]} />
+          <PrintButton />
         </div>
       </div>
 

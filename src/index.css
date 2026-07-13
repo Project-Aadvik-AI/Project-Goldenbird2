@@ -4,19 +4,22 @@
 
 /* ============================================================
    Aadvik AI · Construction OS — design system (v2)
+   Architectural minimalism: near-black, hairlines, mono labels,
+   light-weight type, orange used sparingly. Colors are driven by
+   CSS variables so a future light theme can swap them in one place.
    ============================================================ */
 
 :root {
-  --bg:        #0B0B0C;
-  --bg-2:      #101012;
-  --card:      #131316;
-  --card-2:    #17171A;
+  --bg:        #0B0B0C;   /* app background (near-black) */
+  --bg-2:      #101012;   /* raised surface */
+  --card:      #131316;   /* card surface */
+  --card-2:    #17171A;   /* header rows / hover */
   --line:      rgba(255,255,255,0.08);
   --line-soft: rgba(255,255,255,0.055);
-  --text:      #ECEBE6;
-  --text-2:    #9C9C96;
-  --faint:     #66665F;
-  --accent:    #ff8f00;
+  --text:      #ECEBE6;   /* primary (warm off-white) */
+  --text-2:    #9C9C96;   /* secondary */
+  --faint:     #66665F;   /* labels / captions */
+  --accent:    #ff8f00;   /* orange — used rarely */
   --accent-2:  #ffb87b;
   color-scheme: dark;
 }
@@ -29,25 +32,18 @@ body {
   font-family: 'Inter', 'Noto Sans Devanagari', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Material Symbols — force real icon rendering */
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined' !important;
-  font-weight: normal !important;
-  font-style: normal;
+  font-weight: normal; font-style: normal;
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  vertical-align: middle;
-  display: inline-block;
-  font-feature-settings: 'liga';
-  -webkit-font-feature-settings: 'liga';
-  -moz-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
+  font-size: 20px; line-height: 1; letter-spacing: normal;
+  text-transform: none; white-space: nowrap; direction: ltr;
+  vertical-align: middle; display: inline-block;
+  -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased;
 }
+
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 10px; }
@@ -55,6 +51,7 @@ body {
 
 .mono { font-family: 'JetBrains Mono', monospace; }
 
+/* ---------- card: hairline, flat, no glow ---------- */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -62,6 +59,7 @@ body {
   transition: border-color 0.2s;
 }
 
+/* ---------- inputs: quiet, hairline, orange focus ---------- */
 .input {
   width: 100%;
   background: var(--bg-2);
@@ -82,6 +80,7 @@ body {
 select.input { cursor: pointer; }
 textarea.input { resize: vertical; }
 
+/* ---------- buttons ---------- */
 .btn {
   border: none;
   border-radius: 9px;
@@ -100,9 +99,11 @@ textarea.input { resize: vertical; }
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* primary = warm off-white on dark (premium, restrained) */
 .btn-primary { background: var(--text); color: var(--bg); }
 .btn-primary:hover:not(:disabled) { background: #ffffff; }
 
+/* accent = the rare orange call-to-action */
 .btn-accent { background: var(--accent); color: #0B0B0C; }
 .btn-accent:hover:not(:disabled) { background: #ffa32a; }
 
@@ -113,6 +114,7 @@ textarea.input { resize: vertical; }
 }
 .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.16); }
 
+/* ---------- KPI accents (kept, muted) ---------- */
 .kpi-emerald { border-left: 2px solid #34d399; }
 .kpi-sky     { border-left: 2px solid #38bdf8; }
 .kpi-purple  { border-left: 2px solid #a78bfa; }
@@ -120,23 +122,25 @@ textarea.input { resize: vertical; }
 .kpi-red     { border-left: 2px solid #f87171; }
 
 /* ============================================================
-   LIGHT THEME
+   LIGHT THEME — swaps the same variables. Applied when
+   <html data-theme="light">. Dark stays the default in :root.
    ============================================================ */
 [data-theme="light"] {
-  --bg:        #F5F4F0;
+  --bg:        #F5F4F0;   /* warm paper */
   --bg-2:      #FFFFFF;
   --card:      #FFFFFF;
   --card-2:    #F0EFEA;
   --line:      rgba(0,0,0,0.10);
   --line-soft: rgba(0,0,0,0.06);
-  --text:      #1A1A17;
+  --text:      #1A1A17;   /* near-black ink */
   --text-2:    #5C5C55;
   --faint:     #8A8A82;
-  --accent:    #E67E00;
+  --accent:    #E67E00;   /* slightly deeper orange for light-bg contrast */
   --accent-2:  #b45f00;
   color-scheme: light;
 }
 
+/* light-theme primary button: ink on paper */
 [data-theme="light"] .btn-primary { background: var(--text); color: #FFFFFF; }
 [data-theme="light"] .btn-primary:hover:not(:disabled) { background: #000000; }
 [data-theme="light"] .btn-ghost { color: var(--text); border-color: var(--line); }
@@ -144,6 +148,7 @@ textarea.input { resize: vertical; }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.24); }
 
+/* smooth cross-fade when toggling */
 html { transition: background-color 0.3s ease; }
 body, .card, .input, .btn, aside, header, main, nav { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
 @media (prefers-reduced-motion: reduce) {
@@ -154,11 +159,11 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
    LANDING — Dayos-style bands + heavy display type
    ============================================================ */
 :root {
-  --ink:      #050506;
+  --ink:      #050506;   /* black contrast band */
   --ink-fg:   #ECEBE6;
 }
 [data-theme="light"] {
-  --ink:      #0B0B0C;
+  --ink:      #0B0B0C;   /* dramatic black band on cream */
   --ink-fg:   #EEEDE8;
 }
 .display {
@@ -170,9 +175,12 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
 }
 
 /* ============================================================
-   INK BAND TEXTURE
+   INK BAND TEXTURE — fine horizontal lines (premium ribbed look)
+   Apply the class `ink-lines` to any dark band.
    ============================================================ */
-.ink-lines { position: relative; }
+.ink-lines {
+  position: relative;
+}
 .ink-lines::before {
   content: "";
   position: absolute;
@@ -188,7 +196,6 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
   z-index: 0;
 }
 .ink-lines > * { position: relative; z-index: 1; }
-
 
 /* ============================================================
    LIGHT-MODE PAGE OVERRIDES
@@ -233,14 +240,12 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
 [data-theme="light"] .border-white\/\[0\.08\] { border-color: rgba(0,0,0,0.10) !important; }
 [data-theme="light"] .border-white\/\[0\.1\]  { border-color: rgba(0,0,0,0.12) !important; }
 [data-theme="light"] .border-white\/\[0\.2\]  { border-color: rgba(0,0,0,0.16) !important; }
-[data-theme="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0,0,0,0.08) !important; } 
-
-
-
+[data-theme="light"] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0,0,0,0.08) !important; }
 
 /* ============================================================
    FLOW TEXTURE — soft drifting contour/flow lines behind content.
-   Add class `flow-bg` to a page's outer wrapper.
+   Add class `flow-bg` to a page's outer wrapper. Sits at z-0,
+   content should be z-10+. Theme-aware via currentColor opacity.
    ============================================================ */
 .flow-bg { position: relative; isolation: isolate; }
 .flow-bg::before {
@@ -253,6 +258,7 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
   background-repeat: repeat;
   background-size: 900px 900px;
   background-image:
+    radial-gradient(120% 80% at 50% 50%, transparent 60%, transparent 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900'%3E%3Cg fill='none' stroke='%23808080' stroke-width='1' opacity='0.16'%3E%3Cpath d='M0 120 C 220 40, 460 200, 900 90'/%3E%3Cpath d='M0 210 C 240 130, 470 290, 900 180'/%3E%3Cpath d='M0 300 C 250 220, 480 380, 900 270'/%3E%3Cpath d='M0 390 C 240 320, 470 470, 900 360'/%3E%3Cpath d='M0 480 C 250 410, 480 560, 900 450'/%3E%3Cpath d='M0 570 C 240 500, 470 650, 900 540'/%3E%3Cpath d='M0 660 C 250 590, 480 740, 900 630'/%3E%3Cpath d='M0 750 C 240 680, 470 830, 900 720'/%3E%3Cpath d='M0 840 C 250 770, 480 910, 900 810'/%3E%3C/g%3E%3C/svg%3E");
   animation: flowdrift 40s linear infinite;
 }
@@ -265,25 +271,45 @@ body, .card, .input, .btn, aside, header, main, nav { transition: background-col
   .flow-bg::before { animation: none; }
 }
 
-/* ============================================================
-   PAGE-WIDE LINE TEXTURE — fine horizontal lines (landing)
-   ============================================================ */
-:root { --line-tint: rgba(255,255,255,0.045); }
-[data-theme="light"] { --line-tint: rgba(0,0,0,0.05); }
 
-.page-lines { position: relative; }
-.page-lines::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    var(--line-tint) 0px,
-    var(--line-tint) 1px,
-    transparent 1px,
-    transparent 4px
-  );
+/* =====================================================================
+   PRINT
+   Hide the app chrome and print only the content. Force light colours —
+   a dark background wastes an enormous amount of toner.
+   ===================================================================== */
+@media print {
+  /* hide everything that is not content */
+  aside, nav, .no-print,
+  button:not(.print-keep),
+  input, select, textarea {
+    display: none !important;
+  }
+
+  /* light on white */
+  html, body, #root, main, .card, table, thead, tbody, tr, td, th, div, span, p, h1, h2, h3 {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .card {
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    break-inside: avoid;
+    margin-bottom: 12px;
+  }
+
+  table { width: 100% !important; border-collapse: collapse !important; font-size: 11px !important; }
+  th, td { border: 1px solid #ddd !important; padding: 4px 6px !important; }
+  thead { background: #f2f2f2 !important; }
+  thead th { color: #000 !important; font-weight: 700 !important; }
+  tr { break-inside: avoid; }
+
+  /* keep the meaning of the colour coding without the fill */
+  .text-red-400   { color: #b00 !important; font-weight: 700; }
+  .text-amber-400 { color: #a60 !important; }
+  .text-emerald-400 { color: #060 !important; }
+
+  main { padding: 0 !important; }
+  @page { margin: 12mm; }
 }
-.page-lines > * { position: relative; z-index: 1; }

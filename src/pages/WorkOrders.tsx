@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { ContractBalance } from '../components/ContractBalance'
+import { WoBoqLink } from '../components/WoBoqLink'
 
 type Vendor = { id: string; name: string; gstin?: string | null; address?: string | null }
 type PR = { id: string; pr_no: string | null; material: string; qty: number | null; unit: string | null; vendor: string | null; status: string; date: string }
@@ -180,6 +181,11 @@ export default function WorkOrders() {
                         {/* the running contract position — every figure from the DB */}
                         <div className="mb-4">
                           <ContractBalance woId={r.id} />
+                        </div>
+
+                        {/* the BOQ items this vendor is contracted to do */}
+                        <div className="mb-4 card p-4">
+                          <WoBoqLink woId={r.id} projectId={r.project_id ?? null} />
                         </div>
 
                         <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-2">Line Items</div>

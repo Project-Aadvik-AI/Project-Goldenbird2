@@ -6,6 +6,7 @@ import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateLink } from '../components/PrivateFile'
 import { useAuth } from '../lib/auth'
 import ExportButtons from '../components/ExportButtons'
+import PrintButton from '../components/PrintButton'
 import { VendorContractSummary } from '../components/ContractBalance'
 import type { Vendor } from './Vendors'
 
@@ -132,6 +133,7 @@ export default function VendorDetail() {
         supabase.from('vendor_pending_returns').select('*').eq('party_id', id)
           .order('days_overdue', { ascending: false, nullsFirst: false }),
         supabase.from('vendor_documents').select('*').eq('party_id', id)
+          .eq('is_current', true)
           .order('created_at', { ascending: false }),
       ])
       setV(vm.data as Vendor)
@@ -337,6 +339,7 @@ function Projects({ rows }: { rows: Proj[] }) {
             { header: 'Contract Value', get: (r: any) => Number(r.contract_value) },
             { header: 'Billed', get: (r: any) => Number(r.billed_value) },
           ]} />
+          <PrintButton />
       </div>
       <table className="w-full text-sm">
         <thead className="bg-[#282a2e]"><tr>
@@ -671,6 +674,8 @@ function Documents({ partyId, rows, onChanged }: {
     return days >= 0 && days <= 30
   })
 
+  const [replacing, setReplacing] = useState<Doc | null>(null)
+
   async function del(d: Doc) {
     if (!confirm(`Delete "${d.title || d.doc_type}"?`)) return
     await supabase.from('vendor_documents').delete().eq('id', d.id)
@@ -722,7 +727,12 @@ function Documents({ partyId, rows, onChanged }: {
               return (
                 <tr key={d.id} className={`hover:bg-white/[0.02] ${isExpired ? 'bg-red-500/[0.05]' : ''}`}>
                   <td className="px-4 py-2.5">
-                    <div className="text-[#e2e2e8] font-semibold">{d.doc_type}</div>
+                    <div className="text-[#e2e2e8] font-semibold">
+                      {d.doc_type}
+                      {(d as any).version > 1 && (
+                        <span className="ml-1.5 text-[10px] text-[#dcc1ae]/50 font-normal">v{(d as any).version}</span>
+                      )}
+                    </div>
                     {d.title && <div className="text-[11px] text-[#dcc1ae]/60">{d.title}</div>}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{d.doc_number || '—'}</td>
@@ -739,10 +749,14 @@ function Documents({ partyId, rows, onChanged }: {
                       </PrivateLink>
                     ) : <span className="text-[#dcc1ae]/30">—</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     {isAdmin && (
-                      <button className="text-red-400 text-[11px] font-semibold uppercase hover:underline"
-                        onClick={() => del(d)}>Delete</button>
+                      <>
+                        <button className="text-[#ffb87b] text-[11px] font-semibold uppercase hover:underline mr-2"
+                          onClick={() => setReplacing(d)}>Replace</button>
+                        <button className="text-red-400 text-[11px] font-semibold uppercase hover:underline"
+                          onClick={() => del(d)}>Delete</button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -757,8 +771,91 @@ function Documents({ partyId, rows, onChanged }: {
 
       {showForm && <DocForm partyId={partyId} onClose={() => setShowForm(false)}
         onSaved={() => { setShowForm(false); onChanged() }} />}
+      {replacing && <ReplaceDocForm doc={replacing} onClose={() => setReplacing(null)}
+        onSaved={() => { setReplacing(null); onChanged() }} />}
     </div>
   )
+}
+
+/**
+ * Replacing a document does NOT delete the old one — it archives it.
+ * A renewed GST certificate should not erase the one it replaced;
+ * you may need to prove what was on file at a given date.
+ */
+function ReplaceDocForm({ doc, onClose, onSaved }: {
+  doc: Doc; onClose: () => void; onSaved: () => void
+}) {
+  const [file, setFile] = useState<File | null>(null)
+  const [docNumber, setDocNumber] = useState(doc.doc_number ?? '')
+  const [issueDate, setIssueDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!file) { setErr('Choose the new file.'); return }
+    setBusy(true); setErr(null)
+
+    const { data: u } = await supabase.auth.getUser()
+    const uid = u?.user?.id
+    const { data: prof } = await supabase.from('profiles').select('org_id').eq('id', uid!).maybeSingle()
+
+    const path = makeObjectPath(prof?.org_id, file, 'vendor-docs')
+    const { path: stored, error: upErr } = await uploadPrivate('vendor-docs', path, file)
+    if (upErr) { setErr('Upload failed: ' + upErr); setBusy(false); return }
+
+    const { error } = await supabase.rpc('replace_vendor_document', {
+      p_old: doc.id,
+      p_file_path: stored ?? null, p_file_name: file.name, p_mime: file.type,
+      p_doc_number: docNumber || null,
+      p_issue_date: issueDate || null,
+      p_expiry_date: expiryDate || null,
+      p_title: null,
+    })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={save}
+        className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
+        <h3 className="font-headline text-lg font-semibold text-[#e2e2e8] mb-1">Replace {doc.doc_type}</h3>
+        <p className="text-[12px] text-[#dcc1ae] mb-4">
+          The old copy is <b className="text-[#e2e2e8]">archived, not deleted</b> — you may need to prove
+          what was on file at a given date.
+        </p>
+
+        <div className="space-y-3">
+          <F label="New File *">
+            <input type="file" className="input" accept=".pdf,image/*"
+              onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          </F>
+          <F label="Document Number">
+            <input className="input mono" value={docNumber} onChange={e => setDocNumber(e.target.value)} />
+          </F>
+          <div className="grid grid-cols-2 gap-3">
+            <F label="Issue Date">
+              <input type="date" className="input" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+            </F>
+            <F label="New Expiry Date">
+              <input type="date" className="input" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} />
+            </F>
+          </div>
+        </div>
+
+        {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
+        <div className="flex gap-2 mt-5">
+          <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary flex-[2]" disabled={busy}>
+            {busy ? 'Replacing…' : 'Replace Document'}
+          </button>
+        </div>
+      </form>
+    </div>
+  ), document.body)
 }
 
 function DocForm({ partyId, onClose, onSaved }: {

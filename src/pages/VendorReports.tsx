@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import ExportButtons from '../components/ExportButtons'
+import PrintButton from '../components/PrintButton'
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const inr0 = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
@@ -48,7 +49,7 @@ type Cost = {
   billed_value: number; committed_value: number
 }
 
-type Rep = 'outstanding' | 'ledger' | 'ageing' | 'performance' | 'delays' | 'cost'
+type Rep = 'outstanding' | 'ledger' | 'ageing' | 'performance' | 'delays' | 'cost' | 'documents'
 const REPORTS: [Rep, string, string][] = [
   ['outstanding', 'Outstanding', 'Who we owe, and how much'],
   ['ledger', 'Vendor Ledger', 'Every entry for one vendor, with a running balance'],
@@ -56,6 +57,7 @@ const REPORTS: [Rep, string, string][] = [
   ['performance', 'Performance', 'On-time delivery, fulfilment and rating'],
   ['delays', 'Delay Analysis', 'Every late delivery, and by how many days'],
   ['cost', 'Project Cost', 'What each vendor cost each project'],
+  ['documents', 'Expiring Documents', 'GST certificates, licences and agreements about to lapse'],
 ]
 
 const BUCKET_STYLE: Record<string, string> = {
@@ -81,24 +83,27 @@ export default function VendorReports() {
   const [perf, setPerf] = useState<Perf[]>([])
   const [delays, setDelays] = useState<Delay[]>([])
   const [cost, setCost] = useState<Cost[]>([])
+  const [docs, setDocs] = useState<any[]>([])
   const [ledger, setLedger] = useState<Led[]>([])
   const [vendorId, setVendorId] = useState('')
 
   useEffect(() => {
     (async () => {
       setLoading(true)
-      const [o, a, p, d, c] = await Promise.all([
+      const [o, a, p, d, c, dc] = await Promise.all([
         supabase.from('vendor_outstanding').select('*').order('outstanding', { ascending: false }),
         supabase.from('vendor_ageing').select('*').order('age_days', { ascending: false }),
         supabase.from('vendor_performance').select('*').order('overall_rating', { ascending: false }),
         supabase.from('vendor_delay_analysis').select('*').order('days_late', { ascending: false, nullsFirst: false }),
         supabase.from('vendor_project_cost').select('*').order('committed_value', { ascending: false }),
+        supabase.from('vendor_expiring_documents').select('*').order('days_left'),
       ])
       setOut((o.data as Out[]) ?? [])
       setAgeing((a.data as Age[]) ?? [])
       setPerf((p.data as Perf[]) ?? [])
       setDelays((d.data as Delay[]) ?? [])
       setCost((c.data as Cost[]) ?? [])
+      setDocs((dc.data as any[]) ?? [])
       setLoading(false)
     })()
   }, [])
@@ -170,6 +175,7 @@ export default function VendorReports() {
       {rep === 'performance' && <Performance rows={perf} />}
       {rep === 'delays' && <Delays rows={delays} />}
       {rep === 'cost' && <ProjectCost rows={cost} />}
+      {rep === 'documents' && <ExpiringDocs rows={docs} />}
     </div>
   )
 }
@@ -195,6 +201,7 @@ function Outstanding({ rows }: { rows: Out[] }) {
             { header: 'Unpaid Bills', get: (r: any) => Number(r.unpaid_bill_count) },
             { header: 'Oldest Unpaid', get: (r: any) => r.oldest_unpaid_bill || '—' },
           ]} />
+          <PrintButton />
       </div>
       <table className="w-full text-sm">
         <thead className="bg-[#282a2e]"><tr>
@@ -550,6 +557,92 @@ function ProjectCost({ rows }: { rows: Cost[] }) {
           {!rows.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No vendor activity.</td></tr>}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function ExpiringDocs({ rows }: { rows: any[] }) {
+  const expired = rows.filter(r => r.status === 'Expired')
+  const soon = rows.filter(r => r.status === 'Expiring Soon')
+  return (
+    <div>
+      {(expired.length > 0 || soon.length > 0) && (
+        <div className={`card p-3 mb-4 ${expired.length ? 'bg-red-500/5 border-red-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+          <div className="text-[13px]">
+            {expired.length > 0 && (
+              <div className="text-red-400 font-bold">
+                {expired.length} document(s) have EXPIRED — chase these vendors for renewed copies.
+              </div>
+            )}
+            {soon.length > 0 && (
+              <div className="text-amber-400">{soon.length} expiring within 30 days.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="card overflow-hidden overflow-x-auto">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+          <span className="text-sm font-semibold text-[#e2e2e8]">Vendor Documents by Expiry</span>
+          <div className="flex gap-2">
+            <ExportButtons filename="expiring-documents" title="Expiring Vendor Documents" rows={rows}
+              columns={[
+                { header: 'Vendor', get: (r: any) => r.vendor_name },
+                { header: 'Code', get: (r: any) => r.vendor_code || '—' },
+                { header: 'Phone', get: (r: any) => r.phone || '—' },
+                { header: 'Document', get: (r: any) => r.doc_type },
+                { header: 'Number', get: (r: any) => r.doc_number || '—' },
+                { header: 'Issued', get: (r: any) => r.issue_date || '—' },
+                { header: 'Expires', get: (r: any) => r.expiry_date },
+                { header: 'Days Left', get: (r: any) => r.days_left },
+                { header: 'Status', get: (r: any) => r.status },
+              ]} />
+            <PrintButton />
+          </div>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-[#282a2e]"><tr>
+            {['Vendor', 'Document', 'Number', 'Expires', 'Status'].map(h => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {rows.map(r => {
+              const isExpired = r.status === 'Expired'
+              return (
+                <tr key={r.doc_id} className={`hover:bg-white/[0.02] ${isExpired ? 'bg-red-500/[0.06]' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <div className="text-[#e2e2e8] font-semibold">{r.vendor_name}</div>
+                    {r.phone && <div className="text-[11px] text-[#dcc1ae]/60">{r.phone}</div>}
+                  </td>
+                  <td className="px-4 py-2.5 text-[#dcc1ae]">
+                    {r.doc_type}
+                    {r.version > 1 && <span className="text-[10px] text-[#dcc1ae]/50 ml-1">v{r.version}</span>}
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{r.doc_number || '—'}</td>
+                  <td className={`px-4 py-2.5 font-mono text-[12px] ${isExpired ? 'text-red-400 font-bold' : 'text-[#dcc1ae]'}`}>
+                    {r.expiry_date}
+                    <div className="text-[10px]">
+                      {r.days_left < 0 ? `${Math.abs(r.days_left)}d ago` : `${r.days_left}d left`}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border whitespace-nowrap ${
+                      isExpired ? 'bg-red-500/10 text-red-400 border-red-500/25'
+                        : r.status === 'Expiring Soon' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-emerald-400/70 text-sm">
+              ✓ No documents with an expiry date.
+            </td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

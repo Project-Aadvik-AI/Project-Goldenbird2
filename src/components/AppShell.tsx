@@ -56,7 +56,10 @@ const NAV: Entry[] = [
     { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
     { to: '/vendor-issues', label: 'Issued Items', icon: 'assignment_return', module: 'store' },
+    { to: '/vendor-payments', label: 'Payments & Advances', icon: 'payments', module: 'work_orders' },
+    { to: '/vendor-progress', label: 'Vendor Progress', icon: 'trending_up', module: 'work_orders' },
     { to: '/vendor-reports', label: 'Vendor Reports', icon: 'assessment', module: 'work_orders' },
+    { to: '/vendor-admin', label: 'Vendor Admin', icon: 'admin_panel_settings', module: 'work_orders' },
   ] },
 
   // ---- everything an HR / site-admin person does ----
@@ -106,7 +109,10 @@ const HO_NAV: Entry[] = [
     { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote' },
     { to: '/vendor-issues', label: 'Issued Items', icon: 'assignment_return' },
+    { to: '/vendor-payments', label: 'Payments & Advances', icon: 'payments' },
+    { to: '/vendor-progress', label: 'Vendor Progress', icon: 'trending_up' },
     { to: '/vendor-reports', label: 'Vendor Reports', icon: 'assessment' },
+    { to: '/vendor-admin', label: 'Vendor Admin', icon: 'admin_panel_settings' },
   ] },
 
   { group: 'Assets & Inventory', icon: 'inventory_2', items: [

@@ -19,6 +19,8 @@ export type Vendor = {
   bank_name: string | null; bank_account: string | null; bank_ifsc: string | null
   upi_id: string | null
   rating: number | null; blacklist_reason: string | null
+  payment_terms?: string | null
+  tags?: { id: string; name: string; colour: string }[]
   created_at: string; created_by_name: string | null
   po_count: number; po_value: number
   wo_count: number; wo_value: number
@@ -31,6 +33,22 @@ export const CATEGORIES = [
   'Material Supplier', 'Labour Contractor', 'Equipment Rental',
   'Transport', 'Service Provider', 'Subcontractor', 'Other',
 ]
+
+export const PAYMENT_TERMS = [
+  '', 'Immediate', '15 Days', '30 Days', '45 Days', '60 Days', '90 Days',
+  'Advance + Running Bill', 'Against Delivery', 'Custom',
+]
+
+const TAG_COLOUR: Record<string, string> = {
+  grey:   'bg-white/5 text-[#dcc1ae] border-white/10',
+  blue:   'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  green:  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  amber:  'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  red:    'bg-red-500/10 text-red-400 border-red-500/20',
+  purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  cyan:   'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+}
+type Tag = { id: string; name: string; colour: string }
 
 const STATUS_STYLE: Record<string, string> = {
   'Active': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -60,14 +78,43 @@ export default function Vendors() {
   const [fCat, setFCat] = useState('')
   const [fStatus, setFStatus] = useState('')
   const [fState, setFState] = useState('')
+  const [fTag, setFTag] = useState('')
+  const [allTags, setAllTags] = useState<Tag[]>([])
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('vendor_master').select('*').order('name')
-    setRows((data as Vendor[]) ?? [])
+    // scan for overdue returns and expiring documents.
+    // the DB deduplicates, so this is safe to call on every load.
+    supabase.rpc('vendor_scan_alerts').then(() => {})
+    const [{ data }, { data: tg }] = await Promise.all([
+      supabase.from('vendor_master').select('*').order('name'),
+      supabase.from('vendor_with_tags').select('party_id, tags'),
+    ])
+    const tagMap: Record<string, any[]> = {}
+    for (const t of ((tg as any[]) ?? [])) tagMap[t.party_id] = t.tags ?? []
+    setRows(((data as Vendor[]) ?? []).map(v => ({ ...v, tags: tagMap[v.party_id] ?? [] })))
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    supabase.from('vendor_tags').select('id, name, colour').order('name')
+      .then(({ data }) => setAllTags((data as Tag[]) ?? []))
+  }, [])
+
+  async function softDelete(v: Vendor) {
+    const reason = prompt(
+      `Delete ${v.name}?\n\n` +
+      `They will be hidden from the vendor list, but their history stays intact ` +
+      `and reports keep working. You can restore them later.\n\n` +
+      `Reason:`
+    )
+    if (!reason) return
+    const { error } = await supabase.rpc('soft_delete_vendor', {
+      p_party: v.party_id, p_reason: reason,
+    })
+    if (error) { alert('Could not delete:\n\n' + error.message); return }
+    load()
+  }
 
   async function migrate() {
     if (!confirm(
@@ -97,6 +144,7 @@ export default function Vendors() {
     if (fCat && v.category !== fCat) return false
     if (fStatus && v.status !== fStatus) return false
     if (fState && v.state !== fState) return false
+    if (fTag && !(v.tags ?? []).some(t => t.id === fTag)) return false
     const s = q.trim().toLowerCase()
     if (s && !`${v.name} ${v.company_name ?? ''} ${v.vendor_code ?? ''} ${v.gstin ?? ''} ${v.phone ?? ''} ${v.city ?? ''}`
       .toLowerCase().includes(s)) return false
@@ -174,9 +222,15 @@ export default function Vendors() {
             {states.map(s => <option key={s}>{s}</option>)}
           </select>
         </L>
-        {(q || fCat || fStatus || fState) && (
+        <L label="Tag">
+          <select className="input" value={fTag} onChange={e => setFTag(e.target.value)}>
+            <option value="">All tags</option>
+            {allTags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </L>
+        {(q || fCat || fStatus || fState || fTag) && (
           <button className="btn btn-ghost" style={{ padding: '7px 12px', fontSize: '12px' }}
-            onClick={() => { setQ(''); setFCat(''); setFStatus(''); setFState('') }}>Clear</button>
+            onClick={() => { setQ(''); setFCat(''); setFStatus(''); setFState(''); setFTag('') }}>Clear</button>
         )}
         <div className="ml-auto">
           <ExportButtons filename="vendors" title="Vendor Database" rows={filtered}
@@ -226,6 +280,16 @@ export default function Vendors() {
                     {v.company_name && v.company_name !== v.name && (
                       <div className="text-[11px] text-[#dcc1ae]/60">{v.company_name}</div>
                     )}
+                    {(v.tags ?? []).length > 0 && (
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {(v.tags ?? []).map(t => (
+                          <span key={t.id}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${TAG_COLOUR[t.colour] ?? TAG_COLOUR.grey}`}>
+                            {t.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {(v.expired_docs > 0 || v.expiring_docs > 0) && (
                       <div className="text-[10px] text-amber-400 mt-0.5">
                         {v.expired_docs > 0 ? `${v.expired_docs} doc(s) expired` : `${v.expiring_docs} expiring`}
@@ -261,8 +325,12 @@ export default function Vendors() {
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                     {isAdmin && (
-                      <button className="text-[#dcc1ae] hover:text-[#e2e2e8] text-[11px] font-semibold uppercase"
-                        onClick={() => { setEditing(v); setShowForm(true) }}>Edit</button>
+                      <>
+                        <button className="text-[#dcc1ae] hover:text-[#e2e2e8] text-[11px] font-semibold uppercase mr-2"
+                          onClick={() => { setEditing(v); setShowForm(true) }}>Edit</button>
+                        <button className="text-red-400 hover:text-red-300 text-[11px] font-semibold uppercase"
+                          onClick={() => softDelete(v)}>Delete</button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -309,6 +377,15 @@ function VendorForm({ editing, onClose, onSaved }: {
   const [ifsc, setIfsc] = useState(editing?.bank_ifsc ?? '')
   const [upi, setUpi] = useState(editing?.upi_id ?? '')
   const [status, setStatus] = useState(editing?.status ?? 'Active')
+  const [payTerms, setPayTerms] = useState(editing?.payment_terms ?? '')
+  const [tags, setTags] = useState<Tag[]>([])
+  const [picked, setPicked] = useState<Set<string>>(
+    new Set((editing?.tags ?? []).map(t => t.id)))
+
+  useEffect(() => {
+    supabase.from('vendor_tags').select('id, name, colour').order('name')
+      .then(({ data }) => setTags((data as Tag[]) ?? []))
+  }, [])
   const [reason, setReason] = useState(editing?.blacklist_reason ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -336,24 +413,44 @@ function VendorForm({ editing, onClose, onSaved }: {
       city: city || null, state: state || null, pincode: pincode || null,
       bank_name: bankName || null, bank_account: bankAcc || null,
       bank_ifsc: ifsc || null, upi_id: upi || null,
+      payment_terms: payTerms || null,
     }
 
-    let error
+    let error: any
+    let created: any = null
     if (editing) {
       ({ error } = await supabase.from('acc_parties').update(payload).eq('id', editing.party_id))
+      created = null
     } else {
       const { data: code } = await supabase.rpc('next_vendor_code')
-      ;({ error } = await supabase.from('acc_parties').insert({
+      const res = await supabase.from('acc_parties').insert({
         ...payload, org_id: prof?.org_id, vendor_code: code, created_by: uid,
-      }))
+      }).select('id').single()
+      error = res.error
+      created = res.data
     }
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setErr(error.message.includes('duplicate')
-        ? 'A vendor with this name already exists.'
+        ? 'A vendor with this GSTIN, PAN or name already exists.'
         : error.message)
       return
     }
+
+    // tags
+    const pid = editing?.party_id ?? (created as any)?.id
+    if (pid) {
+      await supabase.from('vendor_tag_links').delete().eq('party_id', pid)
+      if (picked.size > 0) {
+        await supabase.from('vendor_tag_links').insert(
+          [...picked].map(tagId => ({
+            org_id: prof?.org_id, party_id: pid, tag_id: tagId, tagged_by: uid,
+          }))
+        )
+      }
+    }
+
+    setBusy(false)
     onSaved()
   }
 
@@ -434,6 +531,30 @@ function VendorForm({ editing, onClose, onSaved }: {
             </div>
           </div>
 
+          {/* tags */}
+          <div>
+            <Sec>Tags</Sec>
+            <div className="flex flex-wrap gap-2">
+              {tags.map(t => {
+                const on = picked.has(t.id)
+                return (
+                  <button key={t.id} type="button"
+                    onClick={() => setPicked(p => {
+                      const n = new Set(p)
+                      n.has(t.id) ? n.delete(t.id) : n.add(t.id)
+                      return n
+                    })}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold uppercase border transition-opacity ${
+                      on ? TAG_COLOUR[t.colour] ?? TAG_COLOUR.grey
+                         : 'bg-white/[0.02] text-[#dcc1ae]/50 border-white/[0.08] hover:opacity-100 opacity-60'}`}>
+                    {t.name}
+                  </button>
+                )
+              })}
+              {!tags.length && <span className="text-[12px] text-[#dcc1ae]/50">No tags defined.</span>}
+            </div>
+          </div>
+
           {/* bank */}
           <div>
             <Sec>Bank &amp; Payment</Sec>
@@ -442,6 +563,16 @@ function VendorForm({ editing, onClose, onSaved }: {
               <F label="Account Number"><input className="input mono" value={bankAcc} onChange={e => setBankAcc(e.target.value)} /></F>
               <F label="IFSC"><input className="input mono" value={ifsc} onChange={e => setIfsc(e.target.value.toUpperCase())} maxLength={11} /></F>
               <F label="UPI ID"><input className="input mono" value={upi} onChange={e => setUpi(e.target.value)} placeholder="name@bank" /></F>
+              <F label="Payment Terms">
+                <select className="input" value={payTerms} onChange={e => setPayTerms(e.target.value)}>
+                  {PAYMENT_TERMS.map(t => (
+                    <option key={t} value={t}>{t || '— Not set —'}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-[#dcc1ae]/50 mt-1">
+                  Applied automatically to new work orders for this vendor.
+                </p>
+              </F>
             </div>
           </div>
 

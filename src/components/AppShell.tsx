@@ -46,6 +46,7 @@ const NAV: Entry[] = [
   ] },
 
   { group: 'Procurement', icon: 'shopping_cart', items: [
+    { to: '/vendors', label: 'Vendors', icon: 'store', module: 'work_orders' },
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
     { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in', module: 'work_orders' },
@@ -94,6 +95,11 @@ const HO_NAV: Entry[] = [
     { to: '/admin/staff', label: 'Staff & Access', icon: 'admin_panel_settings' },
   ] },
 
+  { group: 'Vendors', icon: 'store', items: [
+    { to: '/vendors', label: 'Vendor Database', icon: 'store' },
+    { to: '/vendor-reports', label: 'Vendor Reports', icon: 'assessment' },
+  ] },
+
   { group: 'Assets & Inventory', icon: 'inventory_2', items: [
     { to: '/assets', label: 'Company Assets', icon: 'inventory' },
     { to: '/inventory', label: 'Inventory Masters', icon: 'inventory_2' },
@@ -124,6 +130,7 @@ const HO_NAV: Entry[] = [
 const HO_ROUTES = new Set<string>([
   '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
   '/assets', '/inventory', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
+  '/vendors', '/vendor-reports',
   '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 

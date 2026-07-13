@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import { ContractBalance } from '../components/ContractBalance'
 
 type Vendor = { id: string; name: string; gstin?: string | null; address?: string | null }
 type PR = { id: string; pr_no: string | null; material: string; qty: number | null; unit: string | null; vendor: string | null; status: string; date: string }
@@ -176,6 +177,11 @@ export default function WorkOrders() {
                   {isOpen && (
                     <tr className="bg-black/20">
                       <td colSpan={10} className="px-6 py-3">
+                        {/* the running contract position — every figure from the DB */}
+                        <div className="mb-4">
+                          <ContractBalance woId={r.id} />
+                        </div>
+
                         <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-2">Line Items</div>
                         <table className="w-full text-xs">
                           <thead>
@@ -246,6 +252,26 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
   const [endDate, setEndDate] = useState('')
   const [terms, setTerms] = useState('')
   const [status, setStatus] = useState('Draft')
+  // contract terms — these drive the running-billing checks
+  const [contractValue, setContractValue] = useState('')
+  const [retentionPct, setRetentionPct] = useState('')
+  const [tdsPct, setTdsPct] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState('')
+  const [scope, setScope] = useState('')
+  const [partyId, setPartyId] = useState('')
+  const [parties, setParties] = useState<{ id: string; name: string; vendor_code: string | null }[]>([])
+
+  // the real vendor master
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('acc_parties')
+        .select('id, name, vendor_code')
+        .in('party_type', ['Vendor', 'Both'])
+        .eq('status', 'Active')
+        .order('name')
+      setParties((data as any[]) ?? [])
+    })()
+  }, [])
   const [drafts, setDrafts] = useState<Draft[]>(seedFromPR
     ? [{ description: seedFromPR.material, unit: seedFromPR.unit ?? '', qty: String(seedFromPR.qty ?? ''), rate: '' }]
     : [{ description: '', unit: '', qty: '', rate: '' }])
@@ -269,9 +295,19 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
     const { data: inserted, error } = await supabase.from('work_orders').insert({
       org_id: orgId, project_id: projectId,
       wo_no: woNo || null, wo_type: woType,
-      vendor_id: vendorId || null, vendor: vendorFree || null,
+      vendor_id: vendorId || null,
+      party_id: partyId || null,                        // the REAL vendor master
+      vendor: partyId
+        ? (parties.find(p => p.id === partyId)?.name ?? vendorFree)
+        : (vendorFree || null),
       title, description: description || null,
       amount: total || null,
+      // the contract value is the MAXIMUM billable — defaults to the line total
+      contract_value: Number(contractValue) || total || null,
+      retention_pct: Number(retentionPct) || 0,
+      tds_pct: Number(tdsPct) || 0,
+      payment_terms: paymentTerms || null,
+      scope_of_work: scope || null,
       start_date: startDate || null, end_date: endDate || null,
       terms: terms || null, status,
       pr_id: seedFromPR?.id ?? null,
@@ -310,13 +346,26 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
                 {TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </L>
-            <L label="Vendor (from master)">
-              <select className="input" value={vendorId} onChange={e => { setVendorId(e.target.value); const v = vendors.find(x => x.id === e.target.value); if (v) setVendorFree(v.name) }}>
-                <option value="">— pick —</option>
-                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            <L label="Vendor *">
+              <select className="input" value={partyId}
+                onChange={e => {
+                  setPartyId(e.target.value)
+                  const p = parties.find(x => x.id === e.target.value)
+                  if (p) setVendorFree(p.name)
+                }}>
+                <option value="">— select vendor —</option>
+                {parties.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.vendor_code ? ` (${p.vendor_code})` : ''}
+                  </option>
+                ))}
               </select>
+              {!parties.length && (
+                <p className="text-[11px] text-amber-400/80 mt-1">
+                  No vendors. Add them on the Vendors page.
+                </p>
+              )}
             </L>
-            <L label="Vendor (free-text override)"><input className="input" value={vendorFree} onChange={e => setVendorFree(e.target.value)} /></L>
             <L label="Start Date"><input className="input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></L>
             <L label="End Date"><input className="input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></L>
             <L label="Status">
@@ -324,6 +373,45 @@ function WOForm({ seedFromPR, projectId, vendors, onClose, onSaved }: {
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </L>
+
+            {/* ---- CONTRACT TERMS: these drive the running-billing checks ---- */}
+            <div className="sm:col-span-2 lg:col-span-3 pt-3 mt-1 border-t border-white/[0.06]">
+              <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-3">
+                Contract Terms
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <L label="Contract Value (₹)">
+                  <input className="input mono text-right" inputMode="decimal" value={contractValue}
+                    onChange={e => setContractValue(e.target.value.replace(/[^\d.]/g, ''))}
+                    placeholder={total ? String(total) : '10,00,000'} />
+                </L>
+                <L label="Retention %">
+                  <input className="input mono text-right" inputMode="decimal" value={retentionPct}
+                    onChange={e => setRetentionPct(e.target.value.replace(/[^\d.]/g, ''))} placeholder="5" />
+                </L>
+                <L label="TDS %">
+                  <input className="input mono text-right" inputMode="decimal" value={tdsPct}
+                    onChange={e => setTdsPct(e.target.value.replace(/[^\d.]/g, ''))} placeholder="2" />
+                </L>
+                <L label="Payment Terms">
+                  <input className="input" value={paymentTerms}
+                    onChange={e => setPaymentTerms(e.target.value)} placeholder="30 days from approval" />
+                </L>
+              </div>
+              <p className="text-[11px] text-[#dcc1ae]/60 mt-2">
+                The <b>contract value is the maximum billable</b> against this work order — the database
+                refuses any bill that would exceed it. Leave blank to use the line-item total
+                {total ? ` (₹${Number(total).toLocaleString('en-IN')})` : ''}.
+                Retention and TDS are deducted automatically from each bill.
+              </p>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <L label="Scope of Work">
+                <textarea className="input" rows={2} value={scope} onChange={e => setScope(e.target.value)}
+                  placeholder="What exactly is this vendor contracted to do?" />
+              </L>
+            </div>
           </div>
           <L label="Title *"><input className="input" value={title} onChange={e => setTitle(e.target.value)} /></L>
           <L label="Description"><textarea className="input" rows={2} value={description} onChange={e => setDescription(e.target.value)} /></L>

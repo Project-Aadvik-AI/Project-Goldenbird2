@@ -67,6 +67,9 @@ import AdminStaff from './pages/AdminStaff'
 import AdminInvite from './pages/AdminInvite'
 import AdminReports from './pages/AdminReports'
 import WorkOrders from './pages/WorkOrders'
+import Vendors from './pages/Vendors'
+import VendorDetail from './pages/VendorDetail'
+import VendorReports from './pages/VendorReports'
 import Drawings from './pages/Drawings'
 import Tasks from './pages/Tasks'
 import Notices from './pages/Notices'
@@ -155,6 +158,9 @@ export default function App() {
           <Route path="/admin/invite" element={<AdminInvite />} />
           <Route path="/admin/reports" element={<AdminReports />} />
           <Route path="/work-orders" element={<ModuleGuard module="work_orders"><WorkOrders /></ModuleGuard>} />
+          <Route path="/vendors" element={<Vendors />} />
+          <Route path="/vendors/:id" element={<VendorDetail />} />
+          <Route path="/vendor-reports" element={<VendorReports />} />
           <Route path="/drawings" element={<ModuleGuard module="drawings"><Drawings /></ModuleGuard>} />
           <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
           <Route path="/notices" element={<Notices />} />

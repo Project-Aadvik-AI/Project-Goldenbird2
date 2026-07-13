@@ -46,11 +46,17 @@ const NAV: Entry[] = [
   ] },
 
   { group: 'Procurement', icon: 'shopping_cart', items: [
-    { to: '/vendors', label: 'Vendors', icon: 'store', module: 'work_orders' },
     { to: '/purchase', label: 'Purchase Requests', icon: 'shopping_cart', module: 'purchase_requests' },
     { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
+  ] },
+
+  // everything to do with vendors, in one place
+  { group: 'Vendors', icon: 'store', items: [
+    { to: '/vendors', label: 'Vendor Database', icon: 'store', module: 'work_orders' },
     { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in', module: 'work_orders' },
     { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote', module: 'vendor_bills' },
+    { to: '/vendor-issues', label: 'Issued Items', icon: 'assignment_return', module: 'store' },
+    { to: '/vendor-reports', label: 'Vendor Reports', icon: 'assessment', module: 'work_orders' },
   ] },
 
   // ---- everything an HR / site-admin person does ----
@@ -97,6 +103,9 @@ const HO_NAV: Entry[] = [
 
   { group: 'Vendors', icon: 'store', items: [
     { to: '/vendors', label: 'Vendor Database', icon: 'store' },
+    { to: '/work-orders', label: 'Work Orders', icon: 'assignment_turned_in' },
+    { to: '/vendor-bills', label: 'Vendor Bills', icon: 'request_quote' },
+    { to: '/vendor-issues', label: 'Issued Items', icon: 'assignment_return' },
     { to: '/vendor-reports', label: 'Vendor Reports', icon: 'assessment' },
   ] },
 
@@ -130,7 +139,6 @@ const HO_NAV: Entry[] = [
 const HO_ROUTES = new Set<string>([
   '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
   '/assets', '/inventory', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
-  '/vendors', '/vendor-reports',
   '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 

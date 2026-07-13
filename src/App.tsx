@@ -70,6 +70,7 @@ import WorkOrders from './pages/WorkOrders'
 import Vendors from './pages/Vendors'
 import VendorDetail from './pages/VendorDetail'
 import VendorReports from './pages/VendorReports'
+import VendorIssues from './pages/VendorIssues'
 import Drawings from './pages/Drawings'
 import Tasks from './pages/Tasks'
 import Notices from './pages/Notices'
@@ -161,6 +162,7 @@ export default function App() {
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/vendors/:id" element={<VendorDetail />} />
           <Route path="/vendor-reports" element={<VendorReports />} />
+          <Route path="/vendor-issues" element={<ModuleGuard module="store"><VendorIssues /></ModuleGuard>} />
           <Route path="/drawings" element={<ModuleGuard module="drawings"><Drawings /></ModuleGuard>} />
           <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
           <Route path="/notices" element={<Notices />} />

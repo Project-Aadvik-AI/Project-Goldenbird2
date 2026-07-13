@@ -51,8 +51,15 @@ type Perf = {
 type Event = {
   at: string; event: string; title: string; detail: string | null
 }
+type Issued = {
+  line_id: string; slip_no: string; issue_date: string; expected_return: string | null
+  project_name: string | null; item_code: string | null; item_name: string; unit: string | null
+  condition_out: string
+  qty_issued: number; qty_returned: number; qty_written_off: number; qty_pending: number
+  pending_value: number; days_overdue: number | null; status: string
+}
 
-const TAB = ['overview', 'projects', 'orders', 'bills', 'payments', 'materials', 'timeline'] as const
+const TAB = ['overview', 'projects', 'orders', 'bills', 'payments', 'materials', 'issued', 'timeline'] as const
 type Tab = typeof TAB[number]
 
 const STATUS_STYLE: Record<string, string> = {
@@ -94,13 +101,14 @@ export default function VendorDetail() {
   const [pays, setPays] = useState<Pay[]>([])
   const [mats, setMats] = useState<Mat[]>([])
   const [events, setEvents] = useState<Event[]>([])
+  const [issued, setIssued] = useState<Issued[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!id) return
     (async () => {
       setLoading(true)
-      const [vm, pf, pj, w, b, p, m, t] = await Promise.all([
+      const [vm, pf, pj, w, b, p, m, t, ii] = await Promise.all([
         supabase.from('vendor_master').select('*').eq('party_id', id).maybeSingle(),
         supabase.from('vendor_performance').select('*').eq('party_id', id).maybeSingle(),
         supabase.from('vendor_projects').select('*').eq('party_id', id).order('last_activity', { ascending: false }),
@@ -109,6 +117,8 @@ export default function VendorDetail() {
         supabase.from('vendor_payments').select('*').eq('party_id', id).order('voucher_date', { ascending: false }),
         supabase.from('vendor_materials').select('*').eq('party_id', id).order('delivery_date', { ascending: false }),
         supabase.from('vendor_timeline').select('*').eq('party_id', id).order('at', { ascending: false }).limit(100),
+        supabase.from('vendor_pending_returns').select('*').eq('party_id', id)
+          .order('days_overdue', { ascending: false, nullsFirst: false }),
       ])
       setV(vm.data as Vendor)
       setPerf(pf.data as Perf)
@@ -118,6 +128,7 @@ export default function VendorDetail() {
       setPays((p.data as Pay[]) ?? [])
       setMats((m.data as Mat[]) ?? [])
       setEvents((t.data as Event[]) ?? [])
+      setIssued((ii.data as Issued[]) ?? [])
       setLoading(false)
     })()
   }, [id])
@@ -213,6 +224,7 @@ export default function VendorDetail() {
               : t === 'bills' ? `Bills (${bills.length})`
               : t === 'materials' ? `Materials (${mats.length})`
               : t === 'payments' ? `Payments (${pays.length})`
+              : t === 'issued' ? `Issued Items (${issued.filter(i => Number(i.qty_pending) > 0).length})`
               : t}
           </button>
         ))}
@@ -224,6 +236,7 @@ export default function VendorDetail() {
       {tab === 'bills' && <BillsTab rows={bills} />}
       {tab === 'payments' && <PaymentsTab rows={pays} />}
       {tab === 'materials' && <MaterialsTab rows={mats} />}
+      {tab === 'issued' && <IssuedItems rows={issued} />}
       {tab === 'timeline' && <Timeline rows={events} />}
     </div>
   )
@@ -612,6 +625,118 @@ function MaterialsTab({ rows }: { rows: Mat[] }) {
             })}
             {!rows.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
               No material received from this vendor yet. Post a Goods Receipt naming them.
+            </td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ---------------- Issued Items (returnable material) ----------------
+function IssuedItems({ rows }: { rows: Issued[] }) {
+  const pending = rows.filter(r => Number(r.qty_pending) > 0)
+  const overdue = rows.filter(r => r.status === 'Overdue')
+  const pendingValue = rows.reduce((n, r) => n + Number(r.pending_value || 0), 0)
+  const overdueValue = overdue.reduce((n, r) => n + Number(r.pending_value || 0), 0)
+
+  const ST: Record<string, string> = {
+    'Returned': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    'Partially Returned': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'Pending Return': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'Overdue': 'bg-red-500/15 text-red-400 border-red-500/30',
+  }
+
+  return (
+    <div>
+      {overdue.length > 0 && (
+        <div className="card p-4 mb-4 bg-red-500/10 border-red-500/25 flex items-start gap-2">
+          <span className="material-symbols-outlined text-red-400" style={{ fontSize: '20px' }}>error</span>
+          <div>
+            <div className="text-[13px] font-bold text-red-400">
+              {overdue.length} item(s) OVERDUE — {inr0(overdueValue)} of company material
+            </div>
+            <div className="text-[12px] text-[#dcc1ae] mt-0.5">
+              The expected return date has passed. Chase this vendor.
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <K label="Items Issued" value={String(rows.length)} />
+        <K label="Fully Returned" value={String(rows.filter(r => r.status === 'Returned').length)} tone="emerald" />
+        <K label="Still Pending" value={String(pending.length)}
+          tone={pending.length ? 'amber' : undefined} />
+        <K label="Pending Value" value={inr0(pendingValue)}
+          tone={pendingValue ? 'amber' : undefined} />
+      </div>
+
+      <div className="card overflow-hidden overflow-x-auto">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+          <span className="text-sm font-semibold text-[#e2e2e8]">Returnable Material</span>
+          <ExportButtons filename="vendor-issued-items" title="Vendor Issued Items" rows={rows}
+            columns={[
+              { header: 'Slip No.', get: (r: any) => r.slip_no },
+              { header: 'Issue Date', get: (r: any) => r.issue_date },
+              { header: 'Item Code', get: (r: any) => r.item_code || '—' },
+              { header: 'Item', get: (r: any) => r.item_name },
+              { header: 'Project', get: (r: any) => r.project_name || '—' },
+              { header: 'Condition Out', get: (r: any) => r.condition_out },
+              { header: 'Qty Issued', get: (r: any) => Number(r.qty_issued) },
+              { header: 'Qty Returned', get: (r: any) => Number(r.qty_returned) },
+              { header: 'Qty Pending', get: (r: any) => Number(r.qty_pending) },
+              { header: 'Pending Value', get: (r: any) => Number(r.pending_value) },
+              { header: 'Expected Return', get: (r: any) => r.expected_return || '—' },
+              { header: 'Days Overdue', get: (r: any) => r.days_overdue ?? '—' },
+              { header: 'Status', get: (r: any) => r.status },
+            ]} />
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-[#282a2e]"><tr>
+            {['Item', 'Project', 'Issued', 'Returned', 'Pending', 'Expected Return', 'Status'].map(h => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {rows.map(r => {
+              const isOverdue = r.status === 'Overdue'
+              return (
+                <tr key={r.line_id} className={`hover:bg-white/[0.02] ${isOverdue ? 'bg-red-500/[0.06]' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <div className="text-[#e2e2e8] font-semibold">{r.item_name}</div>
+                    <div className="text-[10px] font-mono text-[#dcc1ae]/50">
+                      {r.slip_no} · {r.issue_date}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px] text-[#dcc1ae]">{r.project_name || '—'}</td>
+                  <td className="px-4 py-2.5 font-mono text-[#dcc1ae] text-right whitespace-nowrap">
+                    {q(r.qty_issued)} <span className="text-[10px]">{r.unit}</span>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-emerald-400 text-right">
+                    {Number(r.qty_returned) ? q(r.qty_returned) : '—'}
+                  </td>
+                  <td className={`px-4 py-2.5 font-mono font-bold text-right whitespace-nowrap ${
+                    Number(r.qty_pending) > 0 ? (isOverdue ? 'text-red-400' : 'text-amber-400') : 'text-[#dcc1ae]/40'}`}>
+                    {Number(r.qty_pending) > 0 ? q(r.qty_pending) : '—'}
+                    {Number(r.pending_value) > 0 && (
+                      <div className="text-[10px] font-normal">{inr0(r.pending_value)}</div>
+                    )}
+                  </td>
+                  <td className={`px-4 py-2.5 font-mono text-[12px] whitespace-nowrap ${isOverdue ? 'text-red-400 font-bold' : 'text-[#dcc1ae]'}`}>
+                    {r.expected_return || '—'}
+                    {isOverdue && <div className="text-[10px]">{r.days_overdue}d late</div>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border whitespace-nowrap ${ST[r.status]}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
+              Nothing issued to this vendor.
             </td></tr>}
           </tbody>
         </table>

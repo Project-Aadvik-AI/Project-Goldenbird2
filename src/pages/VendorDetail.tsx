@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { uploadPrivate, makeObjectPath } from '../lib/storage'
+import { PrivateLink } from '../components/PrivateFile'
 import { useAuth } from '../lib/auth'
 import ExportButtons from '../components/ExportButtons'
 import { VendorContractSummary } from '../components/ContractBalance'
@@ -51,6 +54,12 @@ type Perf = {
 type Event = {
   at: string; event: string; title: string; detail: string | null
 }
+type Doc = {
+  id: string; doc_type: string; title: string | null; doc_number: string | null
+  issue_date: string | null; expiry_date: string | null
+  file_path: string | null; file_name: string | null
+  created_at: string
+}
 type Issued = {
   line_id: string; slip_no: string; issue_date: string; expected_return: string | null
   project_name: string | null; item_code: string | null; item_name: string; unit: string | null
@@ -59,7 +68,7 @@ type Issued = {
   pending_value: number; days_overdue: number | null; status: string
 }
 
-const TAB = ['overview', 'projects', 'orders', 'bills', 'payments', 'materials', 'issued', 'timeline'] as const
+const TAB = ['overview', 'projects', 'orders', 'bills', 'payments', 'materials', 'issued', 'documents', 'timeline'] as const
 type Tab = typeof TAB[number]
 
 const STATUS_STYLE: Record<string, string> = {
@@ -102,13 +111,16 @@ export default function VendorDetail() {
   const [mats, setMats] = useState<Mat[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [issued, setIssued] = useState<Issued[]>([])
+  const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     if (!id) return
     (async () => {
       setLoading(true)
-      const [vm, pf, pj, w, b, p, m, t, ii] = await Promise.all([
+      const [vm, pf, pj, w, b, p, m, t, ii, dc] = await Promise.all([
         supabase.from('vendor_master').select('*').eq('party_id', id).maybeSingle(),
         supabase.from('vendor_performance').select('*').eq('party_id', id).maybeSingle(),
         supabase.from('vendor_projects').select('*').eq('party_id', id).order('last_activity', { ascending: false }),
@@ -119,6 +131,8 @@ export default function VendorDetail() {
         supabase.from('vendor_timeline').select('*').eq('party_id', id).order('at', { ascending: false }).limit(100),
         supabase.from('vendor_pending_returns').select('*').eq('party_id', id)
           .order('days_overdue', { ascending: false, nullsFirst: false }),
+        supabase.from('vendor_documents').select('*').eq('party_id', id)
+          .order('created_at', { ascending: false }),
       ])
       setV(vm.data as Vendor)
       setPerf(pf.data as Perf)
@@ -129,9 +143,11 @@ export default function VendorDetail() {
       setMats((m.data as Mat[]) ?? [])
       setEvents((t.data as Event[]) ?? [])
       setIssued((ii.data as Issued[]) ?? [])
+      setDocs((dc.data as Doc[]) ?? [])
+      setDocs((dc.data as Doc[]) ?? [])
       setLoading(false)
     })()
-  }, [id])
+  }, [id, reload])
 
   const money = useMemo(() => {
     const totalPaid = pays.reduce((n, p) => n + Number(p.paid || 0), 0)
@@ -225,6 +241,7 @@ export default function VendorDetail() {
               : t === 'materials' ? `Materials (${mats.length})`
               : t === 'payments' ? `Payments (${pays.length})`
               : t === 'issued' ? `Issued Items (${issued.filter(i => Number(i.qty_pending) > 0).length})`
+              : t === 'documents' ? `Documents (${docs.length})`
               : t}
           </button>
         ))}
@@ -236,7 +253,9 @@ export default function VendorDetail() {
       {tab === 'bills' && <BillsTab rows={bills} />}
       {tab === 'payments' && <PaymentsTab rows={pays} />}
       {tab === 'materials' && <MaterialsTab rows={mats} />}
+      {tab === 'documents' && <Documents partyId={v.party_id} rows={docs} onChanged={() => setReload(x => x + 1)} />}
       {tab === 'issued' && <IssuedItems rows={issued} />}
+      {tab === 'documents' && <Documents partyId={v.party_id} rows={docs} onChanged={() => window.location.reload()} />}
       {tab === 'timeline' && <Timeline rows={events} />}
     </div>
   )
@@ -633,6 +652,199 @@ function MaterialsTab({ rows }: { rows: Mat[] }) {
   )
 }
 
+// ---------------- Documents ----------------
+const DOC_TYPES = [
+  'GST Certificate', 'PAN Card', 'Cancelled Cheque', 'Trade Licence',
+  'Agreement', 'MSME Certificate', 'Insurance', 'Other',
+]
+
+function Documents({ partyId, rows, onChanged }: {
+  partyId: string; rows: Doc[]; onChanged: () => void
+}) {
+  const { isAdmin } = useAuth()
+  const [showForm, setShowForm] = useState(false)
+
+  const expired = rows.filter(d => d.expiry_date && d.expiry_date < new Date().toISOString().slice(0, 10))
+  const expiring = rows.filter(d => {
+    if (!d.expiry_date) return false
+    const days = Math.round((new Date(d.expiry_date).getTime() - Date.now()) / 864e5)
+    return days >= 0 && days <= 30
+  })
+
+  async function del(d: Doc) {
+    if (!confirm(`Delete "${d.title || d.doc_type}"?`)) return
+    await supabase.from('vendor_documents').delete().eq('id', d.id)
+    onChanged()
+  }
+
+  return (
+    <div>
+      {(expired.length > 0 || expiring.length > 0) && (
+        <div className={`card p-3 mb-4 ${expired.length ? 'bg-red-500/5 border-red-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+          <div className="flex items-start gap-2">
+            <span className={`material-symbols-outlined ${expired.length ? 'text-red-400' : 'text-amber-400'}`}
+              style={{ fontSize: '18px' }}>event_busy</span>
+            <div className="text-[13px]">
+              {expired.length > 0 && (
+                <div className="text-red-400 font-bold">
+                  {expired.length} document(s) have EXPIRED: {expired.map(d => d.doc_type).join(', ')}
+                </div>
+              )}
+              {expiring.length > 0 && (
+                <div className="text-amber-400">
+                  {expiring.length} expiring within 30 days: {expiring.map(d => d.doc_type).join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+          <span className="text-sm font-semibold text-[#e2e2e8]">Documents</span>
+          {isAdmin && (
+            <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}
+              onClick={() => setShowForm(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload</span> Upload
+            </button>
+          )}
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-[#282a2e]"><tr>
+            {['Document', 'Number', 'Issued', 'Expires', 'File', ''].map(h => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {rows.map(d => {
+              const isExpired = !!d.expiry_date && d.expiry_date < new Date().toISOString().slice(0, 10)
+              return (
+                <tr key={d.id} className={`hover:bg-white/[0.02] ${isExpired ? 'bg-red-500/[0.05]' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <div className="text-[#e2e2e8] font-semibold">{d.doc_type}</div>
+                    {d.title && <div className="text-[11px] text-[#dcc1ae]/60">{d.title}</div>}
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{d.doc_number || '—'}</td>
+                  <td className="px-4 py-2.5 font-mono text-[12px] text-[#dcc1ae]">{d.issue_date || '—'}</td>
+                  <td className={`px-4 py-2.5 font-mono text-[12px] ${isExpired ? 'text-red-400 font-bold' : 'text-[#dcc1ae]'}`}>
+                    {d.expiry_date || '—'}
+                    {isExpired && <div className="text-[10px]">EXPIRED</div>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {d.file_path ? (
+                      <PrivateLink bucket="vendor-docs" path={d.file_path}
+                        className="text-[#ffb87b] hover:underline text-[12px]">
+                        {d.file_name || 'View'}
+                      </PrivateLink>
+                    ) : <span className="text-[#dcc1ae]/30">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {isAdmin && (
+                      <button className="text-red-400 text-[11px] font-semibold uppercase hover:underline"
+                        onClick={() => del(d)}>Delete</button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan={6} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">
+              No documents. Upload the GST certificate, PAN, cancelled cheque and any licences.
+            </td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {showForm && <DocForm partyId={partyId} onClose={() => setShowForm(false)}
+        onSaved={() => { setShowForm(false); onChanged() }} />}
+    </div>
+  )
+}
+
+function DocForm({ partyId, onClose, onSaved }: {
+  partyId: string; onClose: () => void; onSaved: () => void
+}) {
+  const [docType, setDocType] = useState('GST Certificate')
+  const [title, setTitle] = useState('')
+  const [docNumber, setDocNumber] = useState('')
+  const [issueDate, setIssueDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!file) { setErr('Choose a file to upload.'); return }
+    setBusy(true); setErr(null)
+
+    const { data: u } = await supabase.auth.getUser()
+    const uid = u?.user?.id
+    const { data: prof } = await supabase.from('profiles').select('org_id').eq('id', uid!).maybeSingle()
+
+    const path = makeObjectPath(prof?.org_id, file, 'vendor-docs')
+    const { path: stored, error: upErr } = await uploadPrivate('vendor-docs', path, file)
+    if (upErr) { setErr('Upload failed: ' + upErr); setBusy(false); return }
+
+    const { error } = await supabase.from('vendor_documents').insert({
+      org_id: prof?.org_id, party_id: partyId,
+      doc_type: docType, title: title || null, doc_number: docNumber || null,
+      issue_date: issueDate || null, expiry_date: expiryDate || null,
+      file_path: stored ?? null, file_name: file.name, mime_type: file.type,
+      uploaded_by: uid,
+    })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <form onClick={e => e.stopPropagation()} onSubmit={save}
+        className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
+        <h3 className="font-headline text-lg font-semibold text-[#e2e2e8] mb-4">Upload Document</h3>
+
+        <div className="space-y-3">
+          <F label="Document Type *">
+            <select className="input" value={docType} onChange={e => setDocType(e.target.value)}>
+              {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </F>
+          <F label="Title / Description">
+            <input className="input" value={title} onChange={e => setTitle(e.target.value)} />
+          </F>
+          <F label="Document Number">
+            <input className="input mono" value={docNumber} onChange={e => setDocNumber(e.target.value)} />
+          </F>
+          <div className="grid grid-cols-2 gap-3">
+            <F label="Issue Date">
+              <input type="date" className="input" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+            </F>
+            <F label="Expiry Date">
+              <input type="date" className="input" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} />
+            </F>
+          </div>
+          <F label="File *">
+            <input type="file" className="input" accept=".pdf,image/*"
+              onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          </F>
+          <p className="text-[11px] text-[#dcc1ae]/50">
+            Set an expiry date on licences and agreements — the system will warn you before they lapse.
+          </p>
+        </div>
+
+        {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
+        <div className="flex gap-2 mt-5">
+          <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary flex-[2]" disabled={busy}>
+            {busy ? 'Uploading…' : 'Upload'}
+          </button>
+        </div>
+      </form>
+    </div>
+  ), document.body)
+}
+
 // ---------------- Issued Items (returnable material) ----------------
 function IssuedItems({ rows }: { rows: Issued[] }) {
   const pending = rows.filter(r => Number(r.qty_pending) > 0)
@@ -745,7 +957,7 @@ function IssuedItems({ rows }: { rows: Issued[] }) {
   )
 }
 
-// ---------------- Timeline ----------------
+// ---------------- Documents ----------------
 function Timeline({ rows }: { rows: Event[] }) {
   return (
     <div className="card p-5">
@@ -807,5 +1019,14 @@ function P({ label, v, tone }: { label: string; v: string; tone?: 'emerald' | 'a
       <div className="text-[10px] text-[#dcc1ae]/60 uppercase tracking-wider">{label}</div>
       <div className={`font-mono text-[17px] font-bold ${c} mt-0.5`}>{v}</div>
     </div>
+  )
+}
+
+function F({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">{label}</span>
+      {children}
+    </label>
   )
 }

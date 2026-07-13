@@ -433,6 +433,7 @@ function BillForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
   const [taxId, setTaxId] = useState('')
   const [remarks, setRemarks] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [supporting, setSupporting] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -501,7 +502,7 @@ function BillForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
 
     const vendorName = vendors.find(v => v.id === partyId)?.name ?? null
 
-    const { error } = await supabase.from('vendor_bills').insert({
+    const { data: created, error } = await supabase.from('vendor_bills').insert({
       org_id: prof?.org_id,
       project_id: activeProject?.id ?? null,
       party_id: partyId,
@@ -515,9 +516,31 @@ function BillForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
       file: filePath,
       remark: remarks || null,
       stage: 'Submitted',
-    })
+    }).select('id').single()
+
+    if (error) { setErr(error.message); setBusy(false); return }
+
+    // the invoice and every supporting document
+    const billId = (created as any)?.id
+    if (billId) {
+      const all: { f: File; isInvoice: boolean }[] = [
+        ...(file ? [{ f: file, isInvoice: true }] : []),
+        ...supporting.map(f => ({ f, isInvoice: false })),
+      ]
+      for (const { f, isInvoice } of all) {
+        const p = makeObjectPath(prof?.org_id, f, 'vendor-bills')
+        const { path: stored, error: e2 } = await uploadPrivate('vendor-bills', p, f)
+        if (e2) continue
+        await supabase.from('bill_attachments').insert({
+          org_id: prof?.org_id, bill_id: billId,
+          file_path: stored ?? null, file_name: f.name,
+          mime_type: f.type, file_size: f.size,
+          is_invoice: isInvoice, uploaded_by: uid,
+        })
+      }
+    }
+
     setBusy(false)
-    if (error) { setErr(error.message); return }
     onSaved()
   }
 
@@ -651,9 +674,22 @@ function BillForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
             </div>
           )}
 
-          <F label="Invoice / Supporting Document">
+          <F label="Invoice PDF *">
             <input type="file" className="input" accept=".pdf,image/*"
               onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          </F>
+
+          <F label="Supporting Documents">
+            <input type="file" multiple className="input" accept=".pdf,image/*,.xlsx,.xls"
+              onChange={e => setSupporting(Array.from(e.target.files ?? []))} />
+            {supporting.length > 0 && (
+              <p className="text-[11px] text-[#dcc1ae]/60 mt-1">
+                {supporting.length} file(s): {supporting.map(f => f.name).join(', ')}
+              </p>
+            )}
+            <p className="text-[11px] text-[#dcc1ae]/50 mt-1">
+              Measurement sheets, delivery challans, site photos…
+            </p>
           </F>
 
           <F label="Remarks">

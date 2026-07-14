@@ -19,6 +19,8 @@ const NAV: Entry[] = [
 
   // ---- what happens on site, day to day ----
   { group: 'Site Operations', icon: 'engineering', items: [
+    { to: '/hindrances', label: 'Hindrance Register', icon: 'report', module: 'dpr' },
+    { to: '/eot', label: 'Extension of Time', icon: 'gavel', module: 'dpr' },
     { to: '/dpr', label: 'Daily Progress', icon: 'pending_actions', module: 'dpr' },
     { to: '/machines', label: 'Machine Status', icon: 'precision_manufacturing', module: 'machines' },
     { to: '/expenses', label: 'Daily Expenses', icon: 'payments', module: 'expenses' },
@@ -26,6 +28,7 @@ const NAV: Entry[] = [
 
   // ---- the whole store / inventory function, in one place ----
   { group: 'Store & Inventory', icon: 'inventory_2', items: [
+    { to: '/warehouses', label: 'Warehouses', icon: 'warehouse', module: 'store' },
     { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
     { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
     { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
@@ -72,6 +75,7 @@ const NAV: Entry[] = [
   // personal — everyone has these, so they sit at the top level
   { to: '/tasks', label: 'Tasks', icon: 'task_alt' },
   { to: '/my-imprest', label: 'My Imprest', icon: 'account_balance_wallet' },
+  { to: '/my-payslips', label: 'My Payslips', icon: 'receipt_long' },
   { to: '/notices', label: 'Notice Board', icon: 'campaign' },
 
   { group: 'Documents', icon: 'folder_open', items: [
@@ -96,6 +100,13 @@ const HO_NAV: Entry[] = [
   { to: '/projects', label: 'Projects', icon: 'domain' },
   { to: '/notices', label: 'Notice Board', icon: 'campaign' },
 
+  { group: 'Payroll', icon: 'payments', items: [
+    { to: '/payroll', label: 'Run Payroll', icon: 'payments' },
+    { to: '/payroll-setup', label: 'Payroll Setup', icon: 'settings' },
+    { to: '/payroll-advances', label: 'Overtime, Loans & Advances', icon: 'more_time' },
+    { to: '/payroll-reports', label: 'Payroll Reports', icon: 'assessment' },
+  ] },
+
   { group: 'People', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge' },
     { to: '/team', label: 'Team', icon: 'group_add' },
@@ -115,9 +126,27 @@ const HO_NAV: Entry[] = [
     { to: '/vendor-admin', label: 'Vendor Admin', icon: 'admin_panel_settings' },
   ] },
 
-  { group: 'Assets & Inventory', icon: 'inventory_2', items: [
-    { to: '/assets', label: 'Company Assets', icon: 'inventory' },
-    { to: '/inventory', label: 'Inventory Masters', icon: 'inventory_2' },
+  { group: 'Store & Inventory', icon: 'inventory_2', items: [
+    { to: '/warehouses', label: 'Warehouses', icon: 'warehouse' },
+    { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring' },
+    { to: '/availability', label: 'Stock Availability', icon: 'travel_explore' },
+    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory' },
+    { to: '/material-requests', label: 'Material Requests', icon: 'assignment' },
+    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping' },
+    { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy' },
+    { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance' },
+    { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment' },
+    { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long' },
+    { to: '/inventory', label: 'Inventory Masters', icon: 'category' },
+  ] },
+
+  { group: 'Assets', icon: 'precision_manufacturing', items: [
+    { to: '/assets', label: 'Company Assets', icon: 'precision_manufacturing' },
+  ] },
+
+  { group: 'Site Operations', icon: 'engineering', items: [
+    { to: '/hindrances', label: 'Hindrance Register', icon: 'report' },
+    { to: '/eot', label: 'Extension of Time', icon: 'gavel' },
   ] },
 
   { group: 'Accounting', icon: 'account_balance', items: [
@@ -144,7 +173,8 @@ const HO_NAV: Entry[] = [
 // routes that belong to the Head Office panel
 const HO_ROUTES = new Set<string>([
   '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
-  '/assets', '/inventory', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
+  '/assets', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
+  '/payroll', '/payroll-setup', '/payroll-advances', '/payroll-reports',
   '/boq-schedules', '/masters', '/admin/invite', '/bugs',
 ])
 

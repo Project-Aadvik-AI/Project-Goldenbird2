@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
+import { scopeToProject } from '../lib/scope'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 import ExportButtons from '../components/ExportButtons'
@@ -59,8 +60,8 @@ export default function StockMovements() {
     if ((count ?? 0) === 0) { setReady(false); setLoading(false); return }
 
     const [{ data: m }, { data: w }] = await Promise.all([
-      supabase.from('inv_movements').select('*')
-        .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(300).eq('project_id', activeProject?.id ?? ''),
+      scopeToProject(supabase.from('inv_movements').select('*')
+        .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(300), activeProject?.id),
       supabase.from('inv_warehouses').select('id, name, project_id, is_main').eq('active', true).order('name'),
     ])
     setRows((m as Movement[]) ?? [])

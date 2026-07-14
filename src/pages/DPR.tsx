@@ -5,13 +5,11 @@ import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
-import { PrivateImage } from '../components/PrivateFile'
 
 type DprRow = {
   id: string; date: string; schedule: string; item: string; unit: string
   today_qty: number; cumulative_qty: number | null; boq_qty: number | null; remark: string | null
 }
-type HindranceRow = { id: string; date: string; hindrance: string; photo: string | null }
 type BoqItem = { id: string; schedule: string; item: string; unit: string; boq_qty: number | null; code: string | null }
 
 // Pull imported enterprise BOQ items for this project's BOQs, shaped for the DPR picker.
@@ -35,9 +33,7 @@ async function loadBoqItems(projectId: string): Promise<BoqItem[]> {
 export default function DPR() {
   const { activeProject } = useProject()
   const { can } = useAuth()
-  const [tab, setTab] = useState<'progress' | 'hindrances'>('progress')
   const [dprRows, setDprRows] = useState<DprRow[]>([])
-  const [hindrances, setHindrances] = useState<HindranceRow[]>([])
   const [boq, setBoq] = useState<BoqItem[]>([])
   const [mbMsg, setMbMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -60,15 +56,13 @@ export default function DPR() {
   }
 
   async function load() {
-    if (!activeProject) { setDprRows([]); setHindrances([]); setBoq([]); setLoading(false); return }
+    if (!activeProject) { setDprRows([]); setBoq([]); setLoading(false); return }
     setLoading(true)
-    const [{ data: dpr }, { data: hind }, boqData] = await Promise.all([
+    const [{ data: dpr }, boqData] = await Promise.all([
       supabase.from('dpr').select('*').eq('project_id', activeProject.id).order('date', { ascending: false }).limit(300),
-      supabase.from('dpr_hindrance').select('*').eq('project_id', activeProject.id).order('date', { ascending: false }).limit(200),
       loadBoqItems(activeProject.id),
     ])
     setDprRows((dpr as DprRow[]) ?? [])
-    setHindrances((hind as HindranceRow[]) ?? [])
     setBoq((boqData as BoqItem[]) ?? [])
     setLoading(false)
   }
@@ -81,31 +75,16 @@ export default function DPR() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-headline text-2xl font-semibold text-[#e2e2e8]">Daily Progress (DPR)</h1>
-          <p className="text-sm text-[#dcc1ae] mt-0.5">BoQ progress tracking and site hindrances</p>
+          <p className="text-sm text-[#dcc1ae] mt-0.5">Daily BOQ progress against the schedule</p>
         </div>
         {can('dpr', 'add') && (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-            Add {tab === 'progress' ? 'Entry' : 'Hindrance'}
+            Add Entry
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 mb-5 border-b border-white/10">
-        {(['progress', 'hindrances'] as const).map(t => (
-          <button key={t} type="button"
-            className={`px-4 py-2.5 font-semibold text-sm transition-colors border-b-2 -mb-px ${
-              tab === t
-                ? 'border-[#ff8f00] text-[#ffb87b]'
-                : 'border-transparent text-[#dcc1ae] hover:text-[#e2e2e8]'
-            }`}
-            onClick={() => setTab(t)}>
-            {t === 'progress' ? 'Progress Entries' : 'Hindrances'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'progress' ? (
         <div className="card overflow-hidden overflow-x-auto">
           <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold text-[#e2e2e8]">Work Progress</span>
@@ -175,45 +154,9 @@ export default function DPR() {
           </table>
           {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
         </div>
-      ) : (
-        <div className="card overflow-hidden overflow-x-auto">
-          <div className="px-4 py-3 border-b border-white/5">
-            <span className="text-sm font-semibold text-[#e2e2e8]">Hindrances</span>
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-[#282a2e]">
-              <tr>
-                {['Date','Hindrance','Photo'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.05]">
-              {hindrances.map(r => (
-                <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-3 font-mono text-[13px] text-[#dcc1ae] whitespace-nowrap">{r.date}</td>
-                  <td className="px-4 py-3 text-[#e2e2e8]">{r.hindrance}</td>
-                  <td className="px-4 py-3">
-                    {r.photo
-                      ? <PrivateImage bucket="hindrance-photos" path={r.photo} alt="hindrance" className="h-8 w-12 object-cover rounded" />
-                      : <span className="text-[#dcc1ae]/40">—</span>}
-                  </td>
-                </tr>
-              ))}
-              {!hindrances.length && !loading && (
-                <tr><td colSpan={3} className="px-4 py-10 text-center text-[#dcc1ae]/60 text-sm">No hindrances recorded.</td></tr>
-              )}
-            </tbody>
-          </table>
-          {loading && <div className="p-4 text-[#dcc1ae] text-sm">Loading…</div>}
-        </div>
-      )}
 
-      {showForm && tab === 'progress' && (
+      {showForm && (
         <DprForm projectId={activeProject.id} boq={boq} dprRows={dprRows} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
-      )}
-      {showForm && tab === 'hindrances' && (
-        <HindranceForm projectId={activeProject.id} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
       )}
     </div>
   )
@@ -343,74 +286,6 @@ function ItemPicker({ boq, onPick, onClose }: { boq: BoqItem[]; onPick: (b: BoqI
           <button type="button" className="btn btn-ghost w-full" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
-  ), document.body)
-}
-
-function HindranceForm({ projectId, onClose, onSaved }: { projectId: string; onClose: () => void; onSaved: () => void }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate] = useState(today)
-  const [hindrance, setHindrance] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    if (!hindrance.trim()) { setErr('Describe the hindrance'); return }
-    setBusy(true); setErr(null)
-
-    const { data: prof } = await supabase.from('profiles').select('org_id').single()
-
-    let photoPath: string | null = null
-    if (file) {
-      const path = makeObjectPath(prof?.org_id, file, 'hindrance')
-      const { path: stored, error: upErr } = await uploadPrivate('hindrance-photos', path, file)
-      if (upErr) { setErr('Photo upload failed: ' + upErr); setBusy(false); return }
-      photoPath = stored ?? null
-    }
-
-    const { error } = await supabase.from('dpr_hindrance').insert({
-      org_id: prof?.org_id, project_id: projectId,
-      date, hindrance: hindrance.trim(), photo: photoPath,
-    })
-    setBusy(false)
-    if (error) { setErr(error.message); return }
-    onSaved()
-  }
-
-  return createPortal((
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <form onClick={e => e.stopPropagation()} onSubmit={save}
-        className="bg-[#1B1F2A] border border-white/[0.08] rounded-t-2xl lg:rounded-2xl w-full max-w-md shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
-        <div className="p-5 border-b border-white/5 flex items-center justify-between">
-          <h3 className="font-headline text-xl font-semibold text-[#e2e2e8]">Add Hindrance</h3>
-          <button type="button" className="text-[#dcc1ae] hover:text-white" onClick={onClose}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div className="p-5">
-          <div className="grid grid-cols-2 gap-3">
-            <L label="Date"><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></L>
-            <L label="Photo">
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
-              <button type="button" className="btn btn-ghost w-full" style={{ fontSize: '12px' }} onClick={() => fileRef.current?.click()}>
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>photo_camera</span>
-                {file ? file.name.slice(0, 14) : 'Attach photo'}
-              </button>
-            </L>
-          </div>
-          <L label="Hindrance description">
-            <textarea className="input" rows={3} value={hindrance} onChange={e => setHindrance(e.target.value)} />
-          </L>
-        </div>
-        {err && <div className="px-5 pb-2 text-sm text-red-400">{err}</div>}
-        <div className="p-5 pt-2 flex gap-3">
-          <button type="button" className="btn btn-ghost flex-1" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary flex-[2]" disabled={busy}>{busy ? 'Saving…' : 'Save Hindrance'}</button>
-        </div>
-      </form>
     </div>
   ), document.body)
 }

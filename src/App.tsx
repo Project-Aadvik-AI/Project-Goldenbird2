@@ -15,6 +15,8 @@ import Expenses from './pages/Expenses'
 import Store from './pages/Store'
 import Machines from './pages/Machines'
 import DPR from './pages/DPR'
+import Hindrances from './pages/Hindrances'
+import EOT from './pages/Eot'
 import Labour from './pages/Labour'
 import Purchase from './pages/Purchase'
 import Reports from './pages/Reports'
@@ -24,6 +26,11 @@ import AIBrief from './pages/AIBrief'
 import Projects from './pages/Projects'
 import OrgDashboard from './pages/OrgDashboard'
 import Employees from './pages/Employees'
+import PayrollSetup from './pages/PayrollSetup'
+import Payroll from './pages/Payroll'
+import PayrollReports from './pages/PayrollReports'
+import MyPayslips from './pages/MyPayslips'
+import PayrollAdvances from './pages/PayrollAdvances'
 import Designations from './pages/Designations'
 import Permissions from './pages/Permissions'
 import Boq from './pages/Boq'
@@ -39,6 +46,7 @@ import GiveImprest from './pages/GiveImprest'
 import HeadOffice from './pages/HeadOffice'
 import Accounting from './pages/Accounting'
 import Inventory from './pages/Inventory'
+import Warehouses from './pages/Warehouses'
 import StockMovements from './pages/StockMovements'
 import StockReports from './pages/StockReports'
 import StockDashboard from './pages/StockDashboard'
@@ -113,12 +121,19 @@ export default function App() {
           <Route path="/store" element={<ModuleGuard module="store"><Store /></ModuleGuard>} />
           <Route path="/machines" element={<ModuleGuard module="machines"><Machines /></ModuleGuard>} />
           <Route path="/dpr" element={<ModuleGuard module="dpr"><DPR /></ModuleGuard>} />
+          <Route path="/hindrances" element={<Hindrances />} />
+          <Route path="/eot" element={<EOT />} />
           <Route path="/labour" element={<ModuleGuard module="labour"><Labour /></ModuleGuard>} />
           <Route path="/purchase" element={<ModuleGuard module="purchase_requests"><Purchase /></ModuleGuard>} />
           <Route path="/reports" element={<ModuleGuard module="reports"><Reports /></ModuleGuard>} />
           <Route path="/masters" element={<Masters />} />
           <Route path="/team" element={<Team />} />
           <Route path="/employees" element={<ModuleGuard module="employees"><Employees /></ModuleGuard>} />
+          <Route path="/payroll" element={<Payroll />} />
+          <Route path="/payroll-reports" element={<PayrollReports />} />
+          <Route path="/my-payslips" element={<MyPayslips />} />
+          <Route path="/payroll-setup" element={<PayrollSetup />} />
+          <Route path="/payroll-advances" element={<PayrollAdvances />} />
           <Route path="/designations" element={<Designations />} />
           <Route path="/permissions" element={<Permissions />} />
           <Route path="/boq" element={<ModuleGuard module="boq"><Boq /></ModuleGuard>} />
@@ -134,6 +149,7 @@ export default function App() {
           <Route path="/head-office" element={<HeadOffice />} />
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/warehouses" element={<Warehouses />} />
           <Route path="/stock-movements" element={<ModuleGuard module="store"><StockMovements /></ModuleGuard>} />
           <Route path="/stock-dashboard" element={<ModuleGuard module="store"><StockDashboard /></ModuleGuard>} />
           <Route path="/stock-reports" element={<ModuleGuard module="store"><StockReports /></ModuleGuard>} />

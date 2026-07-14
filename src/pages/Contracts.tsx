@@ -25,6 +25,12 @@ const TYPES = ['Contract', 'License', 'Insurance', 'GST', 'PF', 'ESI', 'Bank Gua
 
 export default function Contracts() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { projects } = useProject()
   const { can } = useAuth()
   const [rows, setRows] = useState<Contract[]>([])
@@ -35,11 +41,20 @@ export default function Contracts() {
   const [projFilter, setProjFilter] = useState<string>('all')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { data } = await supabase.from('contracts').select('*').order('expiry_date', { ascending: true, nullsFirst: false }).eq('project_id', activeProject?.id ?? '')
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as Contract[]) ?? []); setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   async function del(id: string) {
     if (!confirm('Delete this contract?')) return

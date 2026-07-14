@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -41,6 +41,12 @@ type Tab = 'wastage' | 'norms'
 export default function MaterialNorms() {
   const { isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [tab, setTab] = useState<Tab>('wastage')
   const [norms, setNorms] = useState<Norm[]>([])
   const [wastage, setWastage] = useState<Wastage[]>([])
@@ -52,6 +58,7 @@ export default function MaterialNorms() {
   const [editing, setEditing] = useState<Norm | null>(null)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     // BOQ items for the active project
     let boqIds: string[] = []
@@ -70,6 +77,14 @@ export default function MaterialNorms() {
       supabase.from('inv_items').select('id, item_code, name, unit_id').eq('active', true).order('name'),
       supabase.from('inv_units').select('id, code'),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setNorms((n as Norm[]) ?? [])
     setWastage((w as Wastage[]) ?? [])
     setBoqItems((bi as BoqItem[]) ?? [])

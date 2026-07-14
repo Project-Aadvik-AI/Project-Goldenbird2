@@ -32,6 +32,12 @@ async function loadBoqItems(projectId: string): Promise<BoqItem[]> {
 
 export default function DPR() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can } = useAuth()
   const [dprRows, setDprRows] = useState<DprRow[]>([])
   const [boq, setBoq] = useState<BoqItem[]>([])
@@ -56,12 +62,21 @@ export default function DPR() {
   }
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setDprRows([]); setBoq([]); setLoading(false); return }
     setLoading(true)
     const [{ data: dpr }, boqData] = await Promise.all([
       supabase.from('dpr').select('*').eq('project_id', activeProject.id).order('date', { ascending: false }).limit(300),
       loadBoqItems(activeProject.id),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setDprRows((dpr as DprRow[]) ?? [])
     setBoq((boqData as BoqItem[]) ?? [])
     setLoading(false)

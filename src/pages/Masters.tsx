@@ -21,6 +21,7 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 export default function Masters() {
+  const { activeProject } = useProject()
   const [tab, setTab] = useState<Tab>('vendors')
 
   return (
@@ -74,7 +75,7 @@ function VendorList() {
     const { data } = await supabase.from('m_vendors').select('*').order('name')
     setRows((data as Vendor[]) ?? []); setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [])   // vendors are company-wide
 
   async function toggle(v: Vendor) {
     await supabase.from('m_vendors').update({ is_active: !v.is_active }).eq('id', v.id)
@@ -371,7 +372,7 @@ function BoqList() {
       .order('schedule').order('item')
     setRows((data as BoqItem[]) ?? [])
   }
-  useEffect(() => { load() }, [activeProject?.id])
+  useEffect(() => { load() }, [])
 
   async function add(e: React.FormEvent) {
     e.preventDefault()

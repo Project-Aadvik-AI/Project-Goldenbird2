@@ -3,6 +3,7 @@ import ModuleGuard from './components/ModuleGuard'
 import ChangePassword from './pages/ChangePassword'
 import { useAuth } from './lib/auth'
 import { ProjectProvider } from './lib/project'
+import { WorkspaceProvider } from './lib/workspace'
 import AuthPages from './components/AuthPages'
 import Home from './pages/site/Home'
 import About from './pages/site/About'
@@ -16,7 +17,7 @@ import Store from './pages/Store'
 import Machines from './pages/Machines'
 import DPR from './pages/DPR'
 import Hindrances from './pages/Hindrances'
-import EOT from './pages/Eot'
+import EOT from './pages/EOT'
 import Labour from './pages/Labour'
 import Purchase from './pages/Purchase'
 import Reports from './pages/Reports'
@@ -88,7 +89,7 @@ import Notices from './pages/Notices'
 import VendorBills from './pages/VendorBills'
 
 export default function App() {
-  const { ready, configured, session, profile, isPending, isDisabled, signOut } = useAuth()
+  const { ready, configured, session, profile, isPending, isDisabled, signOut, isAdmin } = useAuth()
 
   if (!configured) return <ConfigNotice />
   if (!ready) return <Splash />
@@ -111,6 +112,7 @@ export default function App() {
   if (profile && isDisabled) return <DisabledScreen onSignOut={signOut} />
 
   return (
+    <WorkspaceProvider isAdmin={isAdmin}>
     <ProjectProvider>
       <Routes>
         <Route element={<AppShell />}>
@@ -195,6 +197,7 @@ export default function App() {
         </Route>
       </Routes>
     </ProjectProvider>
+    </WorkspaceProvider>
   )
 }
 

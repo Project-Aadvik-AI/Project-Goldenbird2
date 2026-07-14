@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
@@ -15,6 +15,12 @@ type MasterMachine = { name: string; type: string | null }
 
 export default function Machines() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can } = useAuth()
   const [rows, setRows] = useState<MachineRow[]>([])
   const [masters, setMasters] = useState<MasterMachine[]>([])
@@ -22,6 +28,7 @@ export default function Machines() {
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setRows([]); setMasters([]); setLoading(false); return }
     setLoading(true)
     const [{ data: ledger }, { data: mm }] = await Promise.all([
@@ -30,6 +37,14 @@ export default function Machines() {
         .order('date', { ascending: false }).order('created_at', { ascending: false }).limit(300),
       supabase.from('m_machines').select('name, type').order('name'),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((ledger as MachineRow[]) ?? [])
     setMasters((mm as MasterMachine[]) ?? [])
     setLoading(false)

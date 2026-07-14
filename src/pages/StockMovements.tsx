@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { scopeToProject } from '../lib/scope'
@@ -46,6 +46,12 @@ type Balance = { item_id: string; warehouse_id: string; balance_qty: number; avg
 export default function StockMovements() {
   const { can, isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [rows, setRows] = useState<Movement[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +61,7 @@ export default function StockMovements() {
   const [ready, setReady] = useState(true)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { count } = await supabase.from('inv_items').select('id', { count: 'exact', head: true })
     if ((count ?? 0) === 0) { setReady(false); setLoading(false); return }
@@ -64,6 +71,14 @@ export default function StockMovements() {
         .order('movement_date', { ascending: false }).order('created_at', { ascending: false }).limit(300), activeProject?.id),
       supabase.from('inv_warehouses').select('id, name, project_id, is_main').eq('active', true).order('name'),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((m as Movement[]) ?? [])
     setWarehouses((w as Warehouse[]) ?? [])
     setLoading(false)

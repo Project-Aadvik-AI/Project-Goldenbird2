@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -43,6 +43,12 @@ type Tab = 'orders' | 'pending'
 export default function PurchaseOrders() {
   const { can, isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('orders')
   const [rows, setRows] = useState<PoStatus[]>([])
@@ -53,12 +59,21 @@ export default function PurchaseOrders() {
   const [fStatus, setFStatus] = useState('')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const [{ data: p }, { data: pd }, { data: w }] = await Promise.all([
       supabase.from('inv_po_status').select('*').order('po_date', { ascending: false }),
       supabase.from('inv_pending_deliveries').select('*').order('days_overdue', { ascending: false, nullsFirst: false }),
       supabase.from('inv_warehouses').select('id, name, project_id, is_main').eq('active', true),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((p as PoStatus[]) ?? [])
     setPending((pd as Pending[]) ?? [])
     setWarehouses((w as Warehouse[]) ?? [])

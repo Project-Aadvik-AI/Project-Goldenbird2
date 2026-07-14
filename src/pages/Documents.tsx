@@ -20,6 +20,12 @@ const CATEGORIES = ['Drawings', 'Bills', 'Photos', 'Reports', 'Approvals', 'Tend
 
 export default function Documents() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { projects } = useProject()
   const { can } = useAuth()
   const [rows, setRows] = useState<Doc[]>([])
@@ -29,11 +35,20 @@ export default function Documents() {
   const [catFilter, setCatFilter] = useState<string>('All')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? '')
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as Doc[]) ?? []); setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   const visible = rows.filter(r => {
     if (projFilter === 'company' && r.project_id) return false

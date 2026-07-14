@@ -1,8 +1,9 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import ChangePassword from '../pages/ChangePassword'
 import NotificationBell from './NotificationBell'
 import { useAuth, type Module } from '../lib/auth'
 import { useProject } from '../lib/project'
+import { useWorkspace } from '../lib/workspace'
 import { ThemeToggle } from '../lib/theme'
 import { useLang, LanguageToggle } from '../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
@@ -171,13 +172,6 @@ const HO_NAV: Entry[] = [
 ]
 
 // routes that belong to the Head Office panel
-const HO_ROUTES = new Set<string>([
-  '/head-office', '/projects', '/employees', '/designations', '/permissions', '/admin/staff', '/team',
-  '/assets', '/accounting', '/finance-reports', '/gst', '/bank-recon', '/accounting-export', '/give-imprest', '/admin/reports',
-  '/payroll', '/payroll-setup', '/payroll-advances', '/payroll-reports',
-  '/boq-schedules', '/masters', '/admin/invite', '/bugs',
-])
-
 const BOTTOM_NAV = [
   { to: '/', label: 'Overview', icon: 'dashboard' },
   { to: '/projects', label: 'Projects', icon: 'domain' },
@@ -203,10 +197,28 @@ export default function AppShell() {
   const { profile, user, signOut, isAdmin, can, mustChangePassword } = useAuth()
   const { t } = useLang()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { projects, activeProject, setActiveProject, loading: projectsLoading } = useProject()
   const [open, setOpen] = useState(false)
 
   // Head Office panel mode: admin is inside a HO route → show the HO sidebar instead
-  const inHeadOffice = isAdmin && HO_ROUTES.has(pathname)
+  // ⚠️ THE WORKSPACE IS A CHOICE, NOT A URL LOOKUP.
+  //
+  //    This used to be:
+  //        const inHeadOffice = isAdmin && HO_ROUTES.has(pathname)
+  //
+  //    HO_ROUTES was a hand-maintained list of paths. Open a page that was
+  //    not on the list — Employees, Vendors, Inventory, Warehouses — and the
+  //    app decided you had left Head Office, and silently dropped you into a
+  //    project workspace. You never picked a project. It picked one for you.
+  //
+  //    Worse, every new page I added was a fresh trapdoor until I remembered
+  //    to add it to the list. That is not a rule; it is a list of exceptions
+  //    pretending to be one.
+  //
+  //    Now: you are in Head Office because you SAID so. You stay there until
+  //    you say otherwise. The URL has no vote.
+  const { inHeadOffice, enterHeadOffice, enterProject } = useWorkspace()
 
   const leafVisible = (n: Leaf) => {
     if (n.adminOnly) return isAdmin
@@ -261,18 +273,23 @@ export default function AppShell() {
         <nav className="flex-1 overflow-y-auto py-4 space-y-0.5">
           {isAdmin && (
             <div className="px-4 pb-3 mb-2 border-b border-[var(--line)]">
+              {/* ⚠️ These are the ONLY two ways to change workspace.
+                  Nothing else — no page, no link, no route — may move you
+                  between Head Office and a project. */}
               {inHeadOffice ? (
-                <NavLink to="/" onClick={() => setOpen(false)}
+                <button
+                  onClick={() => { enterProject(); setOpen(false); navigate('/project') }}
                   className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-[11px] font-semibold uppercase tracking-wider text-[var(--text-2)] transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
-                  Project Workspace
-                </NavLink>
+                  Go to Project Workspace
+                </button>
               ) : (
-                <NavLink to="/head-office" onClick={() => setOpen(false)}
+                <button
+                  onClick={() => { enterHeadOffice(); setOpen(false); navigate('/head-office') }}
                   className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25 hover:bg-[var(--accent)]/15 text-[11px] font-semibold uppercase tracking-wider text-[var(--accent)] transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>corporate_fare</span>
-                  Head Office
-                </NavLink>
+                  Back to Head Office
+                </button>
               )}
             </div>
           )}
@@ -351,7 +368,25 @@ export default function AppShell() {
           <button className="lg:hidden btn btn-ghost" style={{ padding: '8px', minWidth: 0 }} onClick={() => setOpen(true)}>
             <span className="material-symbols-outlined">menu</span>
           </button>
-          <ProjectSwitcher />
+          {inHeadOffice ? (
+            // In Head Office there is no project to switch. Say so plainly,
+            // so nobody wonders why the project name has vanished.
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25">
+              <span className="material-symbols-outlined text-[var(--accent)]" style={{ fontSize: '18px' }}>
+                corporate_fare
+              </span>
+              <div>
+                <div className="text-[9px] uppercase tracking-[0.18em] text-[var(--accent)] font-bold leading-none">
+                  Head Office
+                </div>
+                <div className="text-[12px] font-medium text-[var(--text)] leading-tight mt-0.5">
+                  All projects
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ProjectSwitcher />
+          )}
           <div className="flex-1" />
           <NotificationBell />
           <LanguageToggle />
@@ -361,6 +396,42 @@ export default function AppShell() {
             <span className="text-[10px] font-mono tracking-[0.24em] text-[var(--faint)] uppercase">{t('Live')}</span>
           </div>
         </header>
+
+        {/* A project workspace with no project chosen: say so, rather than
+            showing forty empty tables. Removing the auto-select means this
+            state is now possible — and it is the honest one. */}
+        {!inHeadOffice && !activeProject && !projectsLoading && projects.length > 0 && (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <span className="material-symbols-outlined text-[var(--faint)]" style={{ fontSize: '40px' }}>
+                domain
+              </span>
+              <h2 className="font-headline text-xl font-semibold text-[var(--text)] mt-3">
+                Pick a project
+              </h2>
+              <p className="text-sm text-[var(--text-2)] mt-1">
+                This is a project workspace. Choose which site you are working on,
+                or go to Head Office to see everything at once.
+              </p>
+              <div className="flex flex-col gap-2 mt-5">
+                {projects.slice(0, 5).map(p => (
+                  <button key={p.id}
+                    onClick={() => setActiveProject(p)}
+                    className="px-4 py-2.5 rounded-lg border border-[var(--line)] hover:bg-white/[0.04] text-[13px] font-medium text-[var(--text)] transition-colors">
+                    {p.name}
+                  </button>
+                ))}
+                {isAdmin && (
+                  <button
+                    onClick={() => { enterHeadOffice(); navigate('/head-office') }}
+                    className="px-4 py-2.5 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25 text-[13px] font-semibold text-[var(--accent)] mt-1">
+                    Go to Head Office instead
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <main className="flow-bg flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8">
           <div className="relative z-10">

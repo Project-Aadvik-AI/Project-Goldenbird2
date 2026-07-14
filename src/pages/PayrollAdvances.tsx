@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -38,6 +38,13 @@ type Adv = {
 type Tab = 'overtime' | 'loans' | 'advances'
 
 export default function PayrollAdvances() {
+  const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('overtime')
   const [ots, setOts] = useState<OT[]>([])
@@ -49,18 +56,27 @@ export default function PayrollAdvances() {
   const [showAdv, setShowAdv] = useState(false)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const [o, l, a] = await Promise.all([
       supabase.from('overtime_register').select('*').order('ot_date', { ascending: false }),
       supabase.from('employee_loan_balance').select('*').order('outstanding', { ascending: false }),
       supabase.from('employee_advance_balance').select('*').order('outstanding', { ascending: false }),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setOts((o.data as OT[]) ?? [])
     setLoans((l.data as Loan[]) ?? [])
     setAdvs((a.data as Adv[]) ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   async function approveOT(o: OT, approve: boolean) {
     let reason: string | null = null
@@ -414,6 +430,7 @@ function Advances({ rows }: { rows: Adv[] }) {
 // =====================================================================
 function useEmployees() {
   const [emps, setEmps] = useState<Emp[]>([])
+  // employees are company-wide, not per project — load once
   useEffect(() => {
     supabase.from('employees').select('id, emp_code, full_name, department')
       .eq('status', 'Active').order('full_name')

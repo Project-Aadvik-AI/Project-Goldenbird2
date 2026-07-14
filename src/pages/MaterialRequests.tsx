@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -45,6 +45,12 @@ const PRIORITY_STYLE: Record<string, string> = {
 export default function MaterialRequests() {
   const { can, isAdmin, user } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const navigate = useNavigate()
   const [rows, setRows] = useState<MR[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,11 +60,20 @@ export default function MaterialRequests() {
   const [fPriority, setFPriority] = useState('')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     // release any stale reservations first
     await supabase.rpc('inv_release_expired_reservations')
     const { data } = await supabase.from('inv_mr_status').select('*')
       .order('request_date', { ascending: false })
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as MR[]) ?? [])
     setLoading(false)
   }

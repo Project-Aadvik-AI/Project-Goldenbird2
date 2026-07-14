@@ -38,6 +38,12 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function Drawings() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can, isAdmin } = useAuth()
   const [folders, setFolders] = useState<Folder[]>([])
   const [drawings, setDrawings] = useState<Drawing[]>([])
@@ -51,12 +57,21 @@ export default function Drawings() {
   const canDelete = can('drawings', 'delete') || isAdmin
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setFolders([]); setDrawings([]); setLoading(false); return }
     setLoading(true)
     const [{ data: f }, { data: d }] = await Promise.all([
       supabase.from('drawing_folders').select('*').eq('project_id', activeProject.id).order('name'),
       supabase.from('drawings').select('*').eq('project_id', activeProject.id).order('created_at', { ascending: false }),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setFolders((f as Folder[]) ?? [])
     setDrawings((d as Drawing[]) ?? [])
     setLoading(false)

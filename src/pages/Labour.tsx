@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
@@ -14,17 +14,32 @@ const SKILLS = ['Skilled', 'Semi-skilled', 'Unskilled', 'Supervisor']
 
 export default function Labour() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can } = useAuth()
   const [rows, setRows] = useState<LabourRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setRows([]); setLoading(false); return }
     setLoading(true)
     const { data } = await supabase.from('labour_attendance')
       .select('*').eq('project_id', activeProject.id)
       .order('date', { ascending: false }).limit(500)
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as LabourRow[]) ?? [])
     setLoading(false)
   }

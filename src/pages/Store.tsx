@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
@@ -15,6 +15,12 @@ type StockBalance = { item: string; unit: string; in_qty: number; out_qty: numbe
 
 export default function Store() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can } = useAuth()
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [stock, setStock] = useState<StockBalance[]>([])
@@ -22,6 +28,7 @@ export default function Store() {
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setRows([]); setStock([]); setLoading(false); return }
     setLoading(true)
     const { data } = await supabase
@@ -29,6 +36,14 @@ export default function Store() {
       .eq('project_id', activeProject.id)
       .order('date', { ascending: false }).order('created_at', { ascending: false }).limit(300)
     const ledger = (data as LedgerRow[]) ?? []
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows(ledger)
     const map: Record<string, StockBalance> = {}
     for (const r of ledger) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -41,6 +41,12 @@ const STATUS_STYLES: Record<string, string> = {
 export default function Tasks() {
   const { user, isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [tab, setTab] = useState<'mine' | 'done' | 'assigned' | 'perf'>('mine')
   const [tasks, setTasks] = useState<Task[]>([])
   const [people, setPeople] = useState<Person[]>([])
@@ -49,16 +55,25 @@ export default function Tasks() {
   const [openTask, setOpenTask] = useState<Task | null>(null)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const [{ data: t }, { data: p }] = await Promise.all([
       supabase.from('tasks').select('*').order('created_at', { ascending: false }).eq('project_id', activeProject?.id ?? ''),
       supabase.from('profiles').select('id, full_name').order('full_name'),   // all (needed to resolve names on old tasks)
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setTasks((t as Task[]) ?? [])
     setPeople((p as Person[]) ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   const uid = user?.id
   const mineAll = tasks.filter(t => t.assigned_to === uid)
@@ -244,7 +259,7 @@ function AssignForm({ people, onClose, onSaved }: { people: Person[]; onClose: (
       const { data: p } = await supabase.from('profiles').select('full_name').eq('id', u.user.id).maybeSingle()
       setMeName((p as any)?.full_name || u.user.email || 'You')
     })()
-  }, [])
+  }, [activeProject?.id])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()

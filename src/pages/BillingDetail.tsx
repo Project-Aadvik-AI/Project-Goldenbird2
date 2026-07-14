@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -30,6 +30,12 @@ type Line = {
 
 export default function BillingDetail() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isAdmin, user } = useAuth()
@@ -46,6 +52,7 @@ export default function BillingDetail() {
   const [accReady, setAccReady] = useState(true)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!id) return
     setLoading(true)
     const { data: b } = await supabase.from('ra_bills').select('*').eq('id', id).single()
@@ -63,6 +70,14 @@ export default function BillingDetail() {
       supabase.from('acc_deduction_types').select('*').eq('active', true).order('sort_order'),
       supabase.from('ra_bill_deductions').select('*').eq('bill_id', id).order('line_no'),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setParties((pty as Party[]) ?? [])
     setTaxes((tx as TaxRate[]) ?? [])
     setDedTypes((dt as DedType[]) ?? [])

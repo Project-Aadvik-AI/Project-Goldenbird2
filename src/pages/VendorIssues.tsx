@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -45,6 +45,12 @@ const COND_STYLE: Record<string, string> = {
 export default function VendorIssues() {
   const { can, isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -54,6 +60,7 @@ export default function VendorIssues() {
   const [qq, setQq] = useState('')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     // scan for overdue returns and expiring documents.
     // the DB deduplicates, so this is safe to call on every load.
@@ -61,6 +68,14 @@ export default function VendorIssues() {
     const { data } = await supabase.from('vendor_pending_returns').select('*')
       .eq('project_id', activeProject?.id ?? '')
       .order('days_overdue', { ascending: false, nullsFirst: false })
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as Row[]) ?? [])
     setLoading(false)
   }

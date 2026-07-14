@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { supabase } from './supabase'
+import { useWorkspace } from './workspace'
 
 export type Project = {
   id: string
@@ -29,6 +30,7 @@ export const useProject = () => useContext(Ctx)
 const STORAGE_KEY = 'aadvik.activeProjectId'
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
+  const { inHeadOffice } = useWorkspace()
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProject, setActiveProjectState] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
@@ -44,7 +46,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const savedId = localStorage.getItem(STORAGE_KEY)
     let next: Project | null = null
     if (savedId) next = list.find(p => p.id === savedId) ?? null
-    if (!next && list.length > 0) next = list[0]
+
+    // ⚠️ REMOVED: `if (!next && list.length > 0) next = list[0]`
+    //
+    //    The app used to AUTO-SELECT the first project if you had not chosen
+    //    one. So a Head Office user who never picked a project was silently
+    //    given one — and every page then filtered by it, showing ONE project's
+    //    data while they believed they were looking at the whole company.
+    //
+    //    Nothing should choose a project on your behalf. If you have not
+    //    picked one, you have not picked one.
     setActiveProjectState(next)
     if (next) localStorage.setItem(STORAGE_KEY, next.id)
     else localStorage.removeItem(STORAGE_KEY)
@@ -59,8 +70,27 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem(STORAGE_KEY)
   }
 
+  // ⚠️ IN HEAD OFFICE, THERE IS NO ACTIVE PROJECT.
+  //
+  //    Every page already does:
+  //        if (activeProject) query = query.eq('project_id', activeProject.id)
+  //
+  //    So a NULL activeProject naturally means "every project" — which is
+  //    precisely what Head Office means. We do not have to touch 40 pages;
+  //    we just stop lying to them about which project they are in.
+  //
+  //    The chosen project is REMEMBERED (it stays in localStorage), so
+  //    stepping into Head Office and back does not lose your place.
+  const effectiveProject = inHeadOffice ? null : activeProject
+
   return (
-    <Ctx.Provider value={{ projects, activeProject, setActiveProject, loading, reload }}>
+    <Ctx.Provider value={{
+      projects,
+      activeProject: effectiveProject,
+      setActiveProject,
+      loading,
+      reload,
+    }}>
       {children}
     </Ctx.Provider>
   )

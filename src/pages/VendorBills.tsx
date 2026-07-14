@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -46,6 +46,12 @@ const STAGE_STYLE: Record<string, string> = {
 export default function VendorBills() {
   const { can, isAdmin } = useAuth()
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [rows, setRows] = useState<Bill[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -54,10 +60,19 @@ export default function VendorBills() {
   const [q, setQ] = useState('')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { data } = await supabase.from('vendor_bill_pipeline').select('*')
       .eq('project_id', activeProject?.id ?? '')
       .order('bill_date', { ascending: false })
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as Bill[]) ?? [])
     setLoading(false)
   }

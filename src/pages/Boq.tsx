@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -18,6 +18,12 @@ const STATUS_CLS: Record<string, string> = {
 
 export default function Boq() {
   const { projects, activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const navigate = useNavigate()
   const [rows, setRows] = useState<Boq[]>([])
   const [totals, setTotals] = useState<Record<string, { amount: number; count: number }>>({})
@@ -25,6 +31,7 @@ export default function Boq() {
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     // Only BOQs belonging to the ACTIVE project.
     // Previously this fetched every BOQ in the org, so a BOQ with no
@@ -42,6 +49,14 @@ export default function Boq() {
         t[it.boq_id].amount += Number(it.amount || 0)
         t[it.boq_id].count += 1
       }
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
       setTotals(t)
     }
     setLoading(false)

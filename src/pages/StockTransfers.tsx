@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -40,6 +40,13 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 export default function StockTransfers() {
+  const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can, isAdmin } = useAuth()
   const [rows, setRows] = useState<Transfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,13 +56,22 @@ export default function StockTransfers() {
   const [fStatus, setFStatus] = useState('')
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { data } = await supabase.from('inv_transfer_status').select('*')
       .order('request_date', { ascending: false })
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setRows((data as Transfer[]) ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [activeProject?.id])
 
   const filtered = useMemo(() =>
     rows.filter(r => !fStatus || r.status === fStatus), [rows, fStatus])
@@ -258,7 +274,7 @@ function TransferForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       const main = ((w as Warehouse[]) ?? []).find(x => x.is_main && x.project_id === activeProject?.id)
       if (main) setToWh(main.id)
     })()
-  }, [])
+  }, [activeProject?.id])
 
   const unitOf = (itemId: string) => {
     const it = items.find(i => i.id === itemId)

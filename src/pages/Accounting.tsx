@@ -36,6 +36,7 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 type Tab = 'coa' | 'parties' | 'taxes' | 'deductions' | 'vouchers'
 
 export default function Accounting() {
+  const { activeProject } = useProject()
   const { isAdmin } = useAuth()
   const [tab, setTab] = useState<Tab>('coa')
   const [seeded, setSeeded] = useState<boolean | null>(null)
@@ -127,7 +128,7 @@ function ChartOfAccounts() {
     setBalances((b as Balance[]) ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [])   // the chart of accounts is company-wide
 
   const balOf = (id: string) => balances.find(b => b.ledger_id === id)?.closing_balance ?? 0
   const groupName = (id: string) => groups.find(g => g.id === id)?.name ?? '—'
@@ -735,7 +736,7 @@ function Vouchers() {
     setRows(((data as any[]) ?? []).map(v => ({ ...v, id: v.voucher_id })) as Voucher[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [activeProject?.id])
+  useEffect(() => { load() }, [])
 
   const filtered = useMemo(() => rows.filter(r =>
     (!fType || r.voucher_type === fType) && (!fStatus || r.status === fStatus)

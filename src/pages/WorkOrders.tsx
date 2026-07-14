@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
@@ -51,6 +51,12 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function WorkOrders() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const { can, isAdmin } = useAuth()
   const [rows, setRows] = useState<WO[]>([])
   const [items, setItems] = useState<Record<string, WOItem[]>>({})
@@ -64,6 +70,7 @@ export default function WorkOrders() {
   const canAdd = can('work_orders', 'add') || can('purchase', 'add') || isAdmin
 
   async function load() {
+    const _p = activeProject?.id ?? null
     if (!activeProject) { setRows([]); setLoading(false); return }
     setLoading(true)
     const [{ data: wo }, { data: v }, { data: prs }] = await Promise.all([
@@ -82,6 +89,14 @@ export default function WorkOrders() {
       for (const row of (it as WOItem[]) ?? []) {
         (byWo[row.work_order_id] ??= []).push(row)
       }
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
       setItems(byWo)
     } else {
       setItems({})

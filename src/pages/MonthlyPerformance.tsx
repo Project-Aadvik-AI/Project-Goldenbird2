@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 import { round2, inr } from '../lib/boq'
@@ -14,6 +14,12 @@ function monthRange(ym: string) {
 
 export default function MonthlyPerformance() {
   const { activeProject } = useProject()
+
+  // always holds the CURRENT project. A response for any other project
+  // is stale and must be discarded.
+  const _pRef = useRef<string | null>(activeProject?.id ?? null)
+  _pRef.current = activeProject?.id ?? null
+
   const [boqs, setBoqs] = useState<Boq[]>([])
   const [boqId, setBoqId] = useState('')
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -30,9 +36,10 @@ export default function MonthlyPerformance() {
       const list = (data as Boq[]) ?? []
       setBoqs(list); if (list.length && !boqId) setBoqId(list[0].id)
     })()
-  }, [])
+  }, [activeProject?.id])
 
   async function load() {
+    const _p = activeProject?.id ?? null
     setLoading(true)
     const { from, to } = monthRange(month)
 
@@ -62,6 +69,14 @@ export default function MonthlyPerformance() {
       supabase.from('store_ledger').select('value, direction').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
       supabase.from('machine_status').select('status').eq('project_id', activeProject?.id ?? '').gte('date', from).lte('date', to),
     ])
+
+    // ---- THE GUARD ----
+    // Did the user switch project while we were waiting? If so, this
+    // response is for a project they have left. Throw it away — otherwise
+    // a slow response overwrites the new project's data, and the screen
+    // looks perfectly correct while showing the wrong thing.
+    if (_pRef.current !== _p) return
+
     setExpenses(round2((exp.data ?? []).reduce((n, r: { amount: number }) => n + Number(r.amount || 0), 0)))
     setLabour(round2((lab.data ?? []).reduce((n, r: { wage: number }) => n + Number(r.wage || 0), 0)))
     setMaterial(round2((sto.data ?? [])

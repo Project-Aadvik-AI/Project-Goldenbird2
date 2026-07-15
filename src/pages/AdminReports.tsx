@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
 
-type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary' | 'imprest'
+type ReportKey = 'expenses' | 'creditors' | 'stock' | 'balances' | 'dpr' | 'prs' | 'attendance' | 'salary' | 'labour_salary' | 'imprest'
   | 'asset_register' | 'asset_docs' | 'asset_maint' | 'asset_loans'
 
 const REPORTS: { key: ReportKey; label: string; help: string }[] = [
@@ -15,7 +15,8 @@ const REPORTS: { key: ReportKey; label: string; help: string }[] = [
   { key: 'dpr', label: 'DPR summary', help: 'Daily progress entries in the range.' },
   { key: 'prs', label: 'Open purchase requests', help: 'PRs with status Open in the range.' },
   { key: 'attendance', label: 'Attendance summary', help: 'Per employee: Present / Absent / Half-day / Leave / Holiday / Week-off counts in the date range.' },
-  { key: 'salary', label: 'Salary (payroll)', help: 'Earned salary for the range: pays only for Present (+ half of Half-day) days at per-day rate (monthly salary / days in month). Unmarked/Absent days are not paid.' },
+  { key: 'salary', label: 'Salary (payroll)', help: 'Earned salary for the range: pays only for Present (+ half of Half-day) days at per-day rate (monthly salary / days in month). Unmarked/Absent days are not paid. Excludes labour-flagged employees — see the Labour salary report.' },
+  { key: 'labour_salary', label: 'Labour salary (daily wage)', help: 'Labour-flagged employees paid by daily wage: rate × days worked (Present + half of Half-day), from Attendance marks in the range. Trade is taken from designation.' },
   { key: 'imprest', label: 'Staff Imprest / Advances', help: 'Employee-wise advances: total given, spent (bills), balance outstanding, settlement status, and aging of unsettled advances.' },
   { key: 'asset_register', label: 'Asset Register', help: 'All company assets: code, category, status, assignment, purchase cost, vehicle details.' },
   { key: 'asset_docs', label: 'Asset Document Expiry', help: 'Every asset document with its expiry date and status (Expired / Expiring in 30 days / Valid). Covers insurance, RC, PUC, fitness, permit, warranty.' },
@@ -259,7 +260,7 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
   if (report === 'attendance') {
     const [{ data: emps }, { data: att }] = await Promise.all([
       supabase.from('employees').select('id, full_name, emp_code, department'),
-      supabase.from('attendance').select('employee_id, status, date').gte('date', from).lte('date', to),
+      projFilter(supabase.from('attendance').select('employee_id, status, date')).gte('date', from).lte('date', to),
     ])
     const empList = (emps as any[]) ?? []
     const nameById = new Map(empList.map(e => [e.id, e]))
@@ -280,13 +281,15 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
       else if (st === 'week off' || st === 'week-off' || st === 'weekoff') row['Week Off']++
       row['Total Marked']++
     }
-    return [...map.values()].sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
+    return [...map.values()]
+      .filter(r => !projectId || r['Total Marked'] > 0)
+      .sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
   }
 
   if (report === 'salary') {
     const [{ data: emps }, { data: att }, { data: advs }, { data: iexp }] = await Promise.all([
-      supabase.from('employees').select('id, full_name, emp_code, department, monthly_salary'),
-      supabase.from('attendance').select('employee_id, status, date').gte('date', from).lte('date', to),
+      supabase.from('employees').select('id, full_name, emp_code, department, monthly_salary, is_labour'),
+      projFilter(supabase.from('attendance').select('employee_id, status, date')).gte('date', from).lte('date', to),
       supabase.from('advances').select('employee_id, amount, spent_amount, settled'),
       supabase.from('expenses').select('imprest_employee_id, amount, approval_status'),
     ])
@@ -297,13 +300,15 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
     const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
     const map = new Map<string, any>()
     for (const e of empList) {
+      if (e.is_labour) continue   // labour is paid by daily wage — see the Labour salary report
       const monthly = Number(e.monthly_salary || 0)
       map.set(e.id, { _monthly: monthly, _id: e.id, Code: e.emp_code || '—', Employee: e.full_name,
         Department: e.department || '—', 'Monthly Salary': monthly,
-        Present: 0, Absent: 0, 'Half Day': 0, Paid: 0 })
+        Present: 0, Absent: 0, 'Half Day': 0, Paid: 0, _marked: 0 })
     }
     for (const r of (att as any[]) ?? []) {
       const row = map.get(r.employee_id); if (!row) continue
+      row._marked++
       const st = norm(r.status)
       if (st === 'present') { row.Present++; row.Paid++ }
       else if (st === 'absent') row.Absent++
@@ -326,12 +331,12 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
       outMap.set(x.imprest_employee_id, round2(cur - Number(x.amount || 0)))
     }
 
-    return [...map.values()].map(row => {
+    return [...map.values()].filter(row => !projectId || row._marked > 0).map(row => {
       const perDay = daysInMonth ? row._monthly / daysInMonth : 0
       // Earned-based: pay ONLY for Present (+ half of Half-day). Unmarked days are NOT paid.
       const paidDays = round2(row.Present + 0.5 * row['Half Day'])
       const earned = round2(perDay * paidDays)
-      const { _monthly, Paid, _id, ...rest } = row
+      const { _monthly, Paid, _id, _marked, ...rest } = row
       const outstanding = Math.max(0, round2(outMap.get(row._id) ?? 0))
       const recovery = round2(Math.min(outstanding, earned))
       const netAfter = round2(earned - recovery)
@@ -342,11 +347,40 @@ async function runReport(report: ReportKey, projectId: string, from: string, to:
     }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
   }
 
+  if (report === 'labour_salary') {
+    const [{ data: emps }, { data: att }] = await Promise.all([
+      supabase.from('employees').select('id, full_name, emp_code, department, designation, daily_wage_rate').eq('is_labour', true),
+      projFilter(supabase.from('attendance').select('employee_id, status, date')).gte('date', from).lte('date', to),
+    ])
+    const norm = (st: string) => (st || '').toLowerCase()
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+    const map = new Map<string, any>()
+    for (const e of (emps as any[]) ?? []) {
+      map.set(e.id, {
+        Code: e.emp_code || '—', Employee: e.full_name, Department: e.department || '—',
+        Trade: e.designation || '—', 'Daily Rate': Number(e.daily_wage_rate || 0),
+        Present: 0, 'Half Day': 0, _paid: 0, _marked: 0,
+      })
+    }
+    for (const r of (att as any[]) ?? []) {
+      const row = map.get(r.employee_id); if (!row) continue
+      row._marked++
+      const st = norm(r.status)
+      if (st === 'present') { row.Present++; row._paid++ }
+      else if (st === 'half day' || st === 'half-day' || st === 'halfday') { row['Half Day']++; row._paid += 0.5 }
+    }
+    return [...map.values()].filter(row => !projectId || row._marked > 0).map(row => {
+      const { _paid, _marked, ...rest } = row
+      const paidDays = round2(_paid)
+      return { ...rest, 'Paid Days': paidDays, 'Wage Payable': round2(row['Daily Rate'] * paidDays) }
+    }).sort((a, b) => String(a.Employee).localeCompare(String(b.Employee)))
+  }
+
   if (report === 'imprest') {
     const [{ data: emps }, { data: advs }, { data: iexp }] = await Promise.all([
       supabase.from('employees').select('id, full_name, emp_code'),
-      supabase.from('advances').select('employee_id, amount, spent_amount, date, settled'),
-      supabase.from('expenses').select('imprest_employee_id, amount'),
+      projFilter(supabase.from('advances').select('employee_id, amount, spent_amount, date, settled')),
+      projFilter(supabase.from('expenses').select('imprest_employee_id, amount')),
     ])
     const nameById = new Map((emps as any[] ?? []).map(e => [e.id, e]))
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100

@@ -22,7 +22,6 @@ import Labour from './pages/Labour'
 import LabourDashboard from './pages/LabourDashboard'
 import Purchase from './pages/Purchase'
 import Reports from './pages/Reports'
-import Masters from './pages/Masters'
 import Team from './pages/Team'
 import AIBrief from './pages/AIBrief'
 import Projects from './pages/Projects'
@@ -132,7 +131,7 @@ export default function App() {
           <Route path="/labour-dashboard" element={<ModuleGuard module="labour"><LabourDashboard /></ModuleGuard>} />
           <Route path="/purchase" element={<ModuleGuard module="purchase_requests"><Purchase /></ModuleGuard>} />
           <Route path="/reports" element={<ModuleGuard module="reports"><Reports /></ModuleGuard>} />
-          <Route path="/masters" element={<Masters />} />
+          <Route path="/masters" element={<Navigate to="/" replace />} />
           <Route path="/team" element={<Team />} />
           <Route path="/employees" element={<ModuleGuard module="employees"><Employees /></ModuleGuard>} />
           <Route path="/payroll" element={<Payroll />} />

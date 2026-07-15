@@ -6,9 +6,11 @@ import { useAuth } from '../lib/auth'
 
 export default function Projects() {
   const { projects, activeProject, setActiveProject, loading, reload } = useProject()
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
+  const isOwner = profile?.role === 'owner'
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState<Project | null>(null)
 
   return (
     <div>
@@ -74,6 +76,15 @@ export default function Projects() {
                         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
                       </button>
                     )}
+                    {isOwner && (
+                      <button
+                        onClick={() => setDeleting(p)}
+                        className="text-[#dcc1ae] hover:text-red-400 transition-colors ml-3"
+                        title="Delete project — permanent"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               )
@@ -95,8 +106,71 @@ export default function Projects() {
           onSaved={async () => { setShowForm(false); await reload() }}
         />
       )}
+
+      {deleting && (
+        <DeleteProjectModal
+          project={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={async () => {
+            if (activeProject?.id === deleting.id) setActiveProject(null)
+            setDeleting(null)
+            await reload()
+          }}
+        />
+      )}
     </div>
   )
+}
+
+function DeleteProjectModal({ project, onClose, onDeleted }: { project: Project; onClose: () => void; onDeleted: () => void | Promise<void> }) {
+  const [confirmText, setConfirmText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const armed = confirmText.trim() === (project.name || '').trim() && !!project.name
+
+  async function run() {
+    if (!armed) return
+    setBusy(true); setErr(null)
+    const { error } = await supabase.rpc('delete_project', { p_project_id: project.id })
+    if (error) { setErr(error.message); setBusy(false); return }
+    await onDeleted()
+  }
+
+  return createPortal((
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-[#1B1F2A] border border-red-500/30 rounded-2xl w-full max-w-lg shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
+        <div className="p-5 border-b border-white/5 flex items-center gap-2.5">
+          <span className="material-symbols-outlined text-red-400">warning</span>
+          <h3 className="font-headline text-lg font-semibold text-[#e2e2e8]">Delete project — permanent</h3>
+        </div>
+        <div className="p-5 space-y-3 text-[13px] text-[#dcc1ae]">
+          <p>
+            This permanently deletes <span className="font-semibold text-[#e2e2e8]">{project.name}</span> and
+            {' '}<span className="text-red-400 font-semibold">all of its data</span> — expenses, attendance, labour, DPR,
+            BOQ, billing, measurement books, work orders, purchase requests, vendor bills, stock and documents. This cannot be undone.
+          </p>
+          <p>
+            Company records are <span className="text-emerald-400 font-semibold">kept</span> and simply unlinked from this
+            project: employees, assets/vehicles and loans.
+          </p>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Type the project name to confirm</span>
+            <input className="input mt-1" value={confirmText} onChange={e => setConfirmText(e.target.value)} placeholder={project.name || ''} autoFocus />
+          </div>
+          {err && <div className="text-red-400">{err}</div>}
+        </div>
+        <div className="p-5 pt-2 flex gap-3">
+          <button className="btn btn-ghost flex-1" onClick={onClose} disabled={busy}>Cancel</button>
+          <button
+            className="btn flex-[2]"
+            style={{ background: armed ? '#ef4444' : 'rgba(239,68,68,0.3)', color: '#fff', cursor: armed && !busy ? 'pointer' : 'not-allowed' }}
+            disabled={!armed || busy}
+            onClick={run}
+          >{busy ? 'Deleting…' : 'Delete this project forever'}</button>
+        </div>
+      </div>
+    </div>
+  ), document.body)
 }
 
 function StatusBadge({ status }: { status: string }) {

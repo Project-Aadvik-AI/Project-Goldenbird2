@@ -169,7 +169,6 @@ const HO_NAV: Entry[] = [
 
   { group: 'Settings', icon: 'settings', items: [
     { to: '/boq-schedules', label: 'Schedule Master', icon: 'list_alt' },
-    { to: '/masters', label: 'Master Data', icon: 'database' },
     { to: '/admin/invite', label: 'Invite Code', icon: 'qr_code_2' },
     { to: '/bugs', label: 'Bug Reports', icon: 'bug_report' },
   ] },

@@ -75,7 +75,7 @@ export default function WorkOrders() {
     setLoading(true)
     const [{ data: wo }, { data: v }, { data: prs }] = await Promise.all([
       supabase.from('work_orders').select('*').eq('project_id', activeProject.id).order('created_at', { ascending: false }),
-      supabase.from('m_vendors').select('id, name, gstin, address').order('name'),
+      supabase.from('acc_parties').select('id, name').in('party_type', ['Vendor', 'Both']).eq('status', 'Active').order('name'),
       supabase.from('purchase_requests').select('id, pr_no, material, qty, unit, vendor, status, date').eq('project_id', activeProject.id).in('status', ['Approved', 'Ordered']).order('date', { ascending: false }),
     ])
     const list = (wo as WO[]) ?? []

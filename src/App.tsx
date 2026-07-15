@@ -88,6 +88,8 @@ import Drawings from './pages/Drawings'
 import Tasks from './pages/Tasks'
 import Notices from './pages/Notices'
 import VendorBills from './pages/VendorBills'
+import CreditManagement from './pages/CreditManagement'
+import LoanDetail from './pages/LoanDetail'
 
 export default function App() {
   const { ready, configured, session, profile, isPending, isDisabled, signOut, isAdmin } = useAuth()
@@ -193,6 +195,8 @@ export default function App() {
           <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
           <Route path="/notices" element={<Notices />} />
           <Route path="/vendor-bills" element={<ModuleGuard module="vendor_bills"><VendorBills /></ModuleGuard>} />
+          <Route path="/credit" element={<ModuleGuard module="credit"><CreditManagement /></ModuleGuard>} />
+          <Route path="/credit/:id" element={<ModuleGuard module="credit"><LoanDetail /></ModuleGuard>} />
           <Route path="/ai-brief" element={<AIBrief />} />
           <Route path="/change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />

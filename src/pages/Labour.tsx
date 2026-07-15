@@ -4,6 +4,8 @@ import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import LabourImport from '../components/LabourImport'
+import LabourRequirements from '../components/LabourRequirements'
 
 type LabourRow = {
   id: string; date: string; worker_name: string; skill: string | null
@@ -40,6 +42,8 @@ export default function Labour() {
   const [rows, setRows] = useState<LabourRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [showReq, setShowReq] = useState(false)
 
   async function load() {
     const _p = activeProject?.id ?? null
@@ -85,6 +89,16 @@ export default function Labour() {
           <a href="/labour-dashboard" className="btn btn-ghost">
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>monitoring</span> Dashboard
           </a>
+          {can('labour', 'edit') && (
+            <button className="btn btn-ghost" onClick={() => setShowReq(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>flag</span> Requirements
+            </button>
+          )}
+          {can('labour', 'add') && (
+            <button className="btn btn-ghost" onClick={() => setShowImport(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload_file</span> Import
+            </button>
+          )}
           {can('labour', 'add') && (
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span> Add Labour
@@ -185,6 +199,8 @@ export default function Labour() {
       </div>
 
       {showForm && <LabourForm projectId={activeProject.id} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showImport && <LabourImport projectId={activeProject.id} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load() }} />}
+      {showReq && <LabourRequirements projectId={activeProject.id} onClose={() => setShowReq(false)} onChanged={() => {}} />}
     </div>
   )
 }

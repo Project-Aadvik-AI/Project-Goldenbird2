@@ -89,6 +89,7 @@ const NAV: Entry[] = [
 
   { group: 'Reports', icon: 'analytics', items: [
     { to: '/reports', label: 'Reports', icon: 'analytics', module: 'reports' },
+    { to: '/credit', label: 'Loans / Credit', icon: 'credit_score', module: 'credit' },
     { to: '/monthly-performance', label: 'Monthly Performance', icon: 'speed', module: 'monthly_performance' },
     { to: '/ai-brief', label: 'AI Site Brief', icon: 'psychology', module: 'reports' },
   ] },
@@ -156,6 +157,7 @@ const HO_NAV: Entry[] = [
     { to: '/accounting', label: 'Chart of Accounts', icon: 'account_balance' },
     { to: '/give-imprest', label: 'Staff Imprest', icon: 'volunteer_activism' },
     { to: '/bank-recon', label: 'Bank Reconciliation', icon: 'account_balance_wallet' },
+    { to: '/credit', label: 'Credit Management', icon: 'credit_score' },
   ] },
 
   { group: 'Financial Reports', icon: 'assessment', items: [

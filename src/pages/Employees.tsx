@@ -26,6 +26,8 @@ type Employee = {
   status: string
   project_id: string | null
   photo: string | null
+  is_labour?: boolean | null
+  daily_wage_rate?: number | null
 }
 
 type EmpDoc = {
@@ -258,6 +260,8 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
   const [exitDate, setExitDate] = useState(editing?.exit_date ?? '')
   const [status, setStatus] = useState(editing?.status ?? 'Active')
   const [projectId, setProjectId] = useState(editing?.project_id ?? '')
+  const [isLabour, setIsLabour] = useState(!!editing?.is_labour)
+  const [dailyRate, setDailyRate] = useState(editing?.daily_wage_rate != null ? String(editing.daily_wage_rate) : '')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [existingPhoto] = useState(editing?.photo ?? null)
   const [busy, setBusy] = useState(false)
@@ -304,6 +308,8 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
       status,
       project_id: projectId || null,
       photo: photoPath || null,
+      is_labour: isLabour,
+      daily_wage_rate: isLabour && dailyRate ? Number(dailyRate) : null,
     }
 
     if (editing) {
@@ -404,6 +410,23 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
               </select>
             </L>
           </div>
+
+          <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" checked={isLabour} onChange={e => setIsLabour(e.target.checked)} className="w-4 h-4 accent-[#ff8f00]" />
+              <span className="text-[13px] font-semibold text-[#e2e2e8]">Labour</span>
+              <span className="text-[11px] text-[#dcc1ae]/70">— show this person in the Labour Dashboard</span>
+            </label>
+            {isLabour && (
+              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider">Daily Wage Rate (INR / day)</span>
+                <input className="input mono" style={{ maxWidth: 150 }} inputMode="decimal" value={dailyRate}
+                  onChange={e => setDailyRate(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 650" />
+                <span className="text-[11px] text-[#dcc1ae]/60">Days are marked on the Attendance page · wage = rate × days present</span>
+              </div>
+            )}
+          </div>
+
           <L label="Address"><input className="input" value={address} onChange={e => setAddress(e.target.value)} /></L>
         </div>
         {err && <div className="px-5 pb-2 text-sm text-red-400 flex-shrink-0">{err}</div>}

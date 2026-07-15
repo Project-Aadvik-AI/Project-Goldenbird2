@@ -20,6 +20,7 @@ export type Module =
   | 'boq' | 'boq_dashboard' | 'boq_budget' | 'measurement_book' | 'billing'
   | 'employees' | 'designations' | 'attendance' | 'leaves' | 'payroll'
   | 'monthly_performance'
+  | 'credit'
 
 export type Action = 'view' | 'add' | 'create' | 'edit' | 'delete' | 'approve' | 'export'
 

@@ -36,6 +36,8 @@ export const MODULES: ModuleDef[] = [
   { key: 'tasks', label: 'Tasks', group: 'Work & Reports' },
   { key: 'reports', label: 'Reports', group: 'Work & Reports' },
   { key: 'monthly_performance', label: 'Monthly Performance', group: 'Work & Reports' },
+  // Finance
+  { key: 'credit', label: 'Credit Management', group: 'Finance' },
 ]
 
 export const PERMS = ['view', 'create', 'edit', 'delete', 'approve', 'export'] as const

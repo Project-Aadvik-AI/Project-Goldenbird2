@@ -38,6 +38,20 @@ type Requirement = {
 
 const TRADES = ['Mason', 'Carpenter', 'Bar Bender', 'Electrician', 'Plumber', 'Welder', 'Painter', 'Helper', 'Others'] as const
 
+// Map a labour employee's designation onto a dashboard trade bucket.
+function tradeFromDesignation(d: string | null): string {
+  const s = (d || '').toLowerCase()
+  if (s.includes('mason')) return 'Mason'
+  if (s.includes('carpenter')) return 'Carpenter'
+  if (s.includes('bar') || s.includes('bender') || s.includes('steel')) return 'Bar Bender'
+  if (s.includes('electric')) return 'Electrician'
+  if (s.includes('plumb')) return 'Plumber'
+  if (s.includes('weld')) return 'Welder'
+  if (s.includes('paint')) return 'Painter'
+  if (s.includes('helper') || s.includes('labour') || s.includes('labor')) return 'Helper'
+  return 'Others'
+}
+
 // Alert thresholds — tune these to your site's expectations.
 const LOW_ATTENDANCE_PCT = 75   // today's attendance below this % → warn
 const SHORTAGE_PCT = 70         // today's strength below this % of the 7-day average → warn
@@ -206,9 +220,38 @@ export default function LabourDashboard() {
     if (activeProject) rq = rq.eq('project_id', activeProject.id)
     const { data: rqData } = await rq
 
+    // Labour-flagged EMPLOYEES → turn their day-by-day Attendance into muster-shaped
+    // rows so the whole dashboard pipeline treats them like any other worker.
+    // (Wage = daily rate × days present; trade comes from their designation.)
+    const synth: LabourRow[] = []
+    const { data: labEmps } = await supabase.from('employees')
+      .select('id, full_name, designation, daily_wage_rate').eq('is_labour', true)
+    const empMap = new Map<string, { name: string; desig: string | null; rate: number }>()
+    for (const e of (labEmps as { id: string; full_name: string; designation: string | null; daily_wage_rate: number | null }[]) ?? []) {
+      empMap.set(e.id, { name: e.full_name, desig: e.designation, rate: Number(e.daily_wage_rate || 0) })
+    }
+    if (empMap.size) {
+      let aq = supabase.from('attendance').select('id, employee_id, date, status, project_id').gte('date', from).limit(20000)
+      if (activeProject) aq = aq.eq('project_id', activeProject.id)
+      const { data: att } = await aq
+      for (const a of (att as { id: string; employee_id: string; date: string; status: string; project_id: string | null }[]) ?? []) {
+        const emp = empMap.get(a.employee_id)
+        if (!emp) continue
+        const dp = a.status === 'Present' ? 1 : a.status === 'Half Day' ? 0.5 : 0
+        if (dp <= 0) continue
+        synth.push({
+          id: `emp:${a.id}`, date: a.date, project_id: a.project_id, worker_name: emp.name,
+          skill: null, days_present: dp, daily_rate: emp.rate, wage: Math.round(emp.rate * dp * 100) / 100,
+          remark: null, trade: tradeFromDesignation(emp.desig), gender: null, labour_type: 'Departmental',
+          contractor_name: null, status: dp >= 1 ? 'Present' : 'Half Day', overtime_hours: 0,
+          is_night_shift: false, output_qty: null, output_unit: null,
+        })
+      }
+    }
+
     if (pRef.current !== p) return   // stale response — a project switch happened while waiting
 
-    setRows((data as LabourRow[]) ?? [])
+    setRows([...((data as LabourRow[]) ?? []), ...synth])
     setReqs((rqData as Requirement[]) ?? [])
     setLoading(false)
   }
@@ -223,6 +266,8 @@ export default function LabourDashboard() {
       .channel('labour-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'labour_attendance' }, bump)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'labour_requirements' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, bump)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, bump)
       .subscribe()
     return () => { if (t) clearTimeout(t); supabase.removeChannel(ch) }
     /* eslint-disable-next-line */

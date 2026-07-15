@@ -71,6 +71,7 @@ const NAV: Entry[] = [
     { to: '/attendance', label: 'Attendance', icon: 'event_available', module: 'attendance' },
     { to: '/leaves', label: 'Leave & Holidays', icon: 'beach_access', module: 'leaves' },
     { to: '/labour', label: 'Labour & Wages', icon: 'groups', module: 'labour' },
+    { to: '/labour-dashboard', label: 'Labour Dashboard', icon: 'monitoring', module: 'labour' },
   ] },
 
   // personal — everyone has these, so they sit at the top level
@@ -110,6 +111,7 @@ const HO_NAV: Entry[] = [
 
   { group: 'People', icon: 'badge', items: [
     { to: '/employees', label: 'Employees', icon: 'badge' },
+    { to: '/labour-dashboard', label: 'Labour Dashboard', icon: 'monitoring' },
     { to: '/team', label: 'Team', icon: 'group_add' },
     { to: '/designations', label: 'Designations', icon: 'work' },
     { to: '/permissions', label: 'Permissions', icon: 'lock' },

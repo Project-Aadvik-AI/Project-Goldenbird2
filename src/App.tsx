@@ -17,8 +17,9 @@ import Store from './pages/Store'
 import Machines from './pages/Machines'
 import DPR from './pages/DPR'
 import Hindrances from './pages/Hindrances'
-import EOT from './pages/EOT'
+import EOT from './pages/Eot'
 import Labour from './pages/Labour'
+import LabourDashboard from './pages/LabourDashboard'
 import Purchase from './pages/Purchase'
 import Reports from './pages/Reports'
 import Masters from './pages/Masters'
@@ -126,6 +127,7 @@ export default function App() {
           <Route path="/hindrances" element={<Hindrances />} />
           <Route path="/eot" element={<EOT />} />
           <Route path="/labour" element={<ModuleGuard module="labour"><Labour /></ModuleGuard>} />
+          <Route path="/labour-dashboard" element={<ModuleGuard module="labour"><LabourDashboard /></ModuleGuard>} />
           <Route path="/purchase" element={<ModuleGuard module="purchase_requests"><Purchase /></ModuleGuard>} />
           <Route path="/reports" element={<ModuleGuard module="reports"><Reports /></ModuleGuard>} />
           <Route path="/masters" element={<Masters />} />

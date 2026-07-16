@@ -29,7 +29,6 @@ const NAV: Entry[] = [
 
   // ---- the whole store / inventory function, in one place ----
   { group: 'Store & Inventory', icon: 'inventory_2', items: [
-    { to: '/my-store', label: 'My Store (Simple)', icon: 'storefront', module: 'store' },
     { to: '/warehouses', label: 'Warehouses', icon: 'warehouse', module: 'warehouses' },
     { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
     { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
@@ -132,7 +131,6 @@ const HO_NAV: Entry[] = [
   ] },
 
   { group: 'Store & Inventory', icon: 'inventory_2', items: [
-    { to: '/my-store', label: 'My Store (Simple)', icon: 'storefront', module: 'store' },
     { to: '/warehouses', label: 'Warehouses', icon: 'warehouse', module: 'warehouses' },
     { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
     { to: '/availability', label: 'Stock Availability', icon: 'travel_explore', module: 'store' },

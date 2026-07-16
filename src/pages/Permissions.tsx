@@ -95,6 +95,20 @@ export default function Permissions() {
   function applyPreset(keys: string[]) {
     setManyAll(keys, true)
   }
+  // Head-Office-for-ONE-area: clears everything, then grants HO + just that area.
+  const HO_ONLY: { label: string; keys: string[] }[] = [
+    { label: 'HR only', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll'] },
+    { label: 'Accounting only', keys: ['head_office', 'accounting', 'finance_reports', 'gst_reports', 'bank_recon', 'accounting_export', 'imprest', 'credit'] },
+    { label: 'Store & Inventory only', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
+    { label: 'Vendors only', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
+    { label: 'Billing / BOQ only', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
+    { label: 'Reports only', keys: ['head_office', 'reports', 'finance_reports', 'monthly_performance'] },
+  ]
+  function applyHOOnly(keys: string[]) {
+    const all = MODULES.map(m => m.key)
+    setManyAll(all, false)   // reset every module
+    setManyAll(keys, true)   // then grant HO + this one area
+  }
 
   async function save() {
     setSaving(true)
@@ -150,6 +164,21 @@ export default function Permissions() {
             ))}
           </div>
           <p className="text-[10px] text-[#dcc1ae]/50 mt-2">Presets add access on top of what's already ticked. To start clean, use “Clear all” first.</p>
+        </div>
+      )}
+
+      {desigId && !loading && (
+        <div className="mb-4 p-3 rounded-lg border border-[var(--accent)]/20" style={{ background: 'rgba(255,143,0,0.05)' }}>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--accent)] mb-2">Head Office — one area only</div>
+          <div className="flex flex-wrap gap-2">
+            {HO_ONLY.map(p => (
+              <button key={p.label} onClick={() => applyHOOnly(p.keys)}
+                className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors">
+                HO: {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-[#dcc1ae]/50 mt-2">These <span className="text-[#dcc1ae]">reset everything first</span>, then give Head Office access to just that one area. Press Save after.</p>
         </div>
       )}
 

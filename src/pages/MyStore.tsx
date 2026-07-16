@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useProject } from '../lib/project'
+import { useWorkspace } from '../lib/workspace'
 
 // MY STORE — the simple screen for the site store keeper.
 // Four big actions in plain language. No drafts, no jargon: every action posts
@@ -10,13 +11,14 @@ import { useProject } from '../lib/project'
 
 const q = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })
 
-type Wh = { id: string; name: string; project_id: string | null; is_main: boolean }
+type Wh = { id: string; name: string; project_id: string | null; is_main: boolean; label?: string }
 type Item = { id: string; name: string; item_code: string | null; standard_rate: number | null }
 type Mode = 'home' | 'in' | 'used' | 'send' | 'stock'
 
 export default function MyStore() {
   const { profile } = useAuth()
-  const { activeProject } = useProject()
+  const { activeProject, projects } = useProject()
+  const { inHeadOffice } = useWorkspace()
 
   const [warehouses, setWarehouses] = useState<Wh[]>([])
   const [whId, setWhId] = useState('')
@@ -35,6 +37,7 @@ export default function MyStore() {
     setItems((it as Item[]) ?? [])
     // Pick MY store automatically: the one I keep → else my project's store → else first.
     const mine = all.find(w => w.keeper_id === profile?.id)
+      ?? (inHeadOffice ? all.find(w => w.is_main && !w.project_id) : null)   // Head Office → the central warehouse
       ?? (activeProject ? all.find(w => w.project_id === activeProject.id) : null)
       ?? all[0]
     setWarehouses(all)
@@ -56,7 +59,10 @@ export default function MyStore() {
   useEffect(() => { loadBalances(whId) }, [whId, mode])
 
   const wh = warehouses.find(w => w.id === whId) ?? null
-  const others = warehouses.filter(w => w.id !== whId)
+  const pName = (pid: string | null) => pid ? (projects.find(p => p.id === pid)?.name ?? '') : ''
+  const others = warehouses.filter(w => w.id !== whId).map(w => ({
+    ...w, label: w.project_id ? `${pName(w.project_id)} — ${w.name}` : `${w.name}${w.is_main ? ' (Central)' : ''}`,
+  }))
 
   if (loading) return <div className="card p-10 text-center text-lg" style={{ color: 'var(--text-2)' }}>Opening your store…</div>
   if (!wh) return <div className="card p-10 text-center text-lg" style={{ color: 'var(--text-2)' }}>No store found. Ask Head Office to create your store first.</div>
@@ -64,7 +70,7 @@ export default function MyStore() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h1 className="font-headline text-3xl font-semibold" style={{ color: 'var(--text)' }}>My Store</h1>
+        <h1 className="font-headline text-3xl font-semibold" style={{ color: 'var(--text)' }}>{inHeadOffice ? 'Central Warehouse' : 'My Store'}</h1>
         <div className="mt-2 inline-flex items-center gap-2">
           <span className="material-symbols-outlined" style={{ color: 'var(--accent)' }}>warehouse</span>
           {warehouses.length > 1 ? (
@@ -250,7 +256,7 @@ function SendForm({ items, balances, others, fromWh, onBack, refresh, itemsAll }
     try {
       await postMovement('Transfer', { from_warehouse: fromWh, to_warehouse: toWh }, itemId, n, itemsAll)
       const name = items.find(i => i.id === itemId)?.name ?? 'Material'
-      const dest = others.find(w => w.id === toWh)?.name ?? 'the other store'
+      const dest = others.find(w => w.id === toWh)?.label ?? 'the other store'
       setDone(`${name} — ${q(n)} sent to ${dest}. ✔`)
       setItemId(''); setQty(''); setToWh('')
       refresh()
@@ -285,7 +291,7 @@ function SendForm({ items, balances, others, fromWh, onBack, refresh, itemsAll }
         <span className="text-sm font-bold uppercase tracking-wider block mb-1.5" style={{ color: 'var(--faint)' }}>Send to which store?</span>
         <select className="input text-lg py-3" value={toWh} onChange={e => setToWh(e.target.value)}>
           <option value="">— Tap to choose —</option>
-          {others.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          {others.map(w => <option key={w.id} value={w.id}>{w.label ?? w.name}</option>)}
         </select>
       </label>
 

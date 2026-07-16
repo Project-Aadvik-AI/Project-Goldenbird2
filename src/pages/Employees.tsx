@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 import { useAuth } from '../lib/auth'
+import { MODULES } from '../lib/modules'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
 import { PrivateLink, PrivateImage } from '../components/PrivateFile'
 
@@ -275,6 +276,26 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
     })()
   }, [])
 
+  // Show what the CHOSEN designation grants (permissions live on the designation).
+  const [grants, setGrants] = useState<{ label: string; hasHO: boolean } | null>(null)
+  useEffect(() => {
+    if (!designationId) { setGrants(null); return }
+    let alive = true
+    ;(async () => {
+      const { data } = await supabase.from('designation_permissions')
+        .select('module, view').eq('designation_id', designationId)
+      if (!alive) return
+      const viewable = ((data as { module: string; view: boolean }[]) ?? []).filter(r => r.view)
+      const labelFor = (k: string) => MODULES.find(m => m.key === k)?.label ?? k
+      const names = viewable.map(r => labelFor(r.module))
+      setGrants({
+        label: names.length ? names.slice(0, 8).join(', ') + (names.length > 8 ? `, +${names.length - 8} more` : '') : 'No modules granted yet',
+        hasHO: viewable.some(r => r.module === 'head_office'),
+      })
+    })()
+    return () => { alive = false }
+  }, [designationId])
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!fullName.trim()) { setErr('Name is required'); return }
@@ -383,6 +404,18 @@ function EmployeeForm({ editing, onClose, onSaved }: { editing: Employee | null;
                   <option value="">{editing.designation} (old)</option>
                 )}
               </select>
+              {grants && (
+                <div className="mt-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#dcc1ae]">This designation can access</span>
+                    {grants.hasHO
+                      ? <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: '#ff8f00', background: 'rgba(255,143,0,0.12)' }}>Head Office ✓</span>
+                      : <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: 'var(--faint)', background: 'rgba(255,255,255,0.04)' }}>No Head Office</span>}
+                  </div>
+                  <p className="text-[11px] leading-snug text-[#dcc1ae]/70">{grants.label}</p>
+                  <p className="text-[10px] text-[#dcc1ae]/50 mt-1">To change access, edit this designation on the Permissions page — it applies to everyone with it.</p>
+                </div>
+              )}
             </L>
             <L label="Department">
               <select className="input" value={department} onChange={e => setDepartment(e.target.value)}>

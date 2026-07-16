@@ -91,7 +91,7 @@ import CreditManagement from './pages/CreditManagement'
 import LoanDetail from './pages/LoanDetail'
 
 export default function App() {
-  const { ready, configured, session, profile, isPending, isDisabled, signOut, isAdmin } = useAuth()
+  const { ready, configured, session, profile, isPending, isDisabled, signOut, isAdmin, can } = useAuth()
 
   if (!configured) return <ConfigNotice />
   if (!ready) return <Splash />
@@ -114,7 +114,7 @@ export default function App() {
   if (profile && isDisabled) return <DisabledScreen onSignOut={signOut} />
 
   return (
-    <WorkspaceProvider isAdmin={isAdmin}>
+    <WorkspaceProvider isAdmin={isAdmin || can('head_office', 'view')}>
     <ProjectProvider>
       <Routes>
         <Route element={<AppShell />}>

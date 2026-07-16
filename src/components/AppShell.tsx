@@ -274,7 +274,7 @@ export default function AppShell() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 space-y-0.5">
-          {isAdmin && (
+          {(isAdmin || can('head_office', 'view')) && (
             <div className="px-4 pb-3 mb-2 border-b border-[var(--line)]">
               {/* ⚠️ These are the ONLY two ways to change workspace.
                   Nothing else — no page, no link, no route — may move you
@@ -424,7 +424,7 @@ export default function AppShell() {
                     {p.name}
                   </button>
                 ))}
-                {isAdmin && (
+                {(isAdmin || can('head_office', 'view')) && (
                   <button
                     onClick={() => { enterHeadOffice(); navigate('/head-office') }}
                     className="px-4 py-2.5 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25 text-[13px] font-semibold text-[var(--accent)] mt-1">

@@ -66,6 +66,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'ai_brief', label: 'AI Brief', group: 'Reports & Planning' },
 
   // ── Organisation ──
+  { key: 'head_office', label: 'Head Office Workspace', group: 'Organisation' },
   { key: 'projects', label: 'Projects', group: 'Organisation' },
   { key: 'team', label: 'Team', group: 'Organisation' },
   { key: 'bug_reports', label: 'Bug Reports', group: 'Organisation' },

@@ -42,6 +42,7 @@ export type Module =
   | 'boq_schedules'
   | 'bug_reports'
   | 'ai_brief'
+  | 'head_office'
 
 export type Action = 'view' | 'add' | 'create' | 'edit' | 'delete' | 'approve' | 'export'
 

@@ -7,7 +7,7 @@ import { useProject, type Project } from '../lib/project'
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
 export default function HeadOffice() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const { projects, setActiveProject } = useProject()
   const navigate = useNavigate()
   const [staffByProject, setStaffByProject] = useState<Record<string, number>>({})
@@ -72,7 +72,7 @@ export default function HeadOffice() {
     navigate('/project')    // the project workspace
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Head Office is restricted to administrators.</div>
+  if (!isAdmin && !can('head_office', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Head Office is restricted to administrators.</div>
 
   return (
     <div>

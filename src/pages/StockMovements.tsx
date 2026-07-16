@@ -265,9 +265,12 @@ function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  // warehouses on this project (plus company-wide)
+  // warehouses on this project (plus company-wide).
+  // In Head Office (no active project) show EVERY store — that's where
+  // central → site transfers happen.
   const wh = useMemo(() => warehouses.filter(w =>
-    !w.project_id || w.project_id === activeProject?.id), [warehouses, activeProject])
+    !activeProject ? true : (!w.project_id || w.project_id === activeProject.id)
+  ), [warehouses, activeProject])
 
   useEffect(() => {
     (async () => {

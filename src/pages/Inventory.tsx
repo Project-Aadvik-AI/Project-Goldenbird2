@@ -37,7 +37,7 @@ const COSTING = ['WeightedAvg', 'FIFO', 'Standard']
 type Tab = 'items' | 'warehouses' | 'categories' | 'units'
 
 export default function Inventory() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('items')
   const [ready, setReady] = useState<boolean | null>(null)
   const [seeding, setSeeding] = useState(false)
@@ -76,7 +76,7 @@ export default function Inventory() {
     setReady(true)
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Inventory masters are restricted to administrators.</div>
+  if (!isAdmin && !can('inventory', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Inventory masters are restricted to administrators.</div>
 
   if (ready === false) return (
     <div className="max-w-lg mx-auto mt-10 card p-8 text-center">

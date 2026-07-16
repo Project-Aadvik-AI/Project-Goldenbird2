@@ -22,7 +22,7 @@ const REPORTS: [Rep, string, string][] = [
 ]
 
 export default function PayrollReports() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [rep, setRep] = useState<Rep>('register')
   const [runs, setRuns] = useState<Run[]>([])
   const [runId, setRunId] = useState('')
@@ -73,7 +73,7 @@ export default function PayrollReports() {
   const needsRun = ['register', 'department', 'project', 'bank', 'statutory'].includes(rep)
   const meta = REPORTS.find(r => r[0] === rep)!
 
-  if (!isAdmin) {
+  if (!isAdmin && !can('payroll', 'view')) {
     return <div className="p-8 text-center text-[#dcc1ae]">
       Payroll reports are restricted to HR and Head Office.
     </div>

@@ -44,7 +44,7 @@ const REPORTS: [Rep, string, string][] = [
 ]
 
 export default function FinanceReports() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const { projects } = useProject()
   const [rep, setRep] = useState<Rep>('trial')
   const [from, setFrom] = useState(() => {
@@ -85,7 +85,7 @@ export default function FinanceReports() {
   const glScoped = useMemo(() =>
     gl.filter(r => !projectId || r.project_id === projectId), [gl, projectId])
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Financial reports are restricted to administrators.</div>
+  if (!isAdmin && !can('finance_reports', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Financial reports are restricted to administrators.</div>
 
   const meta = REPORTS.find(r => r[0] === rep)!
 

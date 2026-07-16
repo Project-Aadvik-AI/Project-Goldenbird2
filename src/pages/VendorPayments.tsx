@@ -46,7 +46,7 @@ type Tab = 'due' | 'advances' | 'payments' | 'retention'
 const MODES = ['Bank', 'NEFT', 'RTGS', 'UPI', 'Cheque', 'Cash']
 
 export default function VendorPayments() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('due')
   const [due, setDue] = useState<Due[]>([])
   const [advs, setAdvs] = useState<Adv[]>([])
@@ -83,7 +83,7 @@ export default function VendorPayments() {
     paidTotal: r2(pays.reduce((n, p) => n + Number(p.amount || 0), 0)),
   }), [due, advs, pays, rets])
 
-  if (!isAdmin) {
+  if (!isAdmin && !can('vendor_payments', 'view')) {
     return <div className="p-8 text-center text-[#dcc1ae]">
       Vendor payments are restricted to Head Office and Accounts.
     </div>

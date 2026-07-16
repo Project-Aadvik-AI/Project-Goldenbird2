@@ -9,7 +9,7 @@ type Row = { employee_id: string; amount: number | null; spent_amount: number | 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export default function GiveImprest() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const navigate = useNavigate()
   const [emps, setEmps] = useState<Emp[]>([])
   const [advs, setAdvs] = useState<Row[]>([])
@@ -91,7 +91,7 @@ export default function GiveImprest() {
     load()
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can give imprest.</div>
+  if (!isAdmin && !can('imprest', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can give imprest.</div>
 
   return (
     <div>

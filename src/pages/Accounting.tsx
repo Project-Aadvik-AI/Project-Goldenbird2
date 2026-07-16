@@ -37,7 +37,7 @@ type Tab = 'coa' | 'parties' | 'taxes' | 'deductions' | 'vouchers'
 
 export default function Accounting() {
   const { activeProject } = useProject()
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('coa')
   const [seeded, setSeeded] = useState<boolean | null>(null)
   const [seeding, setSeeding] = useState(false)
@@ -57,7 +57,7 @@ export default function Accounting() {
     setSeeded(true)
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Accounting is restricted to administrators.</div>
+  if (!isAdmin && !can('accounting', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Accounting is restricted to administrators.</div>
 
   if (seeded === false) return (
     <div className="max-w-lg mx-auto mt-10 card p-8 text-center">

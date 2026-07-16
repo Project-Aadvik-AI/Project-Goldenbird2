@@ -42,7 +42,7 @@ type Slip = {
 }
 
 export default function Payroll() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [runs, setRuns] = useState<Run[]>([])
   const [active, setActive] = useState<Run | null>(null)
   const [slips, setSlips] = useState<Slip[]>([])
@@ -176,7 +176,7 @@ export default function Payroll() {
     return Object.entries(m).sort((a, b) => b[1].net - a[1].net)
   }, [slips])
 
-  if (!isAdmin) {
+  if (!isAdmin && !can('payroll', 'view')) {
     return <div className="p-8 text-center text-[#dcc1ae]">
       Payroll is restricted to HR and Head Office.
     </div>

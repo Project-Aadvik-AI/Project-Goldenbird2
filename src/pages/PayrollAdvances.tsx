@@ -107,7 +107,7 @@ export default function PayrollAdvances() {
     advOut: advs.reduce((n, a) => n + Number(a.outstanding || 0), 0),
   }), [ots, loans, advs])
 
-  if (!isAdmin) {
+  if (!isAdmin && !can('payroll', 'view')) {
     return <div className="p-8 text-center text-[#dcc1ae]">
       Loans and advances are restricted to HR and Head Office.
     </div>

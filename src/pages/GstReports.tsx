@@ -28,7 +28,7 @@ type Tds = {
 type Tab = 'gstr1' | 'gstr3b' | 'itc' | 'tds'
 
 export default function GstReports() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('gstr3b')
 
   // default to the current month (GST is filed monthly)
@@ -69,7 +69,7 @@ export default function GstReports() {
     return { outTaxable, outCgst, outSgst, outIgst, outTax, inCgst, inSgst, inIgst, itc, tdsTotal, netPayable }
   }, [out, inw, tds])
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">GST reports are restricted to administrators.</div>
+  if (!isAdmin && !can('gst_reports', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">GST reports are restricted to administrators.</div>
 
   return (
     <div>

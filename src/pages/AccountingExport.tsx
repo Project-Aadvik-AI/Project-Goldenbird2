@@ -23,7 +23,7 @@ type LineRow = {
 }
 
 export default function AccountingExport() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [company, setCompany] = useState('')
   const [ledgers, setLedgers] = useState<LedgerRow[]>([])
   const [vouchers, setVouchers] = useState<VoucherRow[]>([])
@@ -118,7 +118,7 @@ export default function AccountingExport() {
     downloadFile(`zoho-journals-${stamp}.csv`, zohoJournalsCsv(expVouchers), 'text/csv')
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Export is restricted to administrators.</div>
+  if (!isAdmin && !can('accounting_export', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Export is restricted to administrators.</div>
 
   return (
     <div>

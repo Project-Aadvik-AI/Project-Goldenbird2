@@ -32,7 +32,7 @@ const GUESS: Record<string, string[]> = {
 }
 
 export default function BankRecon() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [banks, setBanks] = useState<BankLedger[]>([])
   const [ledgerId, setLedgerId] = useState('')
   const [lines, setLines] = useState<Line[]>([])
@@ -90,7 +90,7 @@ export default function BankRecon() {
     : 0
   const reconciled = Math.abs(diff) < 0.01
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Bank reconciliation is restricted to administrators.</div>
+  if (!isAdmin && !can('bank_recon', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Bank reconciliation is restricted to administrators.</div>
   if (loading) return <div className="p-6 text-[#dcc1ae] text-sm">Loading…</div>
 
   if (!banks.length) return (

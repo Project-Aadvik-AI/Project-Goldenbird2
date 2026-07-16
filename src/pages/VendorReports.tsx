@@ -74,7 +74,7 @@ const BUCKET_STYLE: Record<string, string> = {
 }
 
 export default function VendorReports() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [rep, setRep] = useState<Rep>('outstanding')
   const [loading, setLoading] = useState(true)
 
@@ -125,7 +125,7 @@ export default function VendorReports() {
     lateDeliveries: delays.filter(d => (d.days_late ?? 0) > 0).length,
   }), [out, ageing, delays])
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Vendor reports are restricted to administrators.</div>
+  if (!isAdmin && !can('vendor_reports', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Vendor reports are restricted to administrators.</div>
   if (loading) return <div className="p-8 text-center text-[#dcc1ae] text-sm">Loading…</div>
 
   const meta = REPORTS.find(r => r[0] === rep)!

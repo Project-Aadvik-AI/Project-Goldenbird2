@@ -13,7 +13,7 @@ const SEED = [
 ]
 
 export default function Designations() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [rows, setRows] = useState<Designation[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
@@ -78,7 +78,7 @@ export default function Designations() {
     setBusy(false); load()
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can manage designations.</div>
+  if (!isAdmin && !can('designations', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can manage designations.</div>
 
   return (
     <div>

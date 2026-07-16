@@ -33,7 +33,7 @@ type Stat = {
 type Tab = 'employees' | 'statutory'
 
 export default function PayrollSetup() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [tab, setTab] = useState<Tab>('employees')
   const [emps, setEmps] = useState<Emp[]>([])
   const [stats, setStats] = useState<Stat[]>([])
@@ -74,7 +74,7 @@ export default function PayrollSetup() {
     monthlyCost: emps.reduce((n, e) => n + Number(e.gross_salary || 0), 0),
   }), [emps])
 
-  if (!isAdmin) {
+  if (!isAdmin && !can('payroll', 'view')) {
     return <div className="p-8 text-center text-[#dcc1ae]">
       Salary information is restricted to HR and Head Office.
     </div>

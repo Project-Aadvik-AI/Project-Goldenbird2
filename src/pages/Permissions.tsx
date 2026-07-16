@@ -82,6 +82,20 @@ export default function Permissions() {
   }
   const everythingOn = (keys: string[]) => keys.every(k => perms[k] && PERMS.every(p => (perms[k] as any)[colName(p)]))
 
+  // Ready-made role bundles: one click ticks the right modules (incl. Head Office).
+  const PRESETS: { label: string; keys: string[] }[] = [
+    { label: 'HR Manager', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll'] },
+    { label: 'Store Manager', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
+    { label: 'Accountant', keys: ['head_office', 'accounting', 'finance_reports', 'gst_reports', 'bank_recon', 'accounting_export', 'imprest', 'credit'] },
+    { label: 'Procurement / Vendor Manager', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
+    { label: 'Billing / QS', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
+    { label: 'Site Engineer', keys: ['dpr', 'labour', 'machines', 'measurement_book', 'hindrances', 'expenses'] },
+    { label: 'Full Head Office', keys: MODULES.map(m => m.key) },
+  ]
+  function applyPreset(keys: string[]) {
+    setManyAll(keys, true)
+  }
+
   async function save() {
     setSaving(true)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
@@ -121,6 +135,21 @@ export default function Permissions() {
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{savedOk ? 'check' : 'save'}</span>
             {saving ? 'Saving…' : savedOk ? 'Saved' : 'Save Permissions'}
           </button>
+        </div>
+      )}
+
+      {desigId && !loading && (
+        <div className="mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#dcc1ae] mb-2">Quick role presets — one click, then Save</div>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map(p => (
+              <button key={p.label} onClick={() => applyPreset(p.keys)}
+                className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors">
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-[#dcc1ae]/50 mt-2">Presets add access on top of what's already ticked. To start clean, use “Clear all” first.</p>
         </div>
       )}
 

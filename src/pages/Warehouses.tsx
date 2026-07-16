@@ -26,7 +26,7 @@ type Stock = {
 }
 
 export default function Warehouses() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [whs, setWhs] = useState<WH[]>([])
   const [stock, setStock] = useState<Stock[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +74,7 @@ export default function Warehouses() {
               : 'The stores on your projects. Material arrives here by transfer from the central warehouse.'}
           </p>
         </div>
-        {isAdmin && (
+        {(isAdmin || can('warehouses', 'create')) && (
           <button className="btn btn-primary" onClick={() => setShowNew(true)}>
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_home_work</span>
             New Store
@@ -82,7 +82,7 @@ export default function Warehouses() {
         )}
       </div>
 
-      {isAdmin && !central.length && (
+      {(isAdmin || can('warehouses', 'create')) && !central.length && (
         <div className="card p-4 mb-4 bg-amber-500/5 border-amber-500/25">
           <div className="flex items-start gap-2">
             <span className="material-symbols-outlined text-amber-400" style={{ fontSize: '20px' }}>warehouse</span>
@@ -113,7 +113,7 @@ export default function Warehouses() {
         <K label={isAdmin ? 'Project Stores' : 'Your Stores'} value={String(kpi.stores)} />
         <K label="Items Below Minimum" value={String(kpi.lowStock)}
           tone={kpi.lowStock ? undefined : 'blue'} />
-        {isAdmin && (
+        {(isAdmin || can('warehouses', 'create')) && (
           <K label="Total Stock Value" value={inr(kpi.centralValue + kpi.siteValue)} big />
         )}
       </div>
@@ -131,7 +131,7 @@ export default function Warehouses() {
                 <div key={c.warehouse_id} className="mb-2">
                   <StoreRow w={c} selected={selected === c.warehouse_id}
                     onSelect={() => setSelected(c.warehouse_id)}
-                    onTransfer={isAdmin ? () => setTransferFrom(c) : undefined} />
+                    onTransfer={(isAdmin || can('store', 'create')) ? () => setTransferFrom(c) : undefined} />
 
                   {/* the project stores hanging off it */}
                   <div className="ml-4 mt-1 space-y-1 border-l border-white/[0.08] pl-3">
@@ -1002,4 +1002,4 @@ function K({ label, value, tone, big }: {
 }
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider block mb-1">{label}</span>{children}</label>
-}  
+}

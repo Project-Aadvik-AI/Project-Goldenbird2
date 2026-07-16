@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { scopeToProject } from '../lib/scope'
 import { useAuth } from '../lib/auth'
+import { appConfirm, appPrompt, appAlert } from '../lib/dialogs'
 import { useProject } from '../lib/project'
 import ExportButtons from '../components/ExportButtons'
 
@@ -93,16 +94,16 @@ export default function StockMovements() {
   ), [rows, fType, fStatus])
 
   async function post(m: Movement) {
-    if (!confirm(`Post ${m.movement_no}?\n\nOnce posted the stock moves and the entry becomes locked.`)) return
+    if (!await appConfirm(`Post ${m.movement_no}?\nOnce posted the stock moves and the entry becomes locked.`)) return
     const { error } = await supabase.rpc('inv_post_movement', { p_movement: m.id })
-    if (error) { alert('Could not post:\n\n' + error.message); return }
+    if (error) { await appAlert('Could not post\n' + error.message); return }
     load()
   }
   async function cancel(m: Movement) {
-    const reason = prompt(`Cancel ${m.movement_no}?\n\nThis reverses the stock. Reason:`)
+    const reason = await appPrompt(`Cancel ${m.movement_no}?\nThis reverses the stock. Give a reason — it goes in the audit log.`)
     if (reason === null) return
     const { error } = await supabase.rpc('inv_cancel_movement', { p_movement: m.id, p_reason: reason })
-    if (error) { alert('Could not cancel:\n\n' + error.message); return }
+    if (error) { await appAlert('Could not cancel\n' + error.message); return }
     load()
   }
 

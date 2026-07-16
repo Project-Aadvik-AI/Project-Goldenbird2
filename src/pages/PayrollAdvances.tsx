@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -81,10 +82,10 @@ export default function PayrollAdvances() {
   async function approveOT(o: OT, approve: boolean) {
     let reason: string | null = null
     if (!approve) {
-      reason = prompt(`Reject ${o.hours}h overtime for ${o.employee_name}?\n\nReason:`)
+      reason = await appPrompt(`Reject ${o.hours}h overtime for ${o.employee_name}?\n\nReason:`)
       if (!reason) return
     } else {
-      if (!confirm(
+      if (!await appConfirm(
         `Approve ${o.hours}h overtime for ${o.employee_name}?\n\n` +
         `${inr2(o.ot_amount)} will be added to their next payslip.`
       )) return
@@ -92,7 +93,7 @@ export default function PayrollAdvances() {
     const { error } = await supabase.rpc('approve_overtime', {
       p_ot: o.ot_id, p_approve: approve, p_reason: reason,
     })
-    if (error) { alert(error.message); return }
+    if (error) { appAlert(error.message); return }
     load()
   }
 

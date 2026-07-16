@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -57,7 +58,7 @@ export default function Contracts() {
   useEffect(() => { load() }, [activeProject?.id])
 
   async function del(id: string) {
-    if (!confirm('Delete this contract?')) return
+    if (!await appConfirm('Delete this contract?')) return
     await supabase.from('contracts').delete().eq('id', id)
     load()
   }

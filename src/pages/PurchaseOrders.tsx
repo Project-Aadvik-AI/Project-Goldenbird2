@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -92,26 +93,26 @@ export default function PurchaseOrders() {
   }), [rows, pending])
 
   async function approve(po: PoStatus) {
-    if (!confirm(`Approve ${po.po_no}?\n\nOnce approved the lines are locked and goods can be received against it.`)) return
+    if (!await appConfirm(`Approve ${po.po_no}?\n\nOnce approved the lines are locked and goods can be received against it.`)) return
     const { error } = await supabase.rpc('inv_approve_po', { p_po: po.po_id })
-    if (error) { alert('Could not approve:\n\n' + error.message); return }
+    if (error) { appAlert('Could not approve:\n\n' + error.message); return }
     load()
   }
 
   async function receive(po: PoStatus) {
     const wh = warehouses.filter(w => !w.project_id || w.project_id === activeProject?.id)
-    if (!wh.length) { alert('No warehouse available on this project.'); return }
+    if (!wh.length) { appAlert('No warehouse available on this project.'); return }
     const main = wh.find(w => w.is_main) ?? wh[0]
 
-    if (!confirm(
+    if (!await appConfirm(
       `Create a Goods Receipt against ${po.po_no}?\n\n` +
       `It will be pre-filled with the pending quantities and received into "${main.name}".\n` +
       `Review it in Stock Movements, then Post it.`
     )) return
 
     const { data, error } = await supabase.rpc('inv_grn_from_po', { p_po: po.po_id, p_warehouse: main.id })
-    if (error) { alert('Could not create GRN:\n\n' + error.message); return }
-    alert('Draft GRN created. Review the quantities in Stock Movements, then Post it.')
+    if (error) { appAlert('Could not create GRN:\n\n' + error.message); return }
+    appAlert('Draft GRN created. Review the quantities in Stock Movements, then Post it.')
     navigate('/stock-movements')
   }
 

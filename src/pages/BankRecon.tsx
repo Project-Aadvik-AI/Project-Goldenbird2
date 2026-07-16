@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
@@ -72,8 +73,8 @@ export default function BankRecon() {
     setMatching(true)
     const { data, error } = await supabase.rpc('bank_auto_match', { p_ledger: ledgerId, p_days: 7 })
     setMatching(false)
-    if (error) { alert('Auto-match failed:\n\n' + error.message); return }
-    alert(`Auto-matched ${data ?? 0} statement line(s) to existing vouchers.`)
+    if (error) { appAlert('Auto-match failed:\n\n' + error.message); return }
+    appAlert(`Auto-matched ${data ?? 0} statement line(s) to existing vouchers.`)
     loadLines()
   }
 

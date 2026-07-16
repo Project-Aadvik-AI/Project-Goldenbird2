@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 
@@ -56,8 +57,8 @@ export default function BoqSchedules() {
   }
 
   async function del(s: Schedule) {
-    if ((usage[s.name] ?? 0) > 0) { alert('Cannot delete — BOQ items use this schedule. Disable it instead.'); return }
-    if (!confirm(`Delete schedule "${s.name}"?`)) return
+    if ((usage[s.name] ?? 0) > 0) { appAlert('Cannot delete — BOQ items use this schedule. Disable it instead.'); return }
+    if (!await appConfirm(`Delete schedule "${s.name}"?`)) return
     await supabase.from('boq_schedule_master').delete().eq('id', s.id)
     load()
   }

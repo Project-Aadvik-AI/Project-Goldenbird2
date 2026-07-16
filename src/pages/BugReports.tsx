@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -36,7 +37,7 @@ export default function BugReports() {
     load()
   }
   async function del(id: string) {
-    if (!confirm('Delete this bug report?')) return
+    if (!await appConfirm('Delete this bug report?')) return
     await supabase.from('bug_reports').delete().eq('id', id)
     load()
   }

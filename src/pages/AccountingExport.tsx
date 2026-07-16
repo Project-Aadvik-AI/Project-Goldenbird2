@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import {
@@ -107,14 +108,14 @@ export default function AccountingExport() {
     downloadFile(`tally-ledgers-${stamp}.xml`, tallyLedgersXml(company, expLedgers), 'application/xml')
   }
   function dlTallyVouchers() {
-    if (!expVouchers.length) { alert('No posted vouchers in this date range.'); return }
+    if (!expVouchers.length) { appAlert('No posted vouchers in this date range.'); return }
     downloadFile(`tally-vouchers-${stamp}.xml`, tallyVouchersXml(company, expVouchers), 'application/xml')
   }
   function dlZohoAccounts() {
     downloadFile(`zoho-chart-of-accounts-${stamp}.csv`, zohoAccountsCsv(expLedgers), 'text/csv')
   }
   function dlZohoJournals() {
-    if (!expVouchers.length) { alert('No posted vouchers in this date range.'); return }
+    if (!expVouchers.length) { appAlert('No posted vouchers in this date range.'); return }
     downloadFile(`zoho-journals-${stamp}.csv`, zohoJournalsCsv(expVouchers), 'text/csv')
   }
 

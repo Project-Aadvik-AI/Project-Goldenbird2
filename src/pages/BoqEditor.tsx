@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -69,14 +70,14 @@ export default function BoqEditor() {
     setBoq({ ...boq, status })
   }
   async function delItem(itemId: string) {
-    if (!confirm('Delete this item?')) return
+    if (!await appConfirm('Delete this item?')) return
     await supabase.from('boq_items').delete().eq('id', itemId)
     if (id) loadItems(id)
   }
 
   async function saveAsTemplate() {
-    if (!items.length) { alert('Add items before saving as a template.'); return }
-    const tName = prompt('Template name:', boq?.name ? `${boq.name} (template)` : 'BOQ Template')
+    if (!items.length) { appAlert('Add items before saving as a template.'); return }
+    const tName = await appPrompt('Template name:', boq?.name ? `${boq.name} (template)` : 'BOQ Template')
     if (!tName || !tName.trim()) return
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     // strip ids/completed so the template is clean & reusable
@@ -90,8 +91,8 @@ export default function BoqEditor() {
     const { error } = await supabase.from('boq_templates').insert({
       org_id: prof?.org_id, name: tName.trim(), items_snapshot: snapshot, item_count: snapshot.length,
     })
-    if (error) { alert('Could not save template: ' + error.message); return }
-    alert(`Template "${tName.trim()}" saved with ${snapshot.length} items. You can now use it when creating a new BOQ.`)
+    if (error) { appAlert('Could not save template: ' + error.message); return }
+    appAlert(`Template "${tName.trim()}" saved with ${snapshot.length} items. You can now use it when creating a new BOQ.`)
   }
 
   async function createRevision(reason: string) {
@@ -305,8 +306,8 @@ function RevisionHistory({ boqId, onClose, onRestored }: { boqId: string; onClos
 
   async function restore(r: Rev) {
     const snap = r.items_snapshot ?? []
-    if (!snap.length) { alert('This snapshot has no items to restore.'); return }
-    if (!confirm(
+    if (!snap.length) { appAlert('This snapshot has no items to restore.'); return }
+    if (!await appConfirm(
       `Restore this snapshot?\n\n"${r.change_reason || 'No reason'}"\nTaken: ${new Date(r.created_at).toLocaleString('en-IN')}\nItems: ${snap.length}\n\n` +
       `This resets every item's rate and amount back to how they were at that moment. ` +
       `Executed quantities and bills are NOT affected. This cannot be undone.`
@@ -336,7 +337,7 @@ function RevisionHistory({ boqId, onClose, onRestored }: { boqId: string; onClos
       .eq('boq_id', boqId)
 
     setRestoring(null)
-    alert(failed
+    appAlert(failed
       ? `Restored with ${failed} item(s) skipped (they may have been deleted since the snapshot).`
       : `Restored ${snap.length} items successfully. Bid adjustments reset to 0.`)
     onRestored()
@@ -709,7 +710,7 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
       const p = x.a.pct.trim() === '' ? 0 : Number(x.a.pct)
       return `${x.g.schedule} (${x.a.type === 'less' ? '−' : '+'}${p}%)`
     }).join(', ')
-    if (!confirm(`Apply quoted rates to actual item rates?\n\n${names}\n\nA backup revision is saved first. The percentage stays visible; applying again only applies further changes (never double-discounts).`)) return
+    if (!await appConfirm(`Apply quoted rates to actual item rates?\n\n${names}\n\nA backup revision is saved first. The percentage stays visible; applying again only applies further changes (never double-discounts).`)) return
 
     setApplying(true); setApplyMsg(null)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
@@ -752,7 +753,7 @@ function BidAdjustment({ boqId, total, items, boqStatus, onApplied }: { boqId: s
     if (upErr) {
       setApplying(false)
       setApplyMsg(null)
-      alert('Rates were updated, but the applied percentage could not be recorded:\n\n' + upErr.message +
+      appAlert('Rates were updated, but the applied percentage could not be recorded:\n\n' + upErr.message +
             '\n\nIf this mentions "applied_pct", run this SQL:\n\nalter table boq_bid_adjustments add column if not exists applied_pct numeric not null default 0;\nalter table boq_bid_adjustments add column if not exists applied_type text;')
       onApplied()
       return

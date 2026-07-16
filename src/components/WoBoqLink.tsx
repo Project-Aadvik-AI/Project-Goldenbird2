@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -39,7 +40,7 @@ export function WoBoqLink({ woId, projectId }: { woId: string; projectId: string
   useEffect(() => { load() }, [woId])
 
   async function remove(id: string) {
-    if (!confirm('Remove this BOQ item from the work order?')) return
+    if (!await appConfirm('Remove this BOQ item from the work order?')) return
     await supabase.from('wo_boq_items').delete().eq('id', id)
     load()
   }

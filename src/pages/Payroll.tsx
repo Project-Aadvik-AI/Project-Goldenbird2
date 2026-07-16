@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -77,7 +78,7 @@ export default function Payroll() {
 
   async function generate() {
     if (!active) return
-    if (!confirm(
+    if (!await appConfirm(
       `Generate payslips for ${active.month_label}?\n\n` +
       `Every active employee will get a payslip based on their attendance.\n` +
       `Anyone with NO attendance will be skipped and named — payroll does not guess.`
@@ -86,20 +87,20 @@ export default function Payroll() {
     setBusy(true)
     const { data, error } = await supabase.rpc('generate_payroll_run', { p_run: active.id })
     setBusy(false)
-    if (error) { alert(error.message); return }
+    if (error) { appAlert(error.message); return }
 
     const r = (data as any[])?.[0]
     let msg = `Generated ${r?.generated ?? 0} payslip(s).`
     if (r?.skipped > 0) {
       msg += `\n\n⚠️ ${r.skipped} could NOT be generated:\n\n${r.problems}`
     }
-    alert(msg)
+    appAlert(msg)
     reloadRun(active.id)
   }
 
   async function approve() {
     if (!active) return
-    if (!confirm(
+    if (!await appConfirm(
       `Approve payroll for ${active.month_label}?\n\n` +
       `${active.employee_count} employees · ${inr(active.total_net)} net\n\n` +
       `⚠️ THIS LOCKS THE RUN. Payslips cannot be changed afterwards.\n` +
@@ -109,13 +110,13 @@ export default function Payroll() {
     setBusy(true)
     const { error } = await supabase.rpc('approve_payroll_run', { p_run: active.id })
     setBusy(false)
-    if (error) { alert('Could not approve:\n\n' + error.message); return }
+    if (error) { appAlert('Could not approve:\n\n' + error.message); return }
     reloadRun(active.id)
   }
 
   async function markPaid() {
     if (!active) return
-    const ref = prompt(
+    const ref = await appPrompt(
       `Mark ${active.month_label} payroll as PAID?\n\n` +
       `${active.employee_count} employees · ${inr(active.total_net)}\n\n` +
       `Payment reference (UTR / batch no.), optional:`
@@ -129,14 +130,14 @@ export default function Payroll() {
       p_ref: ref || null,
     })
     setBusy(false)
-    if (error) { alert('Could not mark paid:\n\n' + error.message); return }
-    alert(`${data ?? 0} payslip(s) marked Paid. Employees can now see them.`)
+    if (error) { appAlert('Could not mark paid:\n\n' + error.message); return }
+    appAlert(`${data ?? 0} payslip(s) marked Paid. Employees can now see them.`)
     reloadRun(active.id)
   }
 
   async function postToBooks() {
     if (!active) return
-    if (!confirm(
+    if (!await appConfirm(
       `Post ${active.month_label} payroll to the accounts?\n\n` +
       `Dr Salaries & Wages  ${inr(active.total_earned)}\n` +
       `  Cr Salary Payable  ${inr(active.total_net)}\n` +
@@ -147,8 +148,8 @@ export default function Payroll() {
     setBusy(true)
     const { error } = await supabase.rpc('post_payroll_to_accounts', { p_run: active.id })
     setBusy(false)
-    if (error) { alert('Could not post:\n\n' + error.message); return }
-    alert('Draft journal voucher created. Review it in Accounting → Vouchers, then Post.')
+    if (error) { appAlert('Could not post:\n\n' + error.message); return }
+    appAlert('Draft journal voucher created. Review it in Accounting → Vouchers, then Post.')
     reloadRun(active.id)
   }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import ExportButtons from '../components/ExportButtons'
@@ -108,14 +109,14 @@ export default function Assets() {
   }, [rows, docs])
 
   async function archive(a: Asset) {
-    if (!confirm(`${a.archived ? 'Restore' : 'Archive'} "${a.name}"?`)) return
+    if (!await appConfirm(`${a.archived ? 'Restore' : 'Archive'} "${a.name}"?`)) return
     await supabase.from('assets').update({ archived: !a.archived }).eq('id', a.id)
     load()
   }
   async function del(a: Asset) {
-    if (!confirm(`Permanently delete "${a.name}"? This cannot be undone.\n\nTip: Archive is safer — it keeps the record.`)) return
+    if (!await appConfirm(`Permanently delete "${a.name}"? This cannot be undone.\n\nTip: Archive is safer — it keeps the record.`)) return
     const { error } = await supabase.from('assets').delete().eq('id', a.id)
-    if (error) { alert('Could not delete: ' + error.message); return }
+    if (error) { appAlert('Could not delete: ' + error.message); return }
     load()
   }
 

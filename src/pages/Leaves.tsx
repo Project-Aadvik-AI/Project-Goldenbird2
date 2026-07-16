@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -230,7 +231,7 @@ function HolidaysTab() {
   }
 
   async function del(id: string) {
-    if (!confirm('Delete this holiday?')) return
+    if (!await appConfirm('Delete this holiday?')) return
     await supabase.from('holidays').delete().eq('id', id)
     load()
   }

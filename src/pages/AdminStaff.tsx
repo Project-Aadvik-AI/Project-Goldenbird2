@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -70,7 +71,7 @@ export default function AdminStaff() {
   }
 
   async function toggleAdmin(row: Staff) {
-    if (!confirm(row.is_admin ? 'Remove admin rights from this user?' : 'Grant admin rights?')) return
+    if (!await appConfirm(row.is_admin ? 'Remove admin rights from this user?' : 'Grant admin rights?')) return
     await supabase.from('profiles').update({ is_admin: !row.is_admin }).eq('id', row.id)
     load()
   }

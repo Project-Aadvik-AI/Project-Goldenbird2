@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -86,20 +87,20 @@ export default function StockTransfers() {
   }), [rows])
 
   async function approve(t: Transfer) {
-    if (!confirm(
+    if (!await appConfirm(
       `Approve ${t.transfer_no}?\n\n` +
       `The stock will be RESERVED at ${t.from_warehouse_name} — nobody else can take it.`
     )) return
     const { error } = await supabase.rpc('inv_approve_transfer', { p_transfer: t.transfer_id, p_note: null })
-    if (error) { alert('Could not approve:\n\n' + error.message); return }
+    if (error) { appAlert('Could not approve:\n\n' + error.message); return }
     load()
   }
 
   async function cancel(t: Transfer) {
-    const reason = prompt(`Cancel ${t.transfer_no}?\n\nAny reserved stock is released. Reason:`)
+    const reason = await appPrompt(`Cancel ${t.transfer_no}?\n\nAny reserved stock is released. Reason:`)
     if (!reason) return
     const { error } = await supabase.rpc('inv_cancel_transfer', { p_transfer: t.transfer_id, p_reason: reason })
-    if (error) { alert('Could not cancel:\n\n' + error.message); return }
+    if (error) { appAlert('Could not cancel:\n\n' + error.message); return }
     load()
   }
 

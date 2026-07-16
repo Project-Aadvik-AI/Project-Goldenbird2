@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -102,36 +103,36 @@ export default function MaterialRequests() {
   }), [scoped])
 
   async function submit(mr: MR) {
-    if (!confirm(`Submit ${mr.request_no} for approval?`)) return
+    if (!await appConfirm(`Submit ${mr.request_no} for approval?`)) return
     const { error } = await supabase.rpc('inv_submit_mr', { p_mr: mr.mr_id })
-    if (error) { alert('Could not submit:\n\n' + error.message); return }
+    if (error) { appAlert('Could not submit:\n\n' + error.message); return }
     load()
   }
 
   async function reject(mr: MR) {
-    const reason = prompt(`Reject ${mr.request_no}?\n\nReason:`)
+    const reason = await appPrompt(`Reject ${mr.request_no}?\n\nReason:`)
     if (!reason) return
     const { error } = await supabase.rpc('inv_reject_mr', { p_mr: mr.mr_id, p_reason: reason })
-    if (error) { alert('Could not reject:\n\n' + error.message); return }
+    if (error) { appAlert('Could not reject:\n\n' + error.message); return }
     load()
   }
 
   async function cancel(mr: MR) {
-    const reason = prompt(`Cancel ${mr.request_no}?\n\nAny reserved stock will be released. Reason:`)
+    const reason = await appPrompt(`Cancel ${mr.request_no}?\n\nAny reserved stock will be released. Reason:`)
     if (reason === null) return
     const { error } = await supabase.rpc('inv_cancel_mr', { p_mr: mr.mr_id, p_reason: reason || 'cancelled' })
-    if (error) { alert('Could not cancel:\n\n' + error.message); return }
+    if (error) { appAlert('Could not cancel:\n\n' + error.message); return }
     load()
   }
 
   async function issue(mr: MR) {
-    if (!confirm(
+    if (!await appConfirm(
       `Create a Material Issue against ${mr.request_no}?\n\n` +
       `It will be pre-filled with the approved quantities and sent to Stock Movements for posting.`
     )) return
     const { error } = await supabase.rpc('inv_mr_to_issue', { p_mr: mr.mr_id })
-    if (error) { alert('Could not create the issue:\n\n' + error.message); return }
-    alert('Draft Issue created. Review it in Stock Movements, then Post it.')
+    if (error) { appAlert('Could not create the issue:\n\n' + error.message); return }
+    appAlert('Draft Issue created. Review it in Stock Movements, then Post it.')
     navigate('/stock-movements')
   }
 
@@ -529,7 +530,7 @@ function MrDetail({ mr, onClose, onChanged }: { mr: MR; onClose: () => void; onC
   }, [mr.mr_id])
 
   async function approve() {
-    if (!confirm(
+    if (!await appConfirm(
       `Approve ${mr.request_no}?\n\n` +
       `Available stock will be RESERVED for this request — no one else can take it.\n` +
       `Anything short will be reported so it can go to a transfer or a purchase order.`
@@ -537,7 +538,7 @@ function MrDetail({ mr, onClose, onChanged }: { mr: MR; onClose: () => void; onC
     setBusy(true)
     const { data, error } = await supabase.rpc('inv_approve_mr', { p_mr: mr.mr_id, p_warehouse: null, p_note: null })
     setBusy(false)
-    if (error) { alert('Could not approve:\n\n' + error.message); return }
+    if (error) { appAlert('Could not approve:\n\n' + error.message); return }
     setResult((data as any[]) ?? [])
   }
 

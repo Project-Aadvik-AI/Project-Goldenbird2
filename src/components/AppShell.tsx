@@ -255,6 +255,7 @@ export default function AppShell() {
 
   return (
     <div className="h-full flex bg-[var(--bg)] text-[var(--text)]">
+      <DialogHost />
       {/* Sidebar */}
       <aside className={`fixed lg:static z-30 inset-y-0 left-0 w-[236px] bg-[var(--bg)] border-r border-[var(--line)] flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="px-5 h-[72px] flex items-center gap-3 border-b border-[var(--line)] flex-shrink-0">

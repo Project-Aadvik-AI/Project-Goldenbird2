@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -135,7 +136,7 @@ export default function PayrollSetup() {
                           const { error } = await supabase.rpc('link_employee_login', {
                             p_emp: u.employee_id, p_profile: u.suggested_profile_id,
                           })
-                          if (error) { alert(error.message); return }
+                          if (error) { appAlert(error.message); return }
                           load()
                         }}>
                         Link to {u.suggested_profile_name}

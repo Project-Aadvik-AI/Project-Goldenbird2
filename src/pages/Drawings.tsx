@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useProject, NoProjectPrompt } from '../lib/project'
@@ -86,7 +87,7 @@ export default function Drawings() {
   const grouped = groupByDrawingNo(visibleDrawings)
 
   async function deleteFolder(id: string) {
-    if (!confirm('Delete this folder and everything inside it?')) return
+    if (!await appConfirm('Delete this folder and everything inside it?')) return
     await supabase.from('drawing_folders').delete().eq('id', id)
     if (activeFolder === id) setActiveFolder(null)
     load()

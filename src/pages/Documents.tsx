@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -58,7 +59,7 @@ export default function Documents() {
   })
 
   async function del(id: string) {
-    if (!confirm('Delete this document?')) return
+    if (!await appConfirm('Delete this document?')) return
     await supabase.from('documents').delete().eq('id', id)
     load()
   }

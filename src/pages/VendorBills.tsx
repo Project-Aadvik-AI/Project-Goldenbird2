@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -276,7 +277,7 @@ function BillDetail({ b, onClose, onChanged }: { b: Bill; onClose: () => void; o
   }
 
   async function postToBooks() {
-    if (!confirm(
+    if (!await appConfirm(
       `Post ${b.bill_no ?? 'this bill'} to the accounts?\n\n` +
       `A draft Purchase voucher will be created:\n` +
       `  Dr Material Consumed + Input GST\n` +
@@ -287,7 +288,7 @@ function BillDetail({ b, onClose, onChanged }: { b: Bill; onClose: () => void; o
     const { error } = await supabase.rpc('post_vendor_bill_to_accounts', { p_bill: b.bill_id })
     setBusy(false)
     if (error) { setErr(error.message); return }
-    alert('Draft voucher created. Review it in Accounting → Vouchers, then Post.')
+    appAlert('Draft voucher created. Review it in Accounting → Vouchers, then Post.')
     onChanged()
   }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -53,7 +54,7 @@ export default function Accounting() {
     setSeeding(true)
     const { error } = await supabase.rpc('acc_seed_chart')
     setSeeding(false)
-    if (error) { alert('Setup failed: ' + error.message); return }
+    if (error) { appAlert('Setup failed: ' + error.message); return }
     setSeeded(true)
   }
 
@@ -743,16 +744,16 @@ function Vouchers() {
   ), [rows, fType, fStatus])
 
   async function post(v: Voucher) {
-    if (!confirm(`Post ${v.voucher_no}?\n\nOnce posted, this voucher becomes immutable — corrections require a reversal voucher.`)) return
+    if (!await appConfirm(`Post ${v.voucher_no}?\n\nOnce posted, this voucher becomes immutable — corrections require a reversal voucher.`)) return
     const { error } = await supabase.rpc('acc_post_voucher', { p_voucher: v.id })
-    if (error) { alert('Could not post:\n\n' + error.message); return }
+    if (error) { appAlert('Could not post:\n\n' + error.message); return }
     load()
   }
   async function reverse(v: Voucher) {
-    const reason = prompt(`Reverse ${v.voucher_no}?\n\nThis creates a mirror-image voucher. Reason:`)
+    const reason = await appPrompt(`Reverse ${v.voucher_no}?\n\nThis creates a mirror-image voucher. Reason:`)
     if (reason === null) return
     const { error } = await supabase.rpc('acc_reverse_voucher', { p_voucher: v.id, p_reason: reason })
-    if (error) { alert('Could not reverse:\n\n' + error.message); return }
+    if (error) { appAlert('Could not reverse:\n\n' + error.message); return }
     load()
   }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -114,8 +115,8 @@ export default function EmployeeDetail() {
   const advOutstanding = Math.round((advGiven - advTotalSpent) * 100) / 100
 
   async function returnRemainingCash() {
-    if (advOutstanding <= 0 || !emp) { alert('Nothing outstanding to return.'); return }
-    if (!confirm(`Record ₹${advOutstanding.toLocaleString('en-IN')} returned as cash and mark these advances settled?`)) return
+    if (advOutstanding <= 0 || !emp) { appAlert('Nothing outstanding to return.'); return }
+    if (!await appConfirm(`Record ₹${advOutstanding.toLocaleString('en-IN')} returned as cash and mark these advances settled?`)) return
     // apply the returned amount to oldest advances' spent_amount (FIFO), and mark settled where cleared
     const { data: advs } = await supabase.from('advances').select('id, amount, spent_amount, status')
       .eq('employee_id', emp.id).neq('status', 'Rejected').order('date', { ascending: true })
@@ -141,7 +142,7 @@ export default function EmployeeDetail() {
     if (emp) { const { data: iex } = await supabase.from('expenses').select('id,date,amount,expense_type,remark,vendor,bill_photo,approval_status,rejection_reason').eq('imprest_employee_id', emp.id).order('date', { ascending: false }).limit(300); setImprestExpenses((iex as any[]) ?? []) }
   }
   async function rejectImprestExpense(id: string) {
-    const reason = prompt('Rejection reason (the employee will see this):')
+    const reason = await appPrompt('Rejection reason (the employee will see this):')
     if (reason === null) return
     const { data: u } = await supabase.auth.getUser()
     await supabase.from('expenses').update({ approval_status: 'Rejected', approved_by: u?.user?.id ?? null, approved_at: new Date().toISOString(), rejection_reason: reason || 'Rejected' }).eq('id', id)

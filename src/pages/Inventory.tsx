@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -50,7 +51,7 @@ export default function Inventory() {
   }, [])
 
   async function seed() {
-    if (!confirm(
+    if (!await appConfirm(
       'Set up the Item Master?\n\n' +
       'This will:\n' +
       '• Create standard units and categories\n' +
@@ -63,9 +64,9 @@ export default function Inventory() {
     setSeeding(true)
     const { data, error } = await supabase.rpc('inv_seed_and_migrate')
     setSeeding(false)
-    if (error) { alert('Setup failed:\n\n' + error.message); return }
+    if (error) { appAlert('Setup failed:\n\n' + error.message); return }
     const r = (data as any[])?.[0]
-    alert(
+    appAlert(
       'Item Master created.\n\n' +
       `Units: ${r?.units_created ?? 0}\n` +
       `Categories: ${r?.categories_created ?? 0}\n` +

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
@@ -173,13 +174,13 @@ export default function BillingDetail() {
   // POST TO ACCOUNTS — creates a balanced Draft voucher
   async function postToAccounts() {
     if (!bill) return
-    if (!bill.party_id) { alert('Select the client (party) first — the voucher needs a ledger to debit.'); return }
+    if (!bill.party_id) { appAlert('Select the client (party) first — the voucher needs a ledger to debit.'); return }
     await saveTotals()   // make sure stored figures match what is on screen
     setPosting(true)
     const { data, error } = await supabase.rpc('acc_post_ra_bill', { p_bill: bill.id })
     setPosting(false)
-    if (error) { alert('Could not post to accounts:\n\n' + error.message); return }
-    alert('Posted to accounts as a DRAFT voucher.\n\nReview and post it in Accounting → Vouchers.')
+    if (error) { appAlert('Could not post to accounts:\n\n' + error.message); return }
+    appAlert('Posted to accounts as a DRAFT voucher.\n\nReview and post it in Accounting → Vouchers.')
     load()
   }
 
@@ -191,7 +192,7 @@ export default function BillingDetail() {
     load()
   }
   async function del() {
-    if (!bill || !confirm('Delete this draft bill?')) return
+    if (!bill || !await appConfirm('Delete this draft bill?')) return
     await supabase.from('ra_bills').delete().eq('id', bill.id)
     navigate('/billing')
   }

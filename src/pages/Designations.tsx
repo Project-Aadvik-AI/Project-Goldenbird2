@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -62,14 +63,14 @@ export default function Designations() {
   }
 
   async function del(d: Designation) {
-    if ((usage[d.id] ?? 0) > 0) { alert('Cannot delete — employees are using this designation. Disable it instead.'); return }
-    if (!confirm(`Delete "${d.name}"?`)) return
+    if ((usage[d.id] ?? 0) > 0) { appAlert('Cannot delete — employees are using this designation. Disable it instead.'); return }
+    if (!await appConfirm(`Delete "${d.name}"?`)) return
     await supabase.from('designations').delete().eq('id', d.id)
     load()
   }
 
   async function seedDefaults() {
-    if (!confirm('Add the standard construction designations? Existing ones will be skipped.')) return
+    if (!await appConfirm('Add the standard construction designations? Existing ones will be skipped.')) return
     setBusy(true)
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     const existing = new Set(rows.map(r => r.name.toLowerCase()))

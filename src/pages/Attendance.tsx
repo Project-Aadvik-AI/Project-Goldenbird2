@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { supabase } from '../lib/supabase'
 import { useProject } from '../lib/project'
 
@@ -93,7 +94,7 @@ export default function Attendance() {
   }
 
   async function markAll(status: Status) {
-    if (!confirm(`Mark ALL employees as ${status} for ${date}?`)) return
+    if (!await appConfirm(`Mark ALL employees as ${status} for ${date}?`)) return
     const { data: prof } = await supabase.from('profiles').select('org_id').single()
     for (const emp of employees) {
       const existing = dayRows.find(r => r.employee_id === emp.id)

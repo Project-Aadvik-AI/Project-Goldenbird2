@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -677,7 +678,7 @@ function Documents({ partyId, rows, onChanged }: {
   const [replacing, setReplacing] = useState<Doc | null>(null)
 
   async function del(d: Doc) {
-    if (!confirm(`Delete "${d.title || d.doc_type}"?`)) return
+    if (!await appConfirm(`Delete "${d.title || d.doc_type}"?`)) return
     await supabase.from('vendor_documents').delete().eq('id', d.id)
     onChanged()
   }

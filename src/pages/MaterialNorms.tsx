@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -112,7 +113,7 @@ export default function MaterialNorms() {
   }, [wastage])
 
   async function del(id: string) {
-    if (!confirm('Delete this norm?')) return
+    if (!await appConfirm('Delete this norm?')) return
     await supabase.from('inv_material_norms').delete().eq('id', id)
     load()
   }

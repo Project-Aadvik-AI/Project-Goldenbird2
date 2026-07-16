@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import ExportButtons from '../components/ExportButtons'
 import { supabase } from '../lib/supabase'
@@ -32,8 +33,8 @@ export default function Expenses() {
 
   async function postToAccounts(expenseId: string) {
     const { error } = await supabase.rpc('acc_post_expense', { p_expense: expenseId, p_pay_ledger: null })
-    if (error) { alert('Could not post:\n\n' + error.message); return }
-    alert('Posted to accounts as a DRAFT voucher (Dr expense / Cr cash).\nReview it in Accounting → Vouchers.')
+    if (error) { appAlert('Could not post:\n\n' + error.message); return }
+    appAlert('Posted to accounts as a DRAFT voucher (Dr expense / Cr cash).\nReview it in Accounting → Vouchers.')
     load()
   }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -53,8 +54,8 @@ export default function Employees() {
   const [creatingLogin, setCreatingLogin] = useState<string | null>(null)
 
   async function createLogin(r: Employee) {
-    if (!r.email) { alert('This employee has no email. Add an email first (needed for login).'); return }
-    if (!confirm(`Create a login account for ${r.full_name} (${r.email})?\nA temporary password will be generated.`)) return
+    if (!r.email) { appAlert('This employee has no email. Add an email first (needed for login).'); return }
+    if (!await appConfirm(`Create a login account for ${r.full_name} (${r.email})?\nA temporary password will be generated.`)) return
     setCreatingLogin(r.id)
     try {
       const { data: sess } = await supabase.auth.getSession()
@@ -63,12 +64,12 @@ export default function Employees() {
         body: { employee_id: r.id, email: r.email, full_name: r.full_name, employee_code: r.emp_code },
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       })
-      if (error) { alert('Failed: ' + error.message); return }
-      if ((data as any)?.error) { alert('Failed: ' + (data as any).error); return }
+      if (error) { appAlert('Failed: ' + error.message); return }
+      if ((data as any)?.error) { appAlert('Failed: ' + (data as any).error); return }
       setCreds({ name: r.full_name, username: (data as any).username, password: (data as any).temp_password, emailed: !!(data as any).emailed })
       load()
     } catch (e) {
-      alert('Failed: ' + String(e))
+      appAlert('Failed: ' + String(e))
     } finally { setCreatingLogin(null) }
   }
 
@@ -83,7 +84,7 @@ export default function Employees() {
     const warn = hist > 0
       ? `\n\nWARNING: This employee has ${attC ?? 0} attendance, ${payC ?? 0} payment, and ${advC ?? 0} advance record(s). Deleting will also remove those. Consider setting status to Inactive instead.`
       : ''
-    if (!confirm(`Delete employee "${r.full_name}" (${r.emp_code || 'no code'})?${warn}\n\nThis cannot be undone.`)) return
+    if (!await appConfirm(`Delete employee "${r.full_name}" (${r.emp_code || 'no code'})?${warn}\n\nThis cannot be undone.`)) return
     // delete dependent records first (no cascade guaranteed), then the employee
     await Promise.all([
       supabase.from('attendance').delete().eq('employee_id', r.id),
@@ -92,7 +93,7 @@ export default function Employees() {
       supabase.from('employee_documents').delete().eq('employee_id', r.id),
     ])
     const { error } = await supabase.from('employees').delete().eq('id', r.id)
-    if (error) { alert('Could not delete: ' + error.message); return }
+    if (error) { appAlert('Could not delete: ' + error.message); return }
     load()
   }
   const [rows, setRows] = useState<Employee[]>([])
@@ -512,7 +513,7 @@ function DocsDrawer({ employee, onClose }: { employee: Employee; onClose: () => 
   }
 
   async function del(id: string) {
-    if (!confirm('Delete this document?')) return
+    if (!await appConfirm('Delete this document?')) return
     await supabase.from('employee_documents').delete().eq('id', id)
     load()
   }

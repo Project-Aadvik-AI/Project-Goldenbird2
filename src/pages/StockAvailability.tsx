@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -76,12 +77,12 @@ export default function StockAvailability() {
 
   async function releaseExpired() {
     const { data, error } = await supabase.rpc('inv_release_expired_reservations')
-    if (error) { alert('Failed: ' + error.message); return }
-    alert(`Released ${data ?? 0} expired reservation(s).`)
+    if (error) { appAlert('Failed: ' + error.message); return }
+    appAlert(`Released ${data ?? 0} expired reservation(s).`)
     load()
   }
   async function release(id: string) {
-    if (!confirm('Release this reservation? The stock becomes free again.')) return
+    if (!await appConfirm('Release this reservation? The stock becomes free again.')) return
     await supabase.from('inv_reservations')
       .update({ status: 'Released', released_at: new Date().toISOString() }).eq('id', id)
     load()
@@ -294,7 +295,7 @@ function FindStock() {
       p_item: itemId, p_qty: Number(needQty) || 0, p_exclude_warehouse: null,
     })
     setBusy(false)
-    if (error) { alert('Search failed: ' + error.message); return }
+    if (error) { appAlert('Search failed: ' + error.message); return }
     setResults((data as FindRow[]) ?? [])
     setSearched(true)
   }

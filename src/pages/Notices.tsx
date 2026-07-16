@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { uploadPrivate, makeObjectPath } from '../lib/storage'
@@ -89,15 +90,15 @@ export default function Notices() {
   }
 
   async function publish(n: Notice) {
-    if (!confirm(`Publish "${n.title}"?\n\nEveryone it is addressed to will be notified.`)) return
+    if (!await appConfirm(`Publish "${n.title}"?\n\nEveryone it is addressed to will be notified.`)) return
     const { data, error } = await supabase.rpc('publish_notice', { p_notice: n.id })
-    if (error) { alert('Could not publish:\n\n' + error.message); return }
-    alert(`Published. ${data ?? 0} people notified.`)
+    if (error) { appAlert('Could not publish:\n\n' + error.message); return }
+    appAlert(`Published. ${data ?? 0} people notified.`)
     load()
   }
 
   async function archive(n: Notice) {
-    if (!confirm(`Archive "${n.title}"?`)) return
+    if (!await appConfirm(`Archive "${n.title}"?`)) return
     await supabase.from('notices').update({ status: 'Archived' }).eq('id', n.id)
     load()
   }
@@ -277,7 +278,7 @@ function NoticeDetail({ n, onClose }: { n: Notice; onClose: () => void }) {
       p_notice: n.id, p_note: ackNote || null,
     })
     setBusy(false)
-    if (error) { alert(error.message); return }
+    if (error) { appAlert(error.message); return }
     setAcked(true)
   }
 
@@ -292,7 +293,7 @@ function NoticeDetail({ n, onClose }: { n: Notice; onClose: () => void }) {
       org_id: prof?.org_id, notice_id: n.id,
       profile_id: uid, comment: comment.trim(),
     })
-    if (error) { alert(error.message); return }
+    if (error) { appAlert(error.message); return }
     setComment(''); load()
   }
 

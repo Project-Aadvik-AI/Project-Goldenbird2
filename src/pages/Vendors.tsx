@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -102,7 +103,7 @@ export default function Vendors() {
   }, [])
 
   async function softDelete(v: Vendor) {
-    const reason = prompt(
+    const reason = await appPrompt(
       `Delete ${v.name}?\n\n` +
       `They will be hidden from the vendor list, but their history stays intact ` +
       `and reports keep working. You can restore them later.\n\n` +
@@ -112,12 +113,12 @@ export default function Vendors() {
     const { error } = await supabase.rpc('soft_delete_vendor', {
       p_party: v.party_id, p_reason: reason,
     })
-    if (error) { alert('Could not delete:\n\n' + error.message); return }
+    if (error) { appAlert('Could not delete:\n\n' + error.message); return }
     load()
   }
 
   async function migrate() {
-    if (!confirm(
+    if (!await appConfirm(
       'Bring your old vendors into the vendor master?\n\n' +
       'Every vendor named on a Work Order or Vendor Bill becomes a real vendor record ' +
       '(with an accounting ledger), and those documents are linked to it.\n\n' +
@@ -126,9 +127,9 @@ export default function Vendors() {
     setMigrating(true)
     const { data, error } = await supabase.rpc('migrate_vendors')
     setMigrating(false)
-    if (error) { alert('Migration failed:\n\n' + error.message); return }
+    if (error) { appAlert('Migration failed:\n\n' + error.message); return }
     const r = (data as any[])?.[0]
-    alert(
+    appAlert(
       `Done.\n\n` +
       `Vendors created: ${r?.parties_created ?? 0}\n` +
       `Work orders linked: ${r?.work_orders_linked ?? 0}\n` +

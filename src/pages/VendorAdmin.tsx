@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { appAlert, appConfirm, appPrompt } from '../lib/dialogs'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -72,9 +73,9 @@ export default function VendorAdmin() {
   useEffect(() => { load() }, [])
 
   async function restore(d: Deleted) {
-    if (!confirm(`Restore ${d.name}?\n\nThey will become an Active vendor again.`)) return
+    if (!await appConfirm(`Restore ${d.name}?\n\nThey will become an Active vendor again.`)) return
     const { error } = await supabase.rpc('restore_vendor', { p_party: d.party_id })
-    if (error) { alert('Could not restore:\n\n' + error.message); return }
+    if (error) { appAlert('Could not restore:\n\n' + error.message); return }
     load()
   }
 

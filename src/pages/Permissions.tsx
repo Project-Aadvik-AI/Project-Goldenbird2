@@ -12,13 +12,14 @@ type PermRow = {
 const colName = (p: PermKey) => `can_${p}` as keyof PermRow
 
 export default function Permissions() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
   const [desigs, setDesigs] = useState<Designation[]>([])
   const [desigId, setDesigId] = useState('')
   const [perms, setPerms] = useState<Record<string, PermRow>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
+  const [saveErr, setSaveErr] = useState<string | null>(null)
   const [empCount, setEmpCount] = useState(0)
 
   useEffect(() => {
@@ -112,11 +113,14 @@ export default function Permissions() {
 
   async function save() {
     setSaving(true)
-    const { data: prof } = await supabase.from('profiles').select('org_id').single()
-    const rows = MODULES.map(m => ({ org_id: prof?.org_id, designation_id: desigId, ...perms[m.key], module: m.key }))
+    // org_id from the signed-in profile — NEVER an unfiltered .single() (it errors
+    // when several profiles exist, which silently blanked every save before).
+    const orgId = profile?.org_id ?? null
+    const rows = MODULES.map(m => ({ org_id: orgId, designation_id: desigId, ...perms[m.key], module: m.key }))
     const { error } = await supabase.from('designation_permissions').upsert(rows, { onConflict: 'designation_id,module' })
     setSaving(false)
-    if (!error) setSavedOk(true)
+    if (error) { setSaveErr(error.message); setSavedOk(false) }
+    else { setSaveErr(null); setSavedOk(true) }
   }
 
   const grouped = useMemo(() => {
@@ -151,6 +155,7 @@ export default function Permissions() {
           </button>
         </div>
       )}
+      {saveErr && <div className="mb-4 text-sm text-red-400">Couldn't save: {saveErr}</div>}
 
       {desigId && !loading && (
         <div className="mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.05]">

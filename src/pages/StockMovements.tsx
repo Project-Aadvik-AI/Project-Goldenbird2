@@ -56,6 +56,7 @@ export default function StockMovements() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState<MType | null>(null)
+  const [consume, setConsume] = useState(false)
   const [fType, setFType] = useState('')
   const [fStatus, setFStatus] = useState('')
   const [ready, setReady] = useState(true)
@@ -136,6 +137,12 @@ export default function StockMovements() {
               <div className="text-[10px] text-[#dcc1ae]/60 leading-tight mt-0.5">{t.desc}</div>
             </button>
           ))}
+          <button onClick={() => { setConsume(true); setShowForm('Issue') }}
+            className="card p-3 text-left hover:bg-white/[0.04] transition-colors">
+            <span className="material-symbols-outlined text-[#ffb87b]" style={{ fontSize: '20px' }}>construction</span>
+            <div className="text-[13px] font-semibold text-[#e2e2e8] mt-1">Consumption</div>
+            <div className="text-[10px] text-[#dcc1ae]/60 leading-tight mt-0.5">Material consumed on the project (tag a BOQ item)</div>
+          </button>
         </div>
       )}
 
@@ -217,7 +224,8 @@ export default function StockMovements() {
       </div>
 
       {showForm && <MovementForm type={showForm} warehouses={warehouses}
-        onClose={() => setShowForm(null)} onSaved={() => { setShowForm(null); load() }} />}
+        preset={consume ? { issuedTo: 'Project Consumption', reason: 'Consumption' } : undefined}
+        onClose={() => { setShowForm(null); setConsume(false) }} onSaved={() => { setShowForm(null); setConsume(false); load() }} />}
     </div>
   )
 }
@@ -227,8 +235,8 @@ export default function StockMovements() {
 // =====================================================================
 type Line = { item_id: string; qty: string; rate: string; batch_no: string; batch_id: string; override_reason: string; mfg_date: string; expiry_date: string; remarks: string }
 
-function MovementForm({ type, warehouses, onClose, onSaved }: {
-  type: MType; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void
+function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
+  type: MType; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void; preset?: { issuedTo?: string; reason?: string }
 }) {
   const { activeProject } = useProject()
   const meta = TYPES.find(t => t.key === type)!
@@ -249,9 +257,9 @@ function MovementForm({ type, warehouses, onClose, onSaved }: {
   const [fromWh, setFromWh] = useState('')
   const [toWh, setToWh] = useState('')
   const [vendorId, setVendorId] = useState('')
-  const [issuedTo, setIssuedTo] = useState('')
+  const [issuedTo, setIssuedTo] = useState(preset?.issuedTo ?? '')
   const [refNo, setRefNo] = useState('')
-  const [reason, setReason] = useState('')
+  const [reason, setReason] = useState(preset?.reason ?? '')
   const [remarks, setRemarks] = useState('')
   const [lines, setLines] = useState<Line[]>([{ item_id: '', qty: '', rate: '', batch_no: '', batch_id: '', override_reason: '', mfg_date: '', expiry_date: '', remarks: '' }])
   const [busy, setBusy] = useState(false)

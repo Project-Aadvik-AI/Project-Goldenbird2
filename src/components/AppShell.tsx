@@ -142,6 +142,7 @@ const HO_NAV: Entry[] = [
     { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
     { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
     { to: '/inventory', label: 'Inventory Masters', icon: 'category', module: 'inventory' },
+    { to: '/requirement-planning', label: 'Requirement Planning', icon: 'calculate', module: 'purchase_requests' },
   ] },
 
   { group: 'Assets', icon: 'precision_manufacturing', items: [

@@ -88,6 +88,7 @@ import Tasks from './pages/Tasks'
 import Notices from './pages/Notices'
 import VendorBills from './pages/VendorBills'
 import CreditManagement from './pages/CreditManagement'
+import RequirementPlanning from './pages/RequirementPlanning'
 import LoanDetail from './pages/LoanDetail'
 
 export default function App() {
@@ -195,6 +196,7 @@ export default function App() {
           <Route path="/notices" element={<ModuleGuard module="notices"><Notices /></ModuleGuard>} />
           <Route path="/vendor-bills" element={<ModuleGuard module="vendor_bills"><VendorBills /></ModuleGuard>} />
           <Route path="/credit" element={<ModuleGuard module="credit"><CreditManagement /></ModuleGuard>} />
+          <Route path="/requirement-planning" element={<ModuleGuard module="purchase_requests"><RequirementPlanning /></ModuleGuard>} />
           <Route path="/credit/:id" element={<ModuleGuard module="credit"><LoanDetail /></ModuleGuard>} />
           <Route path="/ai-brief" element={<ModuleGuard module="ai_brief"><AIBrief /></ModuleGuard>} />
           <Route path="/change-password" element={<ChangePassword />} />

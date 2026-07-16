@@ -33,7 +33,9 @@ export default function Permissions() {
   async function loadPerms(id: string) {
     if (!id) return
     setLoading(true); setSavedOk(false)
-    const { data } = await supabase.from('designation_permissions').select('*').eq('designation_id', id)
+    const { data } = await supabase.from('designation_permissions')
+      .select('module, can_view, can_create, can_edit, can_delete, can_approve, can_export')
+      .eq('designation_id', id)
     const map: Record<string, PermRow> = {}
     for (const m of MODULES) {
       map[m.key] = { module: m.key, can_view: false, can_create: false, can_edit: false, can_delete: false, can_approve: false, can_export: false }
@@ -116,7 +118,16 @@ export default function Permissions() {
     // org_id from the signed-in profile — NEVER an unfiltered .single() (it errors
     // when several profiles exist, which silently blanked every save before).
     const orgId = profile?.org_id ?? null
-    const rows = MODULES.map(m => ({ org_id: orgId, designation_id: desigId, ...perms[m.key], module: m.key }))
+    // Build each row explicitly — never include `id` (DB generates it) and never
+    // spread stray fields that could send id:null and break the NOT NULL default.
+    const rows = MODULES.map(m => {
+      const p = perms[m.key]
+      return {
+        org_id: orgId, designation_id: desigId, module: m.key,
+        can_view: !!p?.can_view, can_create: !!p?.can_create, can_edit: !!p?.can_edit,
+        can_delete: !!p?.can_delete, can_approve: !!p?.can_approve, can_export: !!p?.can_export,
+      }
+    })
     const { error } = await supabase.from('designation_permissions').upsert(rows, { onConflict: 'designation_id,module' })
     setSaving(false)
     if (error) { setSaveErr(error.message); setSavedOk(false) }

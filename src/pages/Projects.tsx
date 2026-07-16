@@ -260,29 +260,30 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
 
     // --- sync assigned EMPLOYEES (user_projects) ---
     if (projectId) {
-      const { data: existing } = await supabase.from('user_projects').select('user_id').eq('project_id', projectId)
+      const [{ data: existing }, { data: curAssets }] = await Promise.all([
+        supabase.from('user_projects').select('user_id').eq('project_id', projectId),
+        supabase.from('assets').select('id').eq('project_id', projectId),
+      ])
       const before = new Set(((existing as any[]) ?? []).map(x => x.user_id))
       const toAdd = [...pickedPeople].filter(id => !before.has(id))
       const toRemove = [...before].filter(id => !pickedPeople.has(id))
-      if (toAdd.length) {
-        await supabase.from('user_projects').insert(toAdd.map(uid => ({ org_id: prof?.org_id, user_id: uid, project_id: projectId })))
-      }
-      for (const uid of toRemove) {
-        await supabase.from('user_projects').delete().eq('project_id', projectId).eq('user_id', uid)
-      }
 
       // --- sync assigned ASSETS (assets.project_id) ---
-      const { data: curAssets } = await supabase.from('assets').select('id').eq('project_id', projectId)
       const beforeA = new Set(((curAssets as any[]) ?? []).map(x => x.id))
       const addA = [...pickedAssets].filter(id => !beforeA.has(id))
       const remA = [...beforeA].filter(id => !pickedAssets.has(id))
-      for (const aid of addA) {
-        await supabase.from('assets').update({ project_id: projectId, status: 'Assigned' }).eq('id', aid)
-        await supabase.from('asset_assignments').insert({ org_id: prof?.org_id, asset_id: aid, project_id: projectId })
+
+      // One batched request per operation (was one request PER person/asset —
+      // that loop is what made "Saving…" take seconds).
+      const ops: PromiseLike<unknown>[] = []
+      if (toAdd.length) ops.push(supabase.from('user_projects').insert(toAdd.map(uid => ({ org_id: prof?.org_id, user_id: uid, project_id: projectId }))))
+      if (toRemove.length) ops.push(supabase.from('user_projects').delete().eq('project_id', projectId).in('user_id', toRemove))
+      if (addA.length) {
+        ops.push(supabase.from('assets').update({ project_id: projectId, status: 'Assigned' }).in('id', addA))
+        ops.push(supabase.from('asset_assignments').insert(addA.map(aid => ({ org_id: prof?.org_id, asset_id: aid, project_id: projectId }))))
       }
-      for (const aid of remA) {
-        await supabase.from('assets').update({ project_id: null, status: 'Available' }).eq('id', aid)
-      }
+      if (remA.length) ops.push(supabase.from('assets').update({ project_id: null, status: 'Available' }).in('id', remA))
+      await Promise.all(ops)
     }
 
     setBusy(false)

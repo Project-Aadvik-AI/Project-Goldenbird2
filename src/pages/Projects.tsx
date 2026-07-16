@@ -182,8 +182,8 @@ function StatusBadge({ status }: { status: string }) {
     'bg-white/5 text-[#dcc1ae] border border-white/10'
   return <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls}`}>{status || '—'}</span>
 }
-
 function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; onClose: () => void; onSaved: () => void }) {
+  const { profile } = useAuth()
   const [name, setName] = useState(editing?.name ?? '')
   const [code, setCode] = useState(editing?.code ?? '')
   const [client, setClient] = useState(editing?.client ?? '')

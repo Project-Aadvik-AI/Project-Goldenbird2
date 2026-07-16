@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth'
 type Schedule = { id: string; name: string; schedule_no: string | null; disabled: boolean }
 
 export default function BoqSchedules() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, can } = useAuth()
   const [rows, setRows] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
@@ -62,7 +62,7 @@ export default function BoqSchedules() {
     load()
   }
 
-  if (!isAdmin) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can manage schedules.</div>
+  if (!isAdmin && !can('boq_schedules', 'view')) return <div className="p-8 text-center text-[#dcc1ae]">Only admins can manage schedules.</div>
 
   return (
     <div>

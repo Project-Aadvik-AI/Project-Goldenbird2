@@ -120,41 +120,41 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<OrgDashboard />} />
           <Route path="/project" element={<Dashboard />} />
-          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects" element={<ModuleGuard module="projects"><Projects /></ModuleGuard>} />
           <Route path="/expenses" element={<ModuleGuard module="expenses"><Expenses /></ModuleGuard>} />
           <Route path="/store" element={<ModuleGuard module="store"><Store /></ModuleGuard>} />
           <Route path="/machines" element={<ModuleGuard module="machines"><Machines /></ModuleGuard>} />
           <Route path="/dpr" element={<ModuleGuard module="dpr"><DPR /></ModuleGuard>} />
-          <Route path="/hindrances" element={<Hindrances />} />
-          <Route path="/eot" element={<EOT />} />
+          <Route path="/hindrances" element={<ModuleGuard module="hindrances"><Hindrances /></ModuleGuard>} />
+          <Route path="/eot" element={<ModuleGuard module="eot"><EOT /></ModuleGuard>} />
           <Route path="/labour" element={<ModuleGuard module="labour"><Labour /></ModuleGuard>} />
           <Route path="/labour-dashboard" element={<ModuleGuard module="labour"><LabourDashboard /></ModuleGuard>} />
           <Route path="/purchase" element={<ModuleGuard module="purchase_requests"><Purchase /></ModuleGuard>} />
           <Route path="/reports" element={<ModuleGuard module="reports"><Reports /></ModuleGuard>} />
           <Route path="/masters" element={<Navigate to="/" replace />} />
-          <Route path="/team" element={<Team />} />
+          <Route path="/team" element={<ModuleGuard module="team"><Team /></ModuleGuard>} />
           <Route path="/employees" element={<ModuleGuard module="employees"><Employees /></ModuleGuard>} />
-          <Route path="/payroll" element={<Payroll />} />
-          <Route path="/payroll-reports" element={<PayrollReports />} />
+          <Route path="/payroll" element={<ModuleGuard module="payroll"><Payroll /></ModuleGuard>} />
+          <Route path="/payroll-reports" element={<ModuleGuard module="payroll"><PayrollReports /></ModuleGuard>} />
           <Route path="/my-payslips" element={<MyPayslips />} />
-          <Route path="/payroll-setup" element={<PayrollSetup />} />
-          <Route path="/payroll-advances" element={<PayrollAdvances />} />
-          <Route path="/designations" element={<Designations />} />
+          <Route path="/payroll-setup" element={<ModuleGuard module="payroll"><PayrollSetup /></ModuleGuard>} />
+          <Route path="/payroll-advances" element={<ModuleGuard module="payroll"><PayrollAdvances /></ModuleGuard>} />
+          <Route path="/designations" element={<ModuleGuard module="designations"><Designations /></ModuleGuard>} />
           <Route path="/permissions" element={<Permissions />} />
           <Route path="/boq" element={<ModuleGuard module="boq"><Boq /></ModuleGuard>} />
-          <Route path="/boq/:id" element={<BoqEditor />} />
+          <Route path="/boq/:id" element={<ModuleGuard module="boq"><BoqEditor /></ModuleGuard>} />
           <Route path="/measurement-book" element={<ModuleGuard module="measurement_book"><MeasurementBook /></ModuleGuard>} />
           <Route path="/monthly-performance" element={<ModuleGuard module="monthly_performance"><MonthlyPerformance /></ModuleGuard>} />
           <Route path="/billing" element={<ModuleGuard module="billing"><Billing /></ModuleGuard>} />
           <Route path="/boq-dashboard" element={<ModuleGuard module="boq_dashboard"><BoqDashboard /></ModuleGuard>} />
           <Route path="/boq-budget" element={<ModuleGuard module="boq_budget"><BoqBudget /></ModuleGuard>} />
-          <Route path="/boq-schedules" element={<BoqSchedules />} />
+          <Route path="/boq-schedules" element={<ModuleGuard module="boq_schedules"><BoqSchedules /></ModuleGuard>} />
           <Route path="/my-imprest" element={<MyImprest />} />
-          <Route path="/give-imprest" element={<GiveImprest />} />
+          <Route path="/give-imprest" element={<ModuleGuard module="imprest"><GiveImprest /></ModuleGuard>} />
           <Route path="/head-office" element={<HeadOffice />} />
-          <Route path="/accounting" element={<Accounting />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/warehouses" element={<Warehouses />} />
+          <Route path="/accounting" element={<ModuleGuard module="accounting"><Accounting /></ModuleGuard>} />
+          <Route path="/inventory" element={<ModuleGuard module="inventory"><Inventory /></ModuleGuard>} />
+          <Route path="/warehouses" element={<ModuleGuard module="warehouses"><Warehouses /></ModuleGuard>} />
           <Route path="/stock-movements" element={<ModuleGuard module="store"><StockMovements /></ModuleGuard>} />
           <Route path="/stock-dashboard" element={<ModuleGuard module="store"><StockDashboard /></ModuleGuard>} />
           <Route path="/stock-reports" element={<ModuleGuard module="store"><StockReports /></ModuleGuard>} />
@@ -164,16 +164,16 @@ export default function App() {
           <Route path="/material-requests" element={<ModuleGuard module="store"><MaterialRequests /></ModuleGuard>} />
           <Route path="/transfers" element={<ModuleGuard module="store"><StockTransfers /></ModuleGuard>} />
           <Route path="/availability" element={<ModuleGuard module="store"><StockAvailability /></ModuleGuard>} />
-          <Route path="/finance-reports" element={<FinanceReports />} />
-          <Route path="/gst" element={<GstReports />} />
-          <Route path="/bank-recon" element={<BankRecon />} />
-          <Route path="/accounting-export" element={<AccountingExport />} />
-          <Route path="/project-resources" element={<ProjectResources />} />
+          <Route path="/finance-reports" element={<ModuleGuard module="finance_reports"><FinanceReports /></ModuleGuard>} />
+          <Route path="/gst" element={<ModuleGuard module="gst_reports"><GstReports /></ModuleGuard>} />
+          <Route path="/bank-recon" element={<ModuleGuard module="bank_recon"><BankRecon /></ModuleGuard>} />
+          <Route path="/accounting-export" element={<ModuleGuard module="accounting_export"><AccountingExport /></ModuleGuard>} />
+          <Route path="/project-resources" element={<ModuleGuard module="project_resources"><ProjectResources /></ModuleGuard>} />
           <Route path="/assets" element={<ModuleGuard module="machines"><Assets /></ModuleGuard>} />
-          <Route path="/assets/:id" element={<AssetDetail />} />
-          <Route path="/bugs" element={<BugReports />} />
-          <Route path="/billing/:id" element={<BillingDetail />} />
-          <Route path="/employees/:id" element={<EmployeeDetail />} />
+          <Route path="/assets/:id" element={<ModuleGuard module="machines"><AssetDetail /></ModuleGuard>} />
+          <Route path="/bugs" element={<ModuleGuard module="bug_reports"><BugReports /></ModuleGuard>} />
+          <Route path="/billing/:id" element={<ModuleGuard module="billing"><BillingDetail /></ModuleGuard>} />
+          <Route path="/employees/:id" element={<ModuleGuard module="employees"><EmployeeDetail /></ModuleGuard>} />
           <Route path="/attendance" element={<ModuleGuard module="attendance"><Attendance /></ModuleGuard>} />
           <Route path="/leaves" element={<ModuleGuard module="leaves"><Leaves /></ModuleGuard>} />
           <Route path="/documents" element={<ModuleGuard module="documents"><Documents /></ModuleGuard>} />
@@ -183,20 +183,20 @@ export default function App() {
           <Route path="/admin/invite" element={<AdminInvite />} />
           <Route path="/admin/reports" element={<AdminReports />} />
           <Route path="/work-orders" element={<ModuleGuard module="work_orders"><WorkOrders /></ModuleGuard>} />
-          <Route path="/vendors" element={<Vendors />} />
-          <Route path="/vendors/:id" element={<VendorDetail />} />
-          <Route path="/vendor-reports" element={<VendorReports />} />
+          <Route path="/vendors" element={<ModuleGuard module="vendors"><Vendors /></ModuleGuard>} />
+          <Route path="/vendors/:id" element={<ModuleGuard module="vendors"><VendorDetail /></ModuleGuard>} />
+          <Route path="/vendor-reports" element={<ModuleGuard module="vendor_reports"><VendorReports /></ModuleGuard>} />
           <Route path="/vendor-admin" element={<VendorAdmin />} />
-          <Route path="/vendor-payments" element={<VendorPayments />} />
-          <Route path="/vendor-progress" element={<VendorProgress />} />
+          <Route path="/vendor-payments" element={<ModuleGuard module="vendor_payments"><VendorPayments /></ModuleGuard>} />
+          <Route path="/vendor-progress" element={<ModuleGuard module="vendor_progress"><VendorProgress /></ModuleGuard>} />
           <Route path="/vendor-issues" element={<ModuleGuard module="store"><VendorIssues /></ModuleGuard>} />
           <Route path="/drawings" element={<ModuleGuard module="drawings"><Drawings /></ModuleGuard>} />
           <Route path="/tasks" element={<ModuleGuard module="tasks"><Tasks /></ModuleGuard>} />
-          <Route path="/notices" element={<Notices />} />
+          <Route path="/notices" element={<ModuleGuard module="notices"><Notices /></ModuleGuard>} />
           <Route path="/vendor-bills" element={<ModuleGuard module="vendor_bills"><VendorBills /></ModuleGuard>} />
           <Route path="/credit" element={<ModuleGuard module="credit"><CreditManagement /></ModuleGuard>} />
           <Route path="/credit/:id" element={<ModuleGuard module="credit"><LoanDetail /></ModuleGuard>} />
-          <Route path="/ai-brief" element={<AIBrief />} />
+          <Route path="/ai-brief" element={<ModuleGuard module="ai_brief"><AIBrief /></ModuleGuard>} />
           <Route path="/change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

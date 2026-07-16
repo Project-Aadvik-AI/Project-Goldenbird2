@@ -246,7 +246,8 @@ function ProjectForm({ editing, onClose, onSaved }: { editing: Project | null; o
 
     let error
     let projectId = editing?.id ?? ''
-    const { data: prof } = await supabase.from('profiles').select('org_id').maybeSingle()
+    // org_id from the signed-in profile — NEVER an unfiltered .maybeSingle() (returns null when several profiles are visible)
+    const prof = { org_id: profile?.org_id }
     if (editing) {
       ({ error } = await supabase.from('projects').update(payload).eq('id', editing.id))
     } else {

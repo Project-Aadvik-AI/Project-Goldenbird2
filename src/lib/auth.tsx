@@ -37,6 +37,11 @@ export type Module =
   | 'warehouses'
   | 'notices'
   | 'project_resources'
+  | 'projects'
+  | 'team'
+  | 'boq_schedules'
+  | 'bug_reports'
+  | 'ai_brief'
 
 export type Action = 'view' | 'add' | 'create' | 'edit' | 'delete' | 'approve' | 'export'
 

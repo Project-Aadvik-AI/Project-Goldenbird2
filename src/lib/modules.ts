@@ -19,6 +19,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'boq_budget', label: 'BOQ Budget', group: 'BOQ & Billing' },
   { key: 'measurement_book', label: 'Measurement Book', group: 'BOQ & Billing' },
   { key: 'billing', label: 'RA Billing', group: 'BOQ & Billing' },
+  { key: 'boq_schedules', label: 'Schedule Master', group: 'BOQ & Billing' },
 
   // ── Procurement & Vendors ──
   { key: 'purchase_requests', label: 'Purchase Requests', group: 'Procurement & Vendors' },
@@ -62,6 +63,12 @@ export const MODULES: ModuleDef[] = [
   { key: 'monthly_performance', label: 'Monthly Performance', group: 'Reports & Planning' },
   { key: 'tasks', label: 'Tasks', group: 'Reports & Planning' },
   { key: 'project_resources', label: 'Project Resources', group: 'Reports & Planning' },
+  { key: 'ai_brief', label: 'AI Brief', group: 'Reports & Planning' },
+
+  // ── Organisation ──
+  { key: 'projects', label: 'Projects', group: 'Organisation' },
+  { key: 'team', label: 'Team', group: 'Organisation' },
+  { key: 'bug_reports', label: 'Bug Reports', group: 'Organisation' },
 ]
 
 export const PERMS = ['view', 'create', 'edit', 'delete', 'approve', 'export'] as const

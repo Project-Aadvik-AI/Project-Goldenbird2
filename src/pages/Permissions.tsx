@@ -67,6 +67,20 @@ export default function Permissions() {
       return { ...prev, [moduleKey]: row }
     })
   }
+  // Turn every permission on/off for a set of modules (a group, or all).
+  function setManyAll(keys: string[], val: boolean) {
+    setSavedOk(false)
+    setPerms(prev => {
+      const next = { ...prev }
+      for (const k of keys) {
+        const row = { ...(next[k] ?? {}) }
+        for (const p of PERMS) (row as any)[colName(p)] = val
+        next[k] = row
+      }
+      return next
+    })
+  }
+  const everythingOn = (keys: string[]) => keys.every(k => perms[k] && PERMS.every(p => (perms[k] as any)[colName(p)]))
 
   async function save() {
     setSaving(true)
@@ -110,12 +124,35 @@ export default function Permissions() {
         </div>
       )}
 
+      {desigId && !loading && (() => {
+        const allKeys = MODULES.map(m => m.key)
+        const allOn = everythingOn(allKeys)
+        return (
+          <div className="flex items-center gap-2 mb-4">
+            <button onClick={() => setManyAll(allKeys, !allOn)}
+              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border"
+              style={allOn
+                ? { color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }
+                : { color: '#34d399', borderColor: 'rgba(52,211,153,0.35)' }}>
+              {allOn ? 'Clear all permissions' : 'Grant EVERYTHING (all features, all actions)'}
+            </button>
+            <span className="text-[11px] text-[#dcc1ae]/50">Remember to press Save after.</span>
+          </div>
+        )
+      })()}
+
       {loading ? <div className="card p-6 text-[#dcc1ae] text-sm">Loading…</div> : desigId && (
         <div className="space-y-5">
           {grouped.map(([group, mods]) => (
             <div key={group} className="card overflow-hidden overflow-x-auto">
-              <div className="px-4 py-2.5 border-b border-white/5 bg-white/[0.02]">
+              <div className="px-4 py-2.5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
                 <span className="text-[12px] font-bold text-[#e2e2e8] uppercase tracking-wider">{group}</span>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input type="checkbox" className="accent-emerald-500 cursor-pointer w-4 h-4"
+                    checked={everythingOn(mods.map(m => m.key))}
+                    onChange={e => setManyAll(mods.map(m => m.key), e.target.checked)} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#dcc1ae]">Select all</span>
+                </label>
               </div>
               <table className="w-full text-sm">
                 <thead className="bg-[#282a2e]"><tr>

@@ -7,6 +7,7 @@ import { useWorkspace } from '../lib/workspace'
 import { ThemeToggle } from '../lib/theme'
 import { useLang, LanguageToggle } from '../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
+import { DialogHost } from '../lib/dialogs'
 
 type Leaf = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
 type Group = { group: string; icon: string; items: Leaf[] }

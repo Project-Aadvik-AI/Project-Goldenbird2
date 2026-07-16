@@ -87,25 +87,25 @@ export default function Permissions() {
 
   // Ready-made role bundles: one click ticks the right modules (incl. Head Office).
   const PRESETS: { label: string; keys: string[] }[] = [
-    { label: 'HR Manager', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll'] },
-    { label: 'Store Manager', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
-    { label: 'Accountant', keys: ['head_office', 'accounting', 'finance_reports', 'gst_reports', 'bank_recon', 'accounting_export', 'imprest', 'credit'] },
-    { label: 'Procurement / Vendor Manager', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
-    { label: 'Billing / QS', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
-    { label: 'Site Engineer', keys: ['dpr', 'labour', 'machines', 'measurement_book', 'hindrances', 'expenses'] },
+    { label: 'HR / People + Payroll', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll', 'labour', 'team'] },
+    { label: 'Store & Inventory', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
+    { label: 'Vendors', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
+    { label: 'Accounting + Finance', keys: ['head_office', 'accounting', 'imprest', 'bank_recon', 'credit', 'finance_reports', 'gst_reports', 'accounting_export', 'reports'] },
+    { label: 'Billing / QS (BOQ)', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
+    { label: 'Site Engineer', keys: ['dpr', 'labour', 'machines', 'measurement_book', 'hindrances', 'eot', 'expenses'] },
     { label: 'Full Head Office', keys: MODULES.map(m => m.key) },
   ]
   function applyPreset(keys: string[]) {
     setManyAll(keys, true)
   }
-  // Head-Office-for-ONE-area: clears everything, then grants HO + just that area.
+  // Head-Office-for-ONE-area: clears everything, then grants HO + that whole sidebar section.
   const HO_ONLY: { label: string; keys: string[] }[] = [
-    { label: 'HR only', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll'] },
-    { label: 'Accounting only', keys: ['head_office', 'accounting', 'finance_reports', 'gst_reports', 'bank_recon', 'accounting_export', 'imprest', 'credit'] },
-    { label: 'Store & Inventory only', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
-    { label: 'Vendors only', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
-    { label: 'Billing / BOQ only', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
-    { label: 'Reports only', keys: ['head_office', 'reports', 'finance_reports', 'monthly_performance'] },
+    { label: 'HR / People', keys: ['head_office', 'employees', 'attendance', 'leaves', 'designations', 'payroll', 'labour', 'team'] },
+    { label: 'Store & Inventory', keys: ['head_office', 'store', 'inventory', 'warehouses', 'purchase_requests'] },
+    { label: 'Vendors', keys: ['head_office', 'vendors', 'vendor_bills', 'vendor_payments', 'vendor_progress', 'vendor_reports', 'work_orders'] },
+    { label: 'Accounting + Finance', keys: ['head_office', 'accounting', 'imprest', 'bank_recon', 'credit', 'finance_reports', 'gst_reports', 'accounting_export', 'reports'] },
+    { label: 'Billing / BOQ', keys: ['head_office', 'boq', 'boq_dashboard', 'boq_budget', 'measurement_book', 'billing'] },
+    { label: 'Reports', keys: ['head_office', 'reports', 'finance_reports', 'monthly_performance'] },
   ]
   function applyHOOnly(keys: string[]) {
     const all = MODULES.map(m => m.key)

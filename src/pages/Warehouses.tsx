@@ -124,7 +124,7 @@ export default function Warehouses() {
           <div className="lg:col-span-1">
             <div className="card p-4">
               <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mb-3">
-                {isAdmin ? 'Warehouse Tree' : 'Your Stores'}
+                {isAdmin ? 'Central Warehouse' : 'Your Stores'}
               </div>
 
               {central.map(c => (
@@ -132,29 +132,20 @@ export default function Warehouses() {
                   <StoreRow w={c} selected={selected === c.warehouse_id}
                     onSelect={() => setSelected(c.warehouse_id)}
                     onTransfer={(isAdmin || can('store', 'create')) ? () => setTransferFrom(c) : undefined} />
-
-                  {/* the project stores hanging off it */}
-                  <div className="ml-4 mt-1 space-y-1 border-l border-white/[0.08] pl-3">
-                    {projectStores
-                      .filter(p => p.parent_id === c.warehouse_id)
-                      .map(p => (
-                        <StoreRow key={p.warehouse_id} w={p} child
-                          selected={selected === p.warehouse_id}
-                          onSelect={() => setSelected(p.warehouse_id)}
-                          onTransfer={isAdmin ? () => setTransferFrom(p) : undefined} />
-                      ))}
-                  </div>
                 </div>
               ))}
 
-              {/* stores with no parent (orphans) */}
-              {projectStores.filter(p => !p.parent_id || !central.some(c => c.warehouse_id === p.parent_id))
-                .map(p => (
+              {projectStores.length > 0 && (
+                <div className="text-[11px] font-bold text-[#dcc1ae] uppercase tracking-wider mt-4 mb-2">Project Warehouses</div>
+              )}
+              <div className="space-y-1">
+                {projectStores.map(p => (
                   <StoreRow key={p.warehouse_id} w={p}
                     selected={selected === p.warehouse_id}
                     onSelect={() => setSelected(p.warehouse_id)}
-                    onTransfer={isAdmin ? () => setTransferFrom(p) : undefined} />
+                    onTransfer={(isAdmin || can('store', 'create')) ? () => setTransferFrom(p) : undefined} />
                 ))}
+              </div>
 
               {!whs.length && (
                 <div className="py-6 text-center">
@@ -858,7 +849,7 @@ function QuickTransfer({ from, warehouses, stock, onClose, onDone }: {
 // ---------------- new store ----------------
 function NewStore({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
-  const [kind, setKind] = useState<'central' | 'project'>('project')
+  const [kind, setKind] = useState<'central' | 'project'>('central')
   const [projectId, setProjectId] = useState('')
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
@@ -916,7 +907,7 @@ function NewStore({ onClose, onCreated }: { onClose: () => void; onCreated: () =
         <div className="space-y-3">
           <F label="Type">
             <div className="grid grid-cols-2 gap-2">
-              {([['project', 'Project Store', 'store'], ['central', 'Central Warehouse', 'warehouse']] as const).map(([k, label, icon]) => (
+              {([['central', 'Central Warehouse', 'warehouse']] as const).map(([k, label, icon]) => (
                 <button key={k} type="button" onClick={() => setKind(k)}
                   className={`px-3 py-2.5 rounded-lg border text-[12px] font-semibold flex items-center gap-2 justify-center ${
                     kind === k ? 'bg-[#ff8f00]/10 text-[#ffb87b] border-[#ff8f00]/30'

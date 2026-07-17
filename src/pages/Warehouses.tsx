@@ -48,8 +48,8 @@ export default function Warehouses() {
   }
   useEffect(() => { load() }, [])
 
-  const central = whs.filter(w => w.is_central)
-  const projectStores = whs.filter(w => !w.is_central)
+  const central = whs.filter(w => w.is_central && w.active !== false)
+  const projectStores = whs.filter(w => !w.is_central && w.active !== false)
 
   const sel = whs.find(w => w.warehouse_id === selected) ?? null
   const selStock = useMemo(() =>

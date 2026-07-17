@@ -16,7 +16,7 @@ export type Item = {
   item_type: string; hsn_code: string | null; gst_rate: number
   reorder_level: number; min_stock: number; max_stock: number | null
   costing_method: string; standard_rate: number
-  allow_negative: boolean; track_batch: boolean; track_serial: boolean
+  allow_negative: boolean; track_batch: boolean; track_serial: boolean; is_returnable?: boolean
   barcode: string | null; notes: string | null; active: boolean
   is_expiry_controlled?: boolean; default_shelf_life_days?: number | null
   issue_strategy?: string | null; critical_stock?: number
@@ -278,6 +278,7 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
   const [costing, setCosting] = useState(editing?.costing_method ?? 'WeightedAvg')
   const [rate, setRate] = useState(editing ? String(editing.standard_rate) : '')
   const [allowNeg, setAllowNeg] = useState(editing?.allow_negative ?? false)
+  const [returnable, setReturnable] = useState(editing?.is_returnable ?? false)
   const [batch, setBatch] = useState(editing?.track_batch ?? false)
   const [expiryCtl, setExpiryCtl] = useState(editing?.is_expiry_controlled ?? false)
   const [shelfLife, setShelfLife] = useState(editing?.default_shelf_life_days != null ? String(editing.default_shelf_life_days) : '')
@@ -295,7 +296,7 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
 
     const payload: any = {
       name: name.trim(), category_id: catId || null, unit_id: unitId,
-      item_type: type, hsn_code: hsn || null, gst_rate: Number(gst) || 0,
+      item_type: type, is_returnable: returnable, hsn_code: hsn || null, gst_rate: Number(gst) || 0,
       reorder_level: Number(reorder) || 0, min_stock: Number(minS) || 0,
       max_stock: maxS ? Number(maxS) : null,
       costing_method: costing, standard_rate: Number(rate) || 0,
@@ -411,6 +412,10 @@ function ItemForm({ editing, cats, units, onClose, onSaved }: {
             <label className="flex items-center gap-2 text-[12px] text-[#dcc1ae] cursor-pointer">
               <input type="checkbox" className="accent-[#ff8f00]" checked={batch} onChange={e => setBatch(e.target.checked)} />
               Track batches
+            </label>
+            <label className="flex items-center gap-2 text-[12px] text-[#dcc1ae] cursor-pointer">
+              <input type="checkbox" className="accent-[#ff8f00]" checked={returnable} onChange={e => setReturnable(e.target.checked)} />
+              Returnable (grinder, tools, plates — expected back)
             </label>
             <label className="flex items-center gap-2 text-[12px] text-[#dcc1ae] cursor-pointer">
               <input type="checkbox" className="accent-[#ff8f00]" checked={active} onChange={e => setActive(e.target.checked)} />

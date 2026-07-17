@@ -37,6 +37,7 @@ const NAV: Entry[] = [
     { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
     { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
     { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
+    { to: '/returnable', label: 'Returnable Items', icon: 'assignment_return', module: 'store' },
     { to: '/store', label: 'Store IN / OUT (old)', icon: 'history', module: 'store' },
   ] },
 
@@ -137,6 +138,7 @@ const HO_NAV: Entry[] = [
     { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
     { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
     { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },
+    { to: '/returnable', label: 'Returnable Items', icon: 'assignment_return', module: 'store' },
     { to: '/purchase-orders', label: 'Purchase Orders', icon: 'receipt_long', module: 'purchase_requests' },
     { to: '/inventory', label: 'Inventory Masters', icon: 'category', module: 'inventory' },
     { to: '/requirement-planning', label: 'Requirement Planning', icon: 'calculate', module: 'purchase_requests' },

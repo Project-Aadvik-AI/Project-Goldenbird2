@@ -37,6 +37,14 @@ export default function WarehouseDetail() {
   const [moves, setMoves] = useState<Move[]>([])
   const [whNames, setWhNames] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [catFilter, setCatFilter] = useState('All')
+
+  const categories = useMemo(() =>
+    [...new Set(stock.map(s => s.category_name).filter(Boolean) as string[])].sort(),
+  [stock])
+  const shownStock = useMemo(() =>
+    catFilter === 'All' ? stock : stock.filter(s => (s.category_name || '') === catFilter),
+  [stock, catFilter])
 
   async function load() {
     setLoading(true)
@@ -114,35 +122,60 @@ export default function WarehouseDetail() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <Action icon="south_west" color="#34d399" title="Goods Receipt" sub="Bring material in" onClick={() => go('GRN')} />
           <Action icon="north_east" color="#f59e0b" title="Material Issue" sub="Issue out / consume" onClick={() => go('Issue')} />
-          <Action icon="undo" color="#a78bfa" title="Material Return" sub="Unused material back" onClick={() => go('Return')} />
-          <Action icon="swap_horiz" color="#38bdf8" title="Stock Transfer" sub="Move to another store" onClick={() => go('Transfer')} />
+          {/* Transfer & Return move stock between stores — Head Office only */}
+          {isAdmin && <Action icon="undo" color="#a78bfa" title="Material Return" sub="Unused material back" onClick={() => go('Return')} />}
+          {isAdmin && <Action icon="swap_horiz" color="#38bdf8" title="Stock Transfer" sub="Move to another store" onClick={() => go('Transfer')} />}
         </div>
       )}
 
-      {/* current inventory */}
+      {/* current inventory — filterable by category, like the spreadsheet tabs */}
       <Section title="Current Inventory">
+        {categories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-4 pt-3 no-print">
+            {['All', ...categories].map(c => (
+              <button key={c} onClick={() => setCatFilter(c)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+                style={catFilter === c
+                  ? { background: 'var(--accent)', color: '#0B0B0C', borderColor: 'var(--accent)' }
+                  : { color: 'var(--text-2)', borderColor: 'var(--line)' }}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead className="bg-[#282a2e]"><tr>
-              {['Item', 'On Hand', 'Reserved', 'Free', 'Value'].map(h => (
+              {['Item', 'Category', 'On Hand', 'Reserved', 'Free', 'Value'].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#dcc1ae]/60 whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
             <tbody className="divide-y divide-white/[0.05]">
-              {stock.map(s => (
+              {shownStock.map(s => (
                 <tr key={s.item_id} className="hover:bg-white/[0.02]">
                   <td className="px-3 py-2">
                     <div className="font-semibold text-[#e2e2e8]">{s.item_name}</div>
-                    <div className="text-[10px] text-[#dcc1ae]/50">{s.item_code || '—'}{s.category_name && ` · ${s.category_name}`}</div>
+                    <div className="text-[10px] text-[#dcc1ae]/50">{s.item_code || '—'}</div>
                   </td>
+                  <td className="px-3 py-2 text-[#dcc1ae]/80">{s.category_name || '—'}</td>
                   <td className="px-3 py-2 font-mono text-[#e2e2e8]">{q(s.on_hand)} <span className="text-[#dcc1ae]/50">{s.unit}</span></td>
                   <td className="px-3 py-2 font-mono text-[#dcc1ae]/70">{q(s.reserved)}</td>
                   <td className="px-3 py-2 font-mono font-bold text-[#34d399]">{q(s.free)}</td>
                   <td className="px-3 py-2 font-mono text-[#dcc1ae]">{inr(s.stock_value)}</td>
                 </tr>
               ))}
-              {!stock.length && <tr><td colSpan={5} className="px-3 py-8 text-center text-[#dcc1ae]/50">This store is empty.</td></tr>}
+              {!shownStock.length && <tr><td colSpan={6} className="px-3 py-8 text-center text-[#dcc1ae]/50">
+                {catFilter === 'All' ? 'This store is empty.' : `No ${catFilter} items in this store.`}
+              </td></tr>}
             </tbody>
+            {shownStock.length > 0 && (
+              <tfoot><tr className="bg-white/[0.02] border-t border-white/10">
+                <td className="px-3 py-2 font-bold text-[#e2e2e8]" colSpan={5}>
+                  {catFilter === 'All' ? 'Total' : `${catFilter} total`} · {shownStock.length} item(s)
+                </td>
+                <td className="px-3 py-2 font-mono font-bold text-[#ffb87b]">{inr(shownStock.reduce((a, s) => a + Number(s.stock_value || 0), 0))}</td>
+              </tr></tfoot>
+            )}
           </table>
         </div>
       </Section>

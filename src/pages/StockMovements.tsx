@@ -63,6 +63,16 @@ export default function StockMovements() {
   const urlWh = sp.get('wh')
   const [showForm, setShowForm] = useState<MType | null>(urlType)
   const focused = !!(urlType && urlWh)  // deep-linked from a warehouse page → form only
+  // Transfer & Return move stock between stores — Head Office (admin) only.
+  const adminOnlyType = (t: MType | null) => t === 'Transfer' || t === 'Return' || t === 'Adjustment' || t === 'Opening'
+  if (focused && adminOnlyType(urlType) && !isAdmin) {
+    return (
+      <div className="card p-8 text-center">
+        <p className="text-[#dcc1ae]">This action is managed by Head Office.</p>
+        <button className="btn btn-ghost mt-3" onClick={() => navigate(`/warehouses/${urlWh}`)}>← Back to warehouse</button>
+      </div>
+    )
+  }
   const [consume, setConsume] = useState(false)
   const [fType, setFType] = useState('')
   const [fStatus, setFStatus] = useState('')

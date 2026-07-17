@@ -290,6 +290,7 @@ type Line = { item_id: string; qty: string; remarks: string }
 
 function MrForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { activeProject } = useProject()
+  const { isAdmin, assignedProjectIds } = useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [units, setUnits] = useState<{ id: string; code: string }[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -322,6 +323,11 @@ function MrForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void
       setAvail((a as any[]) ?? [])
       const main = whs.find(x => x.is_main && x.project_id === activeProject?.id)
       if (main) setWhId(main.id)
+      // site manager with a single site store → auto-select it
+      else if (!isAdmin) {
+        const mine = whs.find(x => x.project_id && (activeProject ? x.project_id === activeProject.id : true))
+        if (mine) setWhId(mine.id)
+      }
 
       if (activeProject) {
         const { data: bq } = await supabase.from('boqs').select('id').eq('project_id', activeProject.id)
@@ -335,7 +341,14 @@ function MrForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void
     })()
   }, [])
 
-  const wh = warehouses.filter(w => !w.project_id || w.project_id === activeProject?.id)
+  // A material request is raised FOR a site's own store. Site managers are
+  // locked to their project's warehouse(s); only Head Office / admins choose freely.
+  const wh = warehouses.filter(w =>
+    isAdmin ? true
+    : (activeProject ? w.project_id === activeProject.id
+       : assignedProjectIds.includes(w.project_id ?? ''))
+  )
+  const lockWh = !isAdmin && wh.length === 1
   const unitOf = (itemId: string) => {
     const it = items.find(i => i.id === itemId)
     return units.find(u => u.id === it?.unit_id)?.code ?? ''
@@ -398,10 +411,17 @@ function MrForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void
             </select>
           </F>
           <F label="Issue From">
-            <select className="input" value={whId} onChange={e => setWhId(e.target.value)}>
-              <option value="">— Select warehouse —</option>
-              {wh.map(w => <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (main)' : ''}</option>)}
-            </select>
+            {lockWh ? (
+              <div className="input flex items-center gap-2" style={{ opacity: 0.85 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#ffb87b' }}>lock</span>
+                {wh[0]?.name}{wh[0]?.is_main ? ' (main)' : ''}
+              </div>
+            ) : (
+              <select className="input" value={whId} onChange={e => setWhId(e.target.value)}>
+                <option value="">— Select warehouse —</option>
+                {wh.map(w => <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (main)' : ''}</option>)}
+              </select>
+            )}
           </F>
           <div className="sm:col-span-2">
             <F label="Purpose"><input className="input" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="Foundation concreting, block A" /></F>

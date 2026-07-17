@@ -63,9 +63,12 @@ export default function StockMovements() {
   const urlWh = sp.get('wh')
   const [showForm, setShowForm] = useState<MType | null>(urlType)
   const focused = !!(urlType && urlWh)  // deep-linked from a warehouse page → form only
-  // Transfer & Return move stock between stores — Head Office (admin) only.
+  // Transfer/Return/Adjust/Opening are central-warehouse operations. They're only
+  // ever linked from the central warehouse page, so anyone with store-create
+  // permission who reached them is allowed; the DB (can_use_warehouse) is the
+  // final gate. Block only users without store permission.
   const adminOnlyType = (t: MType | null) => t === 'Transfer' || t === 'Return' || t === 'Adjustment' || t === 'Opening'
-  if (focused && adminOnlyType(urlType) && !isAdmin) {
+  if (focused && adminOnlyType(urlType) && !isAdmin && !can('store', 'create')) {
     return (
       <div className="card p-8 text-center">
         <p className="text-[#dcc1ae]">This action is managed by Head Office.</p>

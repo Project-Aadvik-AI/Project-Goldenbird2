@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import ExportButtons from '../components/ExportButtons'
+import { appConfirm, appAlert } from '../lib/dialogs'
 
 // Dedicated page for ONE warehouse: /warehouses/:id
 // Reuses the same warehouse_overview + inv_availability + inv_stock_ledger data
@@ -70,6 +71,21 @@ export default function WarehouseDetail() {
   const canUse = wh?.can_use && (isAdmin || can('store', 'create'))
   const go = (type: string) => navigate(`/stock-movements?type=${type}&wh=${id}`)
 
+  async function postDraft(m: Move) {
+    if (!await appConfirm(`Post ${m.movement_no}?\nOnce posted the stock moves and the entry becomes locked.`)) return
+    const { error } = await supabase.rpc('inv_post_movement', { p_movement: m.id, p_allow_reserved: false })
+    if (error) { await appAlert('Could not post\n' + error.message); return }
+    load()
+  }
+  async function deleteDraft(m: Move) {
+    if (!await appConfirm(`Delete draft ${m.movement_no}?\nThis removes the unposted entry. It cannot be undone.`)) return
+    // remove lines then the movement (draft only — nothing posted to stock yet)
+    await supabase.from('inv_movement_lines').delete().eq('movement_id', m.id)
+    const { error } = await supabase.from('inv_movements').delete().eq('id', m.id)
+    if (error) { await appAlert('Could not delete\n' + error.message); return }
+    load()
+  }
+
   if (loading) return <div className="card p-10 text-center text-[#dcc1ae]">Loading…</div>
   if (!wh) return (
     <div className="card p-10 text-center">
@@ -123,8 +139,9 @@ export default function WarehouseDetail() {
           <Action icon="south_west" color="#34d399" title="Goods Receipt" sub="Bring material in" onClick={() => go('GRN')} />
           <Action icon="north_east" color="#f59e0b" title="Material Issue" sub="Issue out / consume" onClick={() => go('Issue')} />
           {/* Transfer & Return move stock between stores — Head Office only */}
-          {isAdmin && <Action icon="undo" color="#a78bfa" title="Material Return" sub="Unused material back" onClick={() => go('Return')} />}
-          {isAdmin && <Action icon="swap_horiz" color="#38bdf8" title="Stock Transfer" sub="Move to another store" onClick={() => go('Transfer')} />}
+          {/* Transfer & Return are managed from the CENTRAL warehouse (Head Office). */}
+          {wh.is_central && <Action icon="undo" color="#a78bfa" title="Material Return" sub="Unused material back" onClick={() => go('Return')} />}
+          {wh.is_central && <Action icon="swap_horiz" color="#38bdf8" title="Stock Transfer" sub="Move to another store" onClick={() => go('Transfer')} />}
         </div>
       )}
 
@@ -185,7 +202,7 @@ export default function WarehouseDetail() {
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead className="bg-[#282a2e]"><tr>
-              {['Date', 'No.', 'Type', 'From → To', 'Qty', 'Value', 'Status'].map(h => (
+              {['Date', 'No.', 'Type', 'From → To', 'Qty', 'Value', 'Status', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[#dcc1ae]/60 whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
@@ -206,9 +223,19 @@ export default function WarehouseDetail() {
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                       m.status === 'Posted' ? 'bg-[#34d399]/10 text-[#34d399]' : 'bg-white/5 text-[#dcc1ae]/60'}`}>{m.status}</span>
                   </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right">
+                    {m.status === 'Draft' && canUse && (
+                      <>
+                        <button className="text-[11px] font-semibold uppercase text-[#34d399] hover:underline mr-3"
+                          onClick={() => postDraft(m)}>Post</button>
+                        <button className="text-[11px] font-semibold uppercase text-red-400 hover:underline"
+                          onClick={() => deleteDraft(m)}>Delete</button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
-              {!moves.length && <tr><td colSpan={7} className="px-3 py-8 text-center text-[#dcc1ae]/50">No movements yet.</td></tr>}
+              {!moves.length && <tr><td colSpan={8} className="px-3 py-8 text-center text-[#dcc1ae]/50">No movements yet.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -11,7 +11,6 @@ const q = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractio
 type WH = {
   warehouse_id: string; name: string; code: string | null; location: string | null
   is_main: boolean; active: boolean
-  parent_id: string | null; parent_name: string | null
   project_id: string | null; project_name: string | null
   is_central: boolean; keeper_name: string | null
   item_count: number; total_qty: number; stock_value: number; reserved_qty: number
@@ -848,24 +847,15 @@ function QuickTransfer({ from, warehouses, stock, onClose, onDone }: {
 
 // ---------------- new store ----------------
 function NewStore({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
-  const [kind, setKind] = useState<'central' | 'project'>('central')
-  const [projectId, setProjectId] = useState('')
-  const [name, setName] = useState('')
+    const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    supabase.from('projects').select('id, name').eq('status', 'Active').order('name')
-      .then(({ data }) => setProjects((data as any[]) ?? []))
-  }, [])
 
   async function go(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setErr(null)
 
-    if (kind === 'central') {
       if (!name.trim()) { setErr('Give it a name.'); setBusy(false); return }
       const { data: u } = await supabase.auth.getUser()
       const { data: prof } = await supabase.from('profiles')
@@ -882,73 +872,26 @@ function NewStore({ onClose, onCreated }: { onClose: () => void; onCreated: () =
       setBusy(false)
       if (error) { setErr(error.message); return }
       onCreated()
-      return
-    }
-
-    if (!projectId) { setErr('Which project?'); setBusy(false); return }
-    const { error } = await supabase.rpc('create_project_store', {
-      p_project: projectId,
-      p_name: name.trim() || null,
-      p_parent: null,               // defaults to the central warehouse
-      p_keeper: null,
-      p_location: location || null,
-    })
-    setBusy(false)
-    if (error) { setErr(error.message); return }
-    onCreated()
   }
 
   return createPortal((
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={go}
         className="bg-[#1B1F2A] border border-white/[0.08] rounded-2xl w-full max-w-md p-5 shadow-[0px_10px_30px_rgba(0,0,0,0.5)]">
-        <h3 className="font-headline text-lg font-semibold text-[#e2e2e8] mb-4">New Store</h3>
+        <h3 className="font-headline text-lg font-semibold text-[#e2e2e8] mb-4">New Central Warehouse</h3>
 
         <div className="space-y-3">
-          <F label="Type">
-            <div className="grid grid-cols-2 gap-2">
-              {([['central', 'Central Warehouse', 'warehouse']] as const).map(([k, label, icon]) => (
-                <button key={k} type="button" onClick={() => setKind(k)}
-                  className={`px-3 py-2.5 rounded-lg border text-[12px] font-semibold flex items-center gap-2 justify-center ${
-                    kind === k ? 'bg-[#ff8f00]/10 text-[#ffb87b] border-[#ff8f00]/30'
-                      : 'text-[#dcc1ae] border-white/[0.08] hover:bg-white/[0.03]'}`}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>{icon}</span>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </F>
 
-          {kind === 'central' ? (
-            <>
-              <div className="card p-2.5 bg-white/[0.03] text-[11px] text-[#dcc1ae]">
-                A central warehouse belongs to <b>no project</b>. Everything is received there first,
-                then transferred out to the sites. <b className="text-[#e2e2e8]">Only Head Office can
-                take stock from it.</b>
-              </div>
-              <F label="Name *">
-                <input className="input" value={name} onChange={e => setName(e.target.value)}
-                  placeholder="Central Warehouse" autoFocus />
-              </F>
-            </>
-          ) : (
-            <>
-              <F label="Project *">
-                <select className="input" value={projectId} onChange={e => setProjectId(e.target.value)}>
-                  <option value="">— Select a project —</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </F>
-              <F label="Store Name">
-                <input className="input" value={name} onChange={e => setName(e.target.value)}
-                  placeholder="Leave blank to use the project name" />
-              </F>
-              <div className="card p-2.5 bg-white/[0.03] text-[11px] text-[#dcc1ae]">
-                It hangs off the central warehouse automatically. Only people assigned to this
-                project can issue from it.
-              </div>
-            </>
-          )}
+          <div className="card p-2.5 bg-white/[0.03] text-[11px] text-[#dcc1ae]">
+            A central warehouse belongs to <b>no project</b>. Everything is received there first,
+            then transferred out to the sites. <b className="text-[#e2e2e8]">Only Head Office can
+            take stock from it.</b>
+            <br /><br />Project warehouses are created <b className="text-[#e2e2e8]">automatically</b> when you add a project — you don't make them here.
+          </div>
+          <F label="Name *">
+            <input className="input" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Central Warehouse" autoFocus />
+          </F>
 
           <F label="Location">
             <input className="input" value={location} onChange={e => setLocation(e.target.value)}

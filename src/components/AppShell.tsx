@@ -7,7 +7,6 @@ import { useWorkspace } from '../lib/workspace'
 import { ThemeToggle } from '../lib/theme'
 import { useLang, LanguageToggle } from '../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
-import { DialogHost } from '../lib/dialogs'
 
 type Leaf = { to: string; label: string; icon: string; module?: Module; adminOnly?: boolean }
 type Group = { group: string; icon: string; items: Leaf[] }
@@ -33,8 +32,6 @@ const NAV: Entry[] = [
     { to: '/warehouses', label: 'Warehouses', icon: 'warehouse', module: 'warehouses' },
     { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
     { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
-    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
-    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping', module: 'store' },
     { to: '/availability', label: 'Stock Availability', icon: 'travel_explore', module: 'store' },
     { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
     { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
@@ -135,9 +132,7 @@ const HO_NAV: Entry[] = [
     { to: '/warehouses', label: 'Warehouses', icon: 'warehouse', module: 'warehouses' },
     { to: '/stock-dashboard', label: 'Stock Health', icon: 'monitoring', module: 'store' },
     { to: '/availability', label: 'Stock Availability', icon: 'travel_explore', module: 'store' },
-    { to: '/stock-movements', label: 'Stock Movements', icon: 'inventory', module: 'store' },
     { to: '/material-requests', label: 'Material Requests', icon: 'assignment', module: 'store' },
-    { to: '/transfers', label: 'Stock Transfers', icon: 'local_shipping', module: 'store' },
     { to: '/batches', label: 'Batches & Expiry', icon: 'event_busy', module: 'store' },
     { to: '/material-norms', label: 'Consumption & Wastage', icon: 'balance', module: 'store' },
     { to: '/stock-reports', label: 'Stock Reports', icon: 'assessment', module: 'store' },

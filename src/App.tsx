@@ -89,6 +89,7 @@ import Notices from './pages/Notices'
 import VendorBills from './pages/VendorBills'
 import CreditManagement from './pages/CreditManagement'
 import RequirementPlanning from './pages/RequirementPlanning'
+import WarehouseDetail from './pages/WarehouseDetail'
 import LoanDetail from './pages/LoanDetail'
 
 export default function App() {
@@ -156,6 +157,7 @@ export default function App() {
           <Route path="/accounting" element={<ModuleGuard module="accounting"><Accounting /></ModuleGuard>} />
           <Route path="/inventory" element={<ModuleGuard module="inventory"><Inventory /></ModuleGuard>} />
           <Route path="/warehouses" element={<ModuleGuard module="warehouses"><Warehouses /></ModuleGuard>} />
+          <Route path="/warehouses/:id" element={<ModuleGuard module="warehouses"><WarehouseDetail /></ModuleGuard>} />
           <Route path="/stock-movements" element={<ModuleGuard module="store"><StockMovements /></ModuleGuard>} />
           <Route path="/stock-dashboard" element={<ModuleGuard module="store"><StockDashboard /></ModuleGuard>} />
           <Route path="/stock-reports" element={<ModuleGuard module="store"><StockReports /></ModuleGuard>} />

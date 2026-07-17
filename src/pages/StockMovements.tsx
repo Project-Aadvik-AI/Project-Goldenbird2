@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { scopeToProject } from '../lib/scope'
 import { useAuth } from '../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 import { appConfirm, appPrompt, appAlert } from '../lib/dialogs'
 import { useProject } from '../lib/project'
 import ExportButtons from '../components/ExportButtons'
@@ -56,7 +57,10 @@ export default function StockMovements() {
   const [rows, setRows] = useState<Movement[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState<MType | null>(null)
+  const [sp, setSp] = useSearchParams()
+  const urlType = sp.get('type') as MType | null
+  const urlWh = sp.get('wh')
+  const [showForm, setShowForm] = useState<MType | null>(urlType)
   const [consume, setConsume] = useState(false)
   const [fType, setFType] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -225,8 +229,10 @@ export default function StockMovements() {
       </div>
 
       {showForm && <MovementForm type={showForm} warehouses={warehouses}
-        preset={consume ? { issuedTo: 'Project Consumption', reason: 'Consumption' } : undefined}
-        onClose={() => { setShowForm(null); setConsume(false) }} onSaved={() => { setShowForm(null); setConsume(false); load() }} />}
+        preset={consume ? { issuedTo: 'Project Consumption', reason: 'Consumption' }
+          : urlWh ? ((showForm === 'Issue' || showForm === 'Transfer') ? { fromWh: urlWh } : { toWh: urlWh })
+          : undefined}
+        onClose={() => { setShowForm(null); setConsume(false); setSp({}) }} onSaved={() => { setShowForm(null); setConsume(false); load() }} />}
     </div>
   )
 }
@@ -237,7 +243,7 @@ export default function StockMovements() {
 type Line = { item_id: string; qty: string; rate: string; batch_no: string; batch_id: string; override_reason: string; mfg_date: string; expiry_date: string; remarks: string }
 
 function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
-  type: MType; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void; preset?: { issuedTo?: string; reason?: string }
+  type: MType; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void; preset?: { issuedTo?: string; reason?: string; fromWh?: string; toWh?: string }
 }) {
   const { activeProject } = useProject()
   const meta = TYPES.find(t => t.key === type)!
@@ -255,8 +261,8 @@ function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
   }[]>([])
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [fromWh, setFromWh] = useState('')
-  const [toWh, setToWh] = useState('')
+  const [fromWh, setFromWh] = useState(preset?.fromWh ?? '')
+  const [toWh, setToWh] = useState(preset?.toWh ?? '')
   const [vendorId, setVendorId] = useState('')
   const [issuedTo, setIssuedTo] = useState(preset?.issuedTo ?? '')
   const [refNo, setRefNo] = useState('')

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import { useNavigate } from 'react-router-dom'
 import ExportButtons from '../components/ExportButtons'
 import PrintButton from '../components/PrintButton'
 
@@ -26,6 +27,7 @@ type Stock = {
 
 export default function Warehouses() {
   const { isAdmin, can } = useAuth()
+  const navigate = useNavigate()
   const [whs, setWhs] = useState<WH[]>([])
   const [stock, setStock] = useState<Stock[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,7 +131,7 @@ export default function Warehouses() {
               {central.map(c => (
                 <div key={c.warehouse_id} className="mb-2">
                   <StoreRow w={c} selected={selected === c.warehouse_id}
-                    onSelect={() => setSelected(c.warehouse_id)}
+                    onSelect={() => navigate(`/warehouses/${c.warehouse_id}`)}
                     onTransfer={(isAdmin || can('store', 'create')) ? () => setTransferFrom(c) : undefined} />
                 </div>
               ))}
@@ -141,7 +143,7 @@ export default function Warehouses() {
                 {projectStores.map(p => (
                   <StoreRow key={p.warehouse_id} w={p}
                     selected={selected === p.warehouse_id}
-                    onSelect={() => setSelected(p.warehouse_id)}
+                    onSelect={() => navigate(`/warehouses/${p.warehouse_id}`)}
                     onTransfer={(isAdmin || can('store', 'create')) ? () => setTransferFrom(p) : undefined} />
                 ))}
               </div>

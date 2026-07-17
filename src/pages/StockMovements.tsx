@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { scopeToProject } from '../lib/scope'
 import { useAuth } from '../lib/auth'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { appConfirm, appPrompt, appAlert } from '../lib/dialogs'
 import { useProject } from '../lib/project'
 import ExportButtons from '../components/ExportButtons'
@@ -58,9 +58,11 @@ export default function StockMovements() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [sp, setSp] = useSearchParams()
+  const navigate = useNavigate()
   const urlType = sp.get('type') as MType | null
   const urlWh = sp.get('wh')
   const [showForm, setShowForm] = useState<MType | null>(urlType)
+  const focused = !!(urlType && urlWh)  // deep-linked from a warehouse page → form only
   const [consume, setConsume] = useState(false)
   const [fType, setFType] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -124,15 +126,15 @@ export default function StockMovements() {
 
   return (
     <div>
-      <div className="mb-6">
+      {!focused && <div className="mb-6">
         <h1 className="font-headline text-2xl font-semibold text-[#e2e2e8]">Stock Movements</h1>
         <p className="text-sm text-[#dcc1ae] mt-0.5">
           Receipt, issue, return, transfer and adjustment. Stock cannot go negative — the database enforces it.
         </p>
-      </div>
+      </div>}
 
-      {/* new movement buttons */}
-      {can('store', 'create') && (
+      {/* new movement buttons — hidden when focused on one warehouse */}
+      {!focused && can('store', 'create') && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">
           {TYPES.map(t => (
             <button key={t.key} onClick={() => setShowForm(t.key)}
@@ -151,6 +153,7 @@ export default function StockMovements() {
         </div>
       )}
 
+      {!focused && <>
       {/* filters */}
       <div className="flex flex-wrap gap-2 items-center mb-4">
         <select className="input" style={{ padding: '6px 10px', fontSize: '13px' }} value={fType} onChange={e => setFType(e.target.value)}>
@@ -228,11 +231,13 @@ export default function StockMovements() {
         )}
       </div>
 
+      </>}
+
       {showForm && <MovementForm type={showForm} warehouses={warehouses}
         preset={consume ? { issuedTo: 'Project Consumption', reason: 'Consumption' }
           : urlWh ? ((showForm === 'Issue' || showForm === 'Transfer') ? { fromWh: urlWh } : { toWh: urlWh })
           : undefined}
-        onClose={() => { setShowForm(null); setConsume(false); setSp({}) }} onSaved={() => { setShowForm(null); setConsume(false); load() }} />}
+        onClose={() => { if (focused) { navigate(`/warehouses/${urlWh}`); return } setShowForm(null); setConsume(false); setSp({}) }} onSaved={() => { if (focused) { navigate(`/warehouses/${urlWh}`); return } setShowForm(null); setConsume(false); load() }} />}
     </div>
   )
 }

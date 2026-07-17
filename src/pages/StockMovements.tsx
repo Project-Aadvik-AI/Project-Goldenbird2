@@ -276,8 +276,9 @@ function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
   // In Head Office (no active project) show EVERY store — that's where
   // central → site transfers happen.
   const wh = useMemo(() => warehouses.filter(w =>
-    !activeProject ? true : (!w.project_id || w.project_id === activeProject.id)
-  ), [warehouses, activeProject])
+    (preset?.fromWh === w.id || preset?.toWh === w.id)   // always keep the pre-selected warehouse
+    || (!activeProject ? true : (!w.project_id || w.project_id === activeProject.id))
+  ), [warehouses, activeProject, preset])
 
   useEffect(() => {
     (async () => {
@@ -472,18 +473,32 @@ function MovementForm({ type, warehouses, onClose, onSaved, preset }: {
 
           {needFrom && (
             <F label={type === 'Transfer' ? 'From Warehouse *' : 'Warehouse *'}>
-              <select className="input" value={fromWh} onChange={e => setFromWh(e.target.value)}>
-                <option value="">— Select —</option>
-                {wh.map(w => <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (main)' : ''}</option>)}
-              </select>
+              {preset?.fromWh ? (
+                <div className="input flex items-center gap-2" style={{ opacity: 0.85 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#ffb87b' }}>lock</span>
+                  {wh.find(w => w.id === fromWh)?.name ?? 'This warehouse'}
+                </div>
+              ) : (
+                <select className="input" value={fromWh} onChange={e => setFromWh(e.target.value)}>
+                  <option value="">— Select —</option>
+                  {wh.map(w => <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (main)' : ''}</option>)}
+                </select>
+              )}
             </F>
           )}
           {needTo && type !== 'Adjustment' && (
             <F label={type === 'Transfer' ? 'To Warehouse *' : 'Warehouse *'}>
+              {preset?.toWh ? (
+                <div className="input flex items-center gap-2" style={{ opacity: 0.85 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#ffb87b' }}>lock</span>
+                  {wh.find(w => w.id === toWh)?.name ?? 'This warehouse'}
+                </div>
+              ) : (
               <select className="input" value={toWh} onChange={e => setToWh(e.target.value)}>
                 <option value="">— Select —</option>
                 {wh.filter(w => w.id !== fromWh).map(w => <option key={w.id} value={w.id}>{w.name}{w.is_main ? ' (main)' : ''}</option>)}
               </select>
+              )}
             </F>
           )}
 
